@@ -1,0 +1,7 @@
+build/
+*.mod
+*.bak
+*~
+*.mod
+*.o
+
