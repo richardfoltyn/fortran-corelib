@@ -1,0 +1,7 @@
+
+set(CORELIB_SOURCE_FILES ${CORELIB_SOURCE_FILES} 
+    ${CMAKE_CURRENT_SOURCE_DIR}/foounit_mod.f90 
+    ${CMAKE_CURRENT_SOURCE_DIR}/assertion_mod.f90 
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_case_mod.f90
+    PARENT_SCOPE)
+
