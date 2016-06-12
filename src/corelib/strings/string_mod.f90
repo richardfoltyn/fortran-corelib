@@ -298,7 +298,7 @@ elemental subroutine assign_str_str(lhs, rhs)
         allocate (lhs%value, source=rhs%value)
     end if
 
-    lhs%n = len(rhs)
+    lhs%n = len(lhs%value)
 end subroutine
 
 elemental subroutine assign_str_char(lhs, rhs)
