@@ -1,9 +1,11 @@
 # src/CMakeLists.txt
 # Root cmake configuration file for Fortran corelib
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 
-project(fortran_corelib Fortran)
+project(fcorelib Fortran)
+# name used for library files, include directory, etc.
+set(LIBRARY_NAME fcore)
 
 # make sure that the default is a RELEASE
 if (NOT CMAKE_BUILD_TYPE)
@@ -40,16 +42,16 @@ elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
 endif (Fortran_COMPILER_NAME MATCHES "gfortran.*")
 
 # append additional FLAGS to default cmake FLAGS
-set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${${PROJECT_NAME}_Fortran_FLAGS}")
-set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} ${${PROJECT_NAME}_Fortran_FLAGS_RELEASE}")
-set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${${PROJECT_NAME}_Fortran_FLAGS_DEBUG}")
+set (CMAKE_Fortran_FLAGS ${CMAKE_Fortran_FLAGS} ${${PROJECT_NAME}_Fortran_FLAGS})
+set (CMAKE_Fortran_FLAGS_RELEASE ${CMAKE_Fortran_FLAGS_RELEASE} ${${PROJECT_NAME}_Fortran_FLAGS_RELEASE})
+set (CMAKE_Fortran_FLAGS_DEBUG ${CMAKE_Fortran_FLAGS_DEBUG} ${${PROJECT_NAME}_Fortran_FLAGS_DEBUG})
 
 # On Windows FFLAGS don't seem to be automatically added to compiler flags
 if (Win32)
-	set(CMAKE_Fortran_FLAGS "${ENV_FFLAGS} ${CMAKE_Fortran_FLAGS}")
-	set(CMAKE_Fortran_FLAGS_RELEASE "${ENV_FLAGS} ${CMAKE_Fortran_FLAGS_RELEASE}")
-	set(CMAKE_Fortran_FLAGS_DEBUG "${ENV_FLAGS} ${CMAKE_Fortran_FLAGS_DEBUG}")
-endif (Win32) 
+	set(CMAKE_Fortran_FLAGS ${ENV_FFLAGS} ${CMAKE_Fortran_FLAGS})
+	set(CMAKE_Fortran_FLAGS_RELEASE ${ENV_FLAGS} ${CMAKE_Fortran_FLAGS_RELEASE})
+	set(CMAKE_Fortran_FLAGS_DEBUG ${ENV_FLAGS} ${CMAKE_Fortran_FLAGS_DEBUG})
+endif (Win32)
 
 ###############################################################################
 # Report options and settings
@@ -76,6 +78,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/include)
+set(${LIBRARY_NAME}_MODDIR ${CMAKE_Fortran_MODULE_DIRECTORY})
 
 add_subdirectory(corelib)
 add_subdirectory(tests)
