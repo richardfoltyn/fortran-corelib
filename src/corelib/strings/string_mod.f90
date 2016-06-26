@@ -116,7 +116,7 @@ elemental function ctor_real64 (from_real, fmt) result(res)
     character (len=LEN_BUFFER) :: buf
 
     if (present(fmt)) then
-        write (unit=buf, fmt=fmt) from_real
+        write (unit=buf, fmt=pad_format(fmt)) from_real
     else
         write (buf, *) from_real
     end if
@@ -135,7 +135,7 @@ elemental function ctor_real (from_real, fmt) result(res)
     character (len=LEN_BUFFER) :: buf
 
     if (present(fmt)) then
-        write (unit=buf, fmt=fmt) from_real
+        write (unit=buf, fmt=pad_format(fmt)) from_real
     else
         write (buf, *) from_real
     end if
@@ -156,7 +156,7 @@ elemental function ctor_int64 (from_int, fmt) result(res)
     allocate (character (len=LEN_BUFFER) :: buf)
 
     if (present(fmt)) then
-        write (unit=buf, fmt=fmt) from_int
+        write (unit=buf, fmt=pad_format(fmt)) from_int
     else
         write (unit=buf, fmt="(i0)") from_int
     end if
@@ -177,7 +177,7 @@ elemental function ctor_int32 (from_int, fmt) result(res)
     allocate (character (len=LEN_BUFFER) :: buf)
 
     if (present(fmt)) then
-        write (unit=buf, fmt=fmt) from_int
+        write (unit=buf, fmt=pad_format(fmt)) from_int
     else
         write (unit=buf, fmt="(i0)") from_int
     end if
@@ -192,6 +192,24 @@ elemental function is_valid (self) result(res)
     logical :: res
 
     res = self%n >= 0 .and. allocated (self%value)
+end function
+
+pure function pad_format (fmt) result(res)
+    character (len=*), intent(in) :: fmt
+    character (len=len(fmt) + 2), allocatable :: res
+
+    integer :: n
+
+    res = adjustl (fmt)
+
+    if (res(1:1) /= "(") then
+        res = "(" // res
+    end if
+
+    n = len_trim (res)
+    if (res(n:n) /= ")") then
+        res = trim(res) // ")"
+    end if
 end function
 
 ! *****************************************************************************
@@ -296,9 +314,12 @@ elemental subroutine assign_str_str(lhs, rhs)
     if (rhs%is_valid()) then
         ! lhs%value should be automatically deallocated due to intent(out)
         allocate (lhs%value, source=rhs%value)
+        lhs%n = len(lhs%value)
+    else
+        ! if RHS is valid, put lhs into unallocated state
+        if (allocated(lhs%value)) deallocate (lhs%value)
+        lhs%n = UNALLOCATED
     end if
-
-    lhs%n = len(lhs%value)
 end subroutine
 
 elemental subroutine assign_str_char(lhs, rhs)
