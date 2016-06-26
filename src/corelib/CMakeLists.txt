@@ -5,12 +5,18 @@ add_subdirectory(collections)
 add_subdirectory(strings)
 add_subdirectory(testing)
 
-add_library(${LIBRARY_NAME}_static STATIC ${CORELIB_SOURCE_FILES})
-set_target_properties(${LIBRARY_NAME}_static PROPERTIES OUTPUT_NAME ${LIBRARY_NAME})
+# build static library so tests can link against it
+if (BUILD_TESTS)
+    add_library(${LIBRARY_NAME}_static STATIC ${CORELIB_SOURCE_FILES})
+endif()
 
 add_library(${LIBRARY_NAME} SHARED ${CORELIB_SOURCE_FILES})
+set_target_properties(${LIBRARY_NAME} PROPERTIES
+    OUTPUT_NAME ${LIBRARY_NAME}
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
+)
 
-install(TARGETS ${LIBRARY_NAME}_static ${LIBRARY_NAME}
+install(TARGETS ${LIBRARY_NAME}
     RUNTIME DESTINATION lib
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib)
