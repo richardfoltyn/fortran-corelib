@@ -46,16 +46,15 @@ if (BUILD_TESTS)
 endif()
 
 ###############################################################################
-# Set Fortran compiler FLAGS
-get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
+# Set additional Fortran compiler FLAGS
 
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     set(${PROJECT_NAME}_Fortran_FLAGS "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure -std=f2008")
 elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
     if (WIN32)
-        set (${PROJECT_NAME}_Fortran_FLAGS "/nologo /warn:all /standard-semantics /stand:f08")
+        set (${PROJECT_NAME}_Fortran_FLAGS "/warn:all /standard-semantics /stand:f08")
     elseif (WIN32)
- 	set (${PROJECT_NAME}_Fortran_FLAGS "-nologo -warn all -standard-semantics -std08")
+        set (${PROJECT_NAME}_Fortran_FLAGS "-warn all -standard-semantics -std08")
     endif (WIN32)
 else ()
     message(FATAL_ERROR "Unsupported Fortran compiler: ${Fortran_COMPILER_NAME}")
@@ -66,13 +65,6 @@ set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${${PROJECT_NAME}_Fortran_FLAGS
 set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} ${${PROJECT_NAME}_Fortran_FLAGS_RELEASE}")
 set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${${PROJECT_NAME}_Fortran_FLAGS_DEBUG}")
 
-# On Windows FFLAGS don't seem to be automatically added to compiler flags
-if (Win32)
-    set(CMAKE_Fortran_FLAGS "${ENV_FFLAGS} ${CMAKE_Fortran_FLAGS}")
-    set(CMAKE_Fortran_FLAGS_RELEASE "${ENV_FLAGS} ${CMAKE_Fortran_FLAGS_RELEASE}")
-    set(CMAKE_Fortran_FLAGS_DEBUG "${ENV_FLAGS} ${CMAKE_Fortran_FLAGS_DEBUG}")
-endif (Win32)
-
 ###############################################################################
 # Report options and settings
 if (BUILD_SHARED_LIBS)
@@ -82,13 +74,8 @@ else(BUILD_SHARED_LIBS)
 endif(BUILD_SHARED_LIBS)
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-if (CMAKE_BUILD_TYPE MATCHES DEBUG)
-    message(STATUS "Fortran compiler flags: ${CMAKE_Fortran_FLAGS_DEBUG}")
-elseif (CMAKE_BUILD_TYPE MATCHES RELEASE)
-    message(STATUS "Fortran compiler flags: ${CMAKE_Fortran_FLAGS_RELEASE}")
-else()
-    message(STATUS "Fortran compiler flags: ${CMAKE_Fortran_FLAGS}")
-endif()
+message(STATUS "Fortran compiler flags: ${CMAKE_Fortran_FLAGS}")
+message(STATUS "Additional Fortran compiler flags for ${CMAKE_BUILD_TYPE}: ${CMAKE_Fortran_FLAGS_${CMAKE_BUILD_TYPE}}")
 
 ###############################################################################
 # Output directories
