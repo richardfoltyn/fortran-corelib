@@ -28,15 +28,23 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
 include(FindTargetArch)
 find_target_arch()
 
-if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-    set(INCLUDE_SUBDIR "gfortran")
-elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-    if (TARGET_ARCH_BITS STREQUAL "64")
-        set(INCLUDE_SUBDIR "intel64")
-    else()
-        set(INCLUDE_SUBDIR "intel")
-    endif()
-endif ()
+if (NOT INSTALL_INCLUDE_ROOT OR NOT INSTALL_LIBRARY_ROOT)
+    if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+        set(INCLUDE_SUBDIR "gfortran")
+    elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+        if (TARGET_ARCH_BITS STREQUAL "64")
+            set(INCLUDE_SUBDIR "intel64")
+        else()
+            set(INCLUDE_SUBDIR "intel")
+        endif()
+    endif ()
+    set(INSTALL_INCLUDE_ROOT "include/${INCLUDE_SUBDIR}"
+        CACHE STRING "Relative installation directory for MOD files" FORCE
+    )
+    set(INSTALL_LIBRARY_ROOT "lib/${INCLUDE_SUBDIR}"
+        CACHE STRING "Relative installation directory for libraries" FORCE
+    )
+endif()
 
 ###############################################################################
 # Testing
@@ -76,6 +84,9 @@ endif(BUILD_SHARED_LIBS)
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Fortran compiler flags: ${CMAKE_Fortran_FLAGS}")
 message(STATUS "Additional Fortran compiler flags for ${CMAKE_BUILD_TYPE}: ${CMAKE_Fortran_FLAGS_${CMAKE_BUILD_TYPE}}")
+
+message(STATUS "Library install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIBRARY_ROOT}")
+message(STATUS "MOD file install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDE_ROOT}")
 
 ###############################################################################
 # Output directories
