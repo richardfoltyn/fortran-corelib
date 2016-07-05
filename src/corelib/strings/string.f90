@@ -306,7 +306,7 @@ end function
 ! *****************************************************************************
 ! ASSIGNMENT operator
 elemental subroutine assign_str_str(lhs, rhs)
-    class (str), intent(out) :: lhs
+    type (str), intent(out) :: lhs
     class (str), intent(in) :: rhs
 
     ! prevent unallocated rhs object to be used to allocate lhs, as then
@@ -323,7 +323,7 @@ elemental subroutine assign_str_str(lhs, rhs)
 end subroutine
 
 elemental subroutine assign_str_char(lhs, rhs)
-    class (str), intent(out) :: lhs
+    type (str), intent(out) :: lhs
     character (len=*), intent(in) :: rhs
 
     ! lhs%value should be automatically deallocated due to intent(out)
