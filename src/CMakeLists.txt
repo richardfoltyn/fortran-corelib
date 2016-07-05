@@ -16,11 +16,27 @@ endif (NOT CMAKE_BUILD_TYPE)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-
 ###############################################################################
 # User-definable options
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 option(BUILD_TESTS "Build unit tests" ON)
+
+###############################################################################
+# Detect target architecture
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
+
+include(FindTargetArch)
+find_target_arch()
+
+if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    set(INCLUDE_SUBDIR "gfortran")
+elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+    if (TARGET_ARCH_BITS STREQUAL "64")
+        set(INCLUDE_SUBDIR "intel64")
+    else()
+        set(INCLUDE_SUBDIR "intel")
+    endif()
+endif ()
 
 ###############################################################################
 # Testing
@@ -34,7 +50,7 @@ endif()
 get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 
 if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
- 	set (${PROJECT_NAME}_Fortran_FLAGS "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure -std=f2008")
+ 	set(${PROJECT_NAME}_Fortran_FLAGS "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure -std=f2008")
 # 	set (${PROJECT_NAME}_Fortran_FLAGS_RELEASE "-O2")
 # 	set (${PROJECT_NAME}_Fortran_FLAGS_DEBUG "-O0 -g")
 elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
@@ -47,7 +63,9 @@ elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
 # 		set (${PROJECT_NAME}_Fortran_FLAGS_RELEASE "-O2")
 # 		set (${PROJECT_NAME}_Fortran_FLAGS_DEBUG "-g -O0")
  	endif (WIN32)
-endif (Fortran_COMPILER_NAME MATCHES "gfortran.*")
+else ()
+    message(FATAL_ERROR "Unsupported Fortran compiler: ${Fortran_COMPILER_NAME}")
+endif ()
 
 # append additional FLAGS to default cmake FLAGS
 set (CMAKE_Fortran_FLAGS ${CMAKE_Fortran_FLAGS} ${${PROJECT_NAME}_Fortran_FLAGS})
