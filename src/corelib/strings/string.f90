@@ -1,4 +1,4 @@
-module string_mod
+module corelib_string
 
     use iso_fortran_env
 

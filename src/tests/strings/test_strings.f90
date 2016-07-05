@@ -1,7 +1,7 @@
 program test_strings
 
     use iso_fortran_env
-    use string_mod
+    use corelib_string
     use foounit_mod
 
     implicit none
