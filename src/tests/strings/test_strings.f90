@@ -155,7 +155,7 @@ subroutine test_equal (tests)
     class (test_suite) :: tests
     class (test_case), pointer :: tc
 
-    type (str) :: s1, s2, s3, s99
+    type (str) :: s1, s2, s99
     character (len=:), allocatable :: ch1
 
     tc => tests%add_test("String equality/inequality operators")
