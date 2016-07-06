@@ -196,7 +196,7 @@ end function
 
 pure function pad_format (fmt) result(res)
     character (len=*), intent(in) :: fmt
-    character (len=len(fmt) + 2), allocatable :: res
+    character (len=len(fmt) + 2) :: res
 
     integer :: n
 

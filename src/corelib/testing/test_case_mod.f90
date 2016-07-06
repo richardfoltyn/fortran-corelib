@@ -60,7 +60,7 @@ end subroutine
 subroutine set_label (self, label)
     class (test_case), intent(in out) :: self
     character (len=*), intent(in) :: label
-    
+
     allocate (self%label, source=label)
 end subroutine
 
@@ -185,7 +185,9 @@ subroutine print (self, lun)
     write (unit=llun, fmt="(a, tr 1)", advance="no") PREFIX
     
     if (allocated(self%label)) then
-        allocate (str_label, source=self%label)
+        ! cannot use component as source in gfortran 4.9
+        allocate (character (len=len(self%label)) :: str_label)
+        str_label = self%label
     else
         allocate (str_label, source="[unspecified test label]")
     end if

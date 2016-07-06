@@ -120,7 +120,8 @@ subroutine print (self, lun, indent)
     if (present(lun)) llun = lun
     if (present(indent)) lindent = indent
     if (allocated(self%label)) then
-        allocate (llabel, source=self%label)
+        allocate (character (len(self%label)) :: llabel)
+        llabel = self%label
     else
         allocate (llabel, source="[unlabeled assertion]")
     end if
