@@ -580,14 +580,15 @@ pure subroutine join_impl(self, str_list, res)
 
     ! automatically deallocated on subroutine exit
     character (len=:), allocatable :: sep, work
-    integer :: nstr, i, length, ifrom, ito
+    integer :: nstr, i, length, ifrom, ito, n
     logical, dimension(size(str_list)) :: is_valid
 
     ! separator: use empty string as default separator if self is not in
     ! valid state
     if (self%is_valid()) then
+        n = len(self%value)
         ! gfortran does not support components as source parameters!
-        allocate (character (len(self%value)) :: sep)
+        allocate (character (len=n) :: sep)
         sep = self%value
     else
         allocate (sep, source="")
