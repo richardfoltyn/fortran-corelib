@@ -42,7 +42,7 @@ module corelib_string
         generic, public :: join => join_str, join_char
 
         ! Finalizers
-        final :: finalize
+        ! final :: finalize
     end type
 
     interface str
@@ -586,7 +586,9 @@ pure subroutine join_impl(self, str_list, res)
     ! separator: use empty string as default separator if self is not in
     ! valid state
     if (self%is_valid()) then
-        allocate (sep, source=self%value)
+        ! gfortran does not support components as source parameters!
+        allocate (character (len(self%value)) :: sep)
+        sep = self%value
     else
         allocate (sep, source="")
     end if
@@ -680,12 +682,12 @@ end subroutine
 ! *****************************************************************************
 ! Finalization
 
-impure elemental subroutine finalize(self)
-    type (str), intent(in out) :: self
-
-    if (allocated(self%value)) deallocate (self%value)
-    self%n = UNALLOCATED
-
-end subroutine
+! elemental subroutine finalize(self)
+!     type (str), intent(in out) :: self
+!
+!     if (allocated(self%value)) deallocate (self%value)
+!     self%n = UNALLOCATED
+!
+! end subroutine
 
 end module
