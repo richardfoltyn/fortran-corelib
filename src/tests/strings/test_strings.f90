@@ -11,8 +11,7 @@ program test_strings
     character (len=*), parameter :: CHAR_VALUE2 = "foo bar 123"
     character (len=*), parameter :: CHAR_VALUE3 = "The quick brown fox jumps over the lazy dog"
 
-    real (real64), parameter :: REAL_VALUE1 = 123.456, REAL_VALUE2 = 1.2345d10
-    real, parameter :: REAL_VALUE3 = 123.456
+    real (real64), parameter :: REAL_VALUE1 = 123.456
     integer, parameter :: INT_VALUE1 = 123
 
     call test_all
@@ -230,7 +229,7 @@ subroutine test_substring (tests)
     class (test_suite) :: tests
     class (test_case), pointer :: tc
 
-    type (str) :: s1, s2, s3, s99
+    type (str) :: s1, s2, s3
     integer :: ito, ifrom
 
     tc => tests%add_test("String substring() method")
