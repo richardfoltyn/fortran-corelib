@@ -1,51 +1,75 @@
-module foounit_mod
+module test_suite_mod
 
     use iso_fortran_env
     use linked_list_mod
     use test_case_mod
     use collection_mod
+    use corelib_string
 
     implicit none
     private
 
+    character (*), parameter :: DEFAULT_LABEL = "[unnamed test suite]"
+
     type :: test_suite
         private
 
-        character (len=:), allocatable :: label
+        type (str) :: label
         type (linked_list), allocatable :: tests
 
     contains
 
         procedure, pass :: check_init
-        procedure, public, pass :: set_label
+
+        procedure, pass :: set_label_str
+        procedure, pass :: set_label_char
+        generic, public :: set_label => set_label_str, set_label_char
+
         procedure, public, pass :: tally_results
 
         procedure, public, pass :: print
-        procedure, public, pass :: add_test
 
-        ! final :: finalize
+        procedure, pass :: add_test_str
+        procedure, pass :: add_test_char
+        generic, public :: add_test => add_test_str, add_test_char
+
     end type
 
     interface test_suite
-        module procedure ctor_char
+        module procedure ctor_char, ctor_str
     end interface
 
-    public :: test_suite, test_case
-
+    public :: test_suite
 
 contains
 
 ! *****************************************************************************
 ! INITIALIZATION
 
-function ctor_char (label) result(res)
-
-    character (len=*), intent(in), optional :: label
+pure function ctor_str (label) result(res)
+    class (str), intent(in), optional :: label
     type (test_suite) :: res
 
-    if (present(label)) allocate (res%label, source=label)
-
+    call ctor_impl (res, label)
 end function
+
+pure function ctor_char (label) result(res)
+    character (len=*), intent(in) :: label
+    type (test_suite) :: res
+
+    call ctor_impl (res, str(label))
+end function
+
+pure subroutine ctor_impl (self, label)
+    type (test_suite), intent(in out) :: self
+    class (str), intent(in), optional :: label
+
+    if (present(label)) then
+        self%label = label
+    else
+        self%label = DEFAULT_LABEL
+    end if
+end subroutine
 
 subroutine check_init (self)
     class (test_suite), intent(in out) :: self
@@ -56,9 +80,9 @@ end subroutine
 ! ******************************************************************************
 ! ADD_TEST method
 
-function add_test (self, label) result (res)
+function add_test_str (self, label) result (res)
     class (test_suite), intent(in out) :: self
-    character (len=*), intent(in), optional :: label
+    class (str), intent(in), optional :: label
     type (test_case), pointer :: res
     ! local copy of test case
     type (test_case) :: tc
@@ -66,7 +90,9 @@ function add_test (self, label) result (res)
     ! check that tests list was allocated
     call self%check_init ()
 
-    call tc%set_label(label)
+    if (present(label)) then
+        call tc%set_label (label)
+    end if
 
     call self%tests%append (tc)
 
@@ -77,13 +103,28 @@ function add_test (self, label) result (res)
 
 end function
 
+function add_test_char (self, label) result(res)
+    class (test_suite), intent(in out) :: self
+    character (len=*), intent(in) :: label
+    type (test_case), pointer :: res
+
+    res => self%add_test (str(label))
+end function
+
 ! *****************************************************************************
 ! ATTRIBUTES
-subroutine set_label (self, label)
+subroutine set_label_str (self, label)
+    class (test_suite), intent(in out) :: self
+    class (str), intent(in) :: label
+
+    self%label = label
+end subroutine
+
+subroutine set_label_char (self, label)
     class (test_suite), intent(in out) :: self
     character (len=*), intent(in) :: label
 
-    allocate (self%label, source=label)
+    call self%set_label (str(label))
 end subroutine
 
 ! *****************************************************************************
@@ -126,12 +167,12 @@ subroutine print (self, lun)
     class (iterator), allocatable :: iter
 
     integer, parameter :: LINEWIDTH = 80
-    character (len=*), parameter :: TITLE = "Test summary (all tests)"
+    character (len=*), parameter :: TITLE_SUMMARY = "Test summary (all tests)"
     character (len=LINEWIDTH) :: separator
     integer, parameter :: LEFT_INDENT = 1
-    character (len=:), allocatable :: str_indent
+    character (len=:), allocatable :: str_indent, llabel
     integer :: passed, failed
-    integer :: llun, i
+    integer :: llun, i, n
 
     ! write to stdout if nothing else specified
     llun = OUTPUT_UNIT
@@ -149,13 +190,16 @@ subroutine print (self, lun)
     write (unit=llun, fmt="(a)") ""
     write (unit=llun, fmt="(a)") SEPARATOR
 
-
-    if (allocated(self%label)) then
-        if (len(self%label) > 0) then
-            write (unit=llun, fmt="(a, 'Starting test run ''', a, '''...')") str_indent, self%label
-            write (unit=llun, fmt="(a)") SEPARATOR
-        end if
+    n = len(self%label)
+    if (n > 0) then
+        allocate (character (len=n) :: llabel)
+        llabel = self%label
+    else
+        allocate (llabel, source=DEFAULT_LABEL)
     end if
+
+    write (unit=llun, fmt="(a, 'Starting test run ''', a, '''...')") str_indent, llabel
+    write (unit=llun, fmt="(a)") SEPARATOR
 
     ! report results for individual test cases
     if ((passed + failed) > 0) then
@@ -171,7 +215,7 @@ subroutine print (self, lun)
 
     write (unit=llun, fmt="(a)") ""
     write (unit=llun, fmt="(a)") SEPARATOR
-    write (unit=llun, fmt="(a, a)") str_indent, TITLE
+    write (unit=llun, fmt="(a, a)") str_indent, TITLE_SUMMARY
     write (unit=llun, fmt="(a, 'Passed: ', i0, tr 2, 'Failed: ', i0)") &
                 str_indent, passed, failed
     write (unit=llun, fmt="(a)") SEPARATOR

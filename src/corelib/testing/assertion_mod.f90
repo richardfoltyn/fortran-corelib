@@ -2,6 +2,7 @@ module assertion_mod
 
     use iso_fortran_env
     use linked_list_mod
+    use corelib_string
 
     implicit none
     private
@@ -12,21 +13,23 @@ module assertion_mod
     type :: assertion
         private
 
-        character (len=:), allocatable :: label
+        type (str) :: label
         integer :: status = STATUS_UNDEFINED
     contains
 
-        procedure, public, pass(self) :: get_status
-        procedure, public, pass(self) :: set_status
+        procedure, public, pass :: get_status
+        procedure, public, pass :: set_status
 
-        procedure, public, pass(self) :: get_label
-        procedure, public, pass(self) :: set_label
+        procedure, public, pass :: get_label
+        procedure, pass :: set_label_str
+        procedure, pass :: set_label_char
+        generic, public :: set_label => set_label_str, set_label_char
 
-        procedure, public, pass(self) :: print
+        procedure, public, pass :: print
     end type
 
     interface assertion
-        module procedure ctor_default
+        module procedure ctor_char, ctor_str
     end interface
 
     public :: STATUS_PASSED, STATUS_FAILED, assertion, assertion_cast
@@ -36,46 +39,79 @@ module assertion_mod
 ! *****************************************************************************
 ! CONSTRUCTORS
 
-function ctor_default (label, status) result(self)
-
-    character (len=*), intent(in), optional :: label
+function ctor_default(status) result(self)
     integer, intent(in), optional :: status
-
     type (assertion) :: self
 
-    if (present(status)) then
-        if ((status /= STATUS_PASSED) .and. (status /= STATUS_FAILED)) then
-            stop "Invalid status code"
-        end if
+    call ctor_impl (self, status=status)
+end function
 
-        self%status = status
-    end if
+function ctor_str (label, status) result(self)
+    type (str), intent(in) :: label
+    integer, intent(in), optional :: status
+    type (assertion) :: self
 
-    if (present(label)) self%label = label
+    call ctor_impl (self, label, status)
 
 end function
+
+function ctor_char (label, status) result(self)
+    character (len=*), intent(in) :: label
+    integer, intent(in), optional :: status
+    type (assertion) :: self
+
+    call ctor_impl (self, str(label), status)
+end function
+
+subroutine ctor_impl (self, label, status)
+    type (assertion), intent(in out) :: self
+    type (str), intent(in) :: label
+    integer, intent(in) :: status
+
+    optional :: label, status
+
+    integer :: lstatus
+
+    lstatus = STATUS_UNDEFINED
+    if (present(status)) lstatus = status
+
+    if ((lstatus /= STATUS_PASSED) .and. (lstatus /= STATUS_FAILED) .and. &
+        (lstatus /= STATUS_UNDEFINED)) then
+        error stop "Invalid status code"
+    end if
+
+    self%status = lstatus
+
+    if (present(label)) then
+        self%label = label
+    else
+        self%label = "[unlabeled assertion]"
+    end if
+end subroutine
 
 ! *****************************************************************************
 ! ATTRIBUTES
 
 function get_label (self) result(res)
     class (assertion), intent(in) :: self
-    character (len=:), allocatable :: res
+    type (str) :: res
 
-    if (allocated(self%label)) then
-        allocate (res, source=self%label)
-    else
-        allocate (res, source="")
-    end if
+    res = self%label
 end function
 
-subroutine set_label (self, label)
+subroutine set_label_str (self, label)
+    class (assertion), intent(in out) :: self
+    type (str), intent(in) :: label
+
+    self%label = label
+
+end subroutine
+
+subroutine set_label_char (self, label)
     class (assertion), intent(in out) :: self
     character (len=*), intent(in) :: label
 
-    if (allocated(self%label)) deallocate (self%label)
-    allocate (self%label, source=label)
-
+    call self%set_label (str(label))
 end subroutine
 
 pure function get_status (self) result(res)
@@ -90,7 +126,6 @@ subroutine set_status (self, status)
     integer :: status
 
     self%status = status
-
 end subroutine
 
 ! *****************************************************************************
@@ -101,7 +136,7 @@ subroutine print (self, lun, indent)
 
     class (assertion), intent(in) :: self
     integer, intent(in), optional :: lun, indent
-    integer :: llun, lindent, len_label
+    integer :: llun, lindent, len_label, n
 
     integer, parameter :: LINEWIDTH = 80
     character (len=*), parameter :: STR_PASSED = "PASSED", STR_FAILED = "FAILED"
@@ -119,8 +154,9 @@ subroutine print (self, lun, indent)
 
     if (present(lun)) llun = lun
     if (present(indent)) lindent = indent
-    if (allocated(self%label)) then
-        allocate (character (len(self%label)) :: llabel)
+    n = len(self%label)
+    if (n > 0) then
+        allocate (character (len=n) :: llabel)
         llabel = self%label
     else
         allocate (llabel, source="[unlabeled assertion]")
