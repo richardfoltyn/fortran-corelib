@@ -2,7 +2,7 @@ program test_strings
 
     use iso_fortran_env
     use corelib_string
-    use foounit_mod
+    use corelib_testing
 
     implicit none
 
@@ -33,11 +33,14 @@ subroutine test_all()
 
     call test_substring (tests)
     call test_concat (tests)
+
     call test_join (tests)
     call test_repeat (tests)
 
     call test_startswith (tests)
     call test_endswith (tests)
+
+    call test_array (tests)
 
     ! print test statistics
     call tests%print ()
@@ -77,21 +80,78 @@ subroutine test_init(tests)
 
 end subroutine
 
+! ******************************************************************************
+! Tests for string representations of arrays
+
+subroutine test_array (tests)
+    class (test_suite) :: tests
+    class (test_case), pointer :: tc
+
+    integer (int32), parameter :: INT_VALUE1 = 1, INT_VALUE2 = int(1e6), &
+        INT_VALUE3 = 1234567890
+
+    real (real32), parameter :: REAL_VALUE1 = 0.123, REAL_VALUE2 = 1.23e10
+
+    type (str) :: s1, s2
+
+    tc => tests%add_test ("String representations of arrays")
+
+    ! test with empty array
+    s1 = str_array([integer (int32) ::])
+    call tc%assert_true (s1 == "[]", "Empty int32 array")
+
+    s1 = ""
+    s1 = str_array([integer (int64) ::])
+    call tc%assert_true (s1 == "[]", "Empty int64 array")
+
+    s1 = ""
+    s1 = str_array([real (real32) ::])
+    call tc%assert_true (s1 == "[]", "Empty real32 array")
+
+    s1 = ""
+    s1 = str_array([real (real64) ::])
+    call tc%assert_true (s1 == "[]", "Empty real64 array")
+
+    ! test 1d-arrays with one element
+    s1 = ""
+    s1 = str_array([INT_VALUE1])
+    call tc%assert_true (s1 == "[" // str(INT_VALUE1) // "]", &
+        "str_array([" // str(INT_VALUE1) // "]), int32 array")
+
+    s1 = ""
+    s1 = str_array([integer (int64) :: INT_VALUE1])
+    call tc%assert_true (s1 == "[" // str(INT_VALUE1) // "]", &
+        "str_array([" // str(INT_VALUE1) // "]), int64 array")
+
+    s1 = ""
+    s1 = str_array([REAL_VALUE1])
+    s2 = str(REAL_VALUE1)
+    call tc%assert_true (s1 == "[" // s2 // "]", &
+        "str_array([" // s2 // "_real32])")
+
+    s1 = ""
+    s1 = str_array([real (real64) :: REAL_VALUE1])
+    s2 = str(real(REAL_VALUE1, real64))
+    call tc%assert_true (s1 == "[" // s2 // "]", &
+        "str_array([" // s2 // "_real64])")
+
+end subroutine
+
 subroutine test_len (tests)
     class (test_suite) :: tests
     class (test_case), pointer :: tc
 
-    type (str) :: s1
+    type (str) :: s1, s2
 
     tc => tests%add_test ("String length")
 
     s1 = CHAR_VALUE1
     call tc%assert_true (len(s1) == len(CHAR_VALUE1), "len(str) generic")
-    call tc%assert_true (s1%length() == len(CHAR_VALUE1), "str::length() attribute")
 
     s1 = ""
     call tc%assert_true (len(s1) == 0, "len(str) generic, zero-length string")
-    call tc%assert_true (s1%length() == 0, "str::length() attribute, zero-length string")
+
+    call tc%assert_true (len(s2) == 0, "len(str) generic, uninitialized string")
 
 end subroutine
 
@@ -107,8 +167,8 @@ subroutine test_assign (tests)
     tc => tests%add_test ("String assignment")
 
     s1 = s2
-    ! str = str assignment with undefined str objects
-    call tc%assert_false (s1 == s2, "str = str, both unallocated")
+    ! str = str assignment with non-initialized str objects
+    call tc%assert_true (s1 == s2, "str = str, not initialized")
 
     ! str = str assignment
     s1 = CHAR_VALUE1
@@ -138,16 +198,25 @@ subroutine test_assign (tests)
     ! could use autoallocation from Fortran 2003
     if (allocated(ch1)) deallocate (ch1)
     allocate (character (len=len(CHAR_VALUE1)) :: ch1)
+    ! erase LHS character
     ch1 = repeat(" ", len(ch1))
     ch1 = s1
     call tc%assert_true (ch1 == s1, "char = str")
 
-    ! character = str, unallocated str
+    ! character = str, not initialized str
     ch1 = repeat("x", len(ch1))
     allocate (ch2, source=ch1)
     ch1 = s99
     ! Check that assignment did not alter string contents
-    call tc%assert_true ((ch1 == ch2), "char = str, lhs unallocated")
+    call tc%assert_true ((ch1 == ""), "char = str, rhs not initialized")
+
+    ! character = str, zero-length str
+    s1 = ""
+    if (allocated(ch1)) deallocate (ch1)
+    allocate (character (len=5) :: ch1)
+    ch1 = s1
+    call tc%assert_true (ch1 == repeat(" ", len(ch1)), &
+        "char = str, zero-length rhs")
 
 end subroutine
 
@@ -160,31 +229,32 @@ subroutine test_equal (tests)
 
     tc => tests%add_test("String equality/inequality operators")
 
-    ! unallocated strings: should be neither equal nor unequal
-    call tc%assert_false (s1 == s2, "str == str, both unallocated")
-    call tc%assert_false (s1 /= s2, "str /= str, both unallocated")
+    ! not initialized strings: should be equal
+    call tc%assert_true (s1 == s2, "str == str, both not initialized")
+    call tc%assert_false (s1 /= s2, "str /= str, both not initialized")
 
-    ! unallocated strings: one operand not allocated; should be neither equal nor unequal
+    ! not initialized strings: one operand not initialized; should be not
+    ! equal to non-zero string
     s1 = CHAR_VALUE1
-    call tc%assert_false (s2 == s1, "str == str, lhs unallocated")
-    call tc%assert_false (s1 == s2, "str == str, rhs unallocated")
+    call tc%assert_false (s2 == s1, "str == str, lhs not initialized")
+    call tc%assert_false (s1 == s2, "str == str, rhs not initialized")
 
-    call tc%assert_false (s2 /= s1, "str /= str, lhs unallocated")
-    call tc%assert_false (s1 /= s2, "str /= str, rhs unallocated")
+    call tc%assert_true (s2 /= s1, "str /= str, lhs not initialized")
+    call tc%assert_true (s1 /= s2, "str /= str, rhs not initialized")
 
-    ! unallocated vs. zero-length: should be neither equal nor unequal
+    ! not initialized vs. zero-length: should be equal
     s1 = ""
-    call tc%assert_false (s2 == s1, "str == str, lhs unallocated, rhs zero-length")
-    call tc%assert_false (s1 == s2, "str == str, rhs unallocated, lhs zero-length")
+    call tc%assert_true (s2 == s1, "str == str, lhs not initialized, rhs zero-length")
+    call tc%assert_true (s1 == s2, "str == str, rhs not initialized, lhs zero-length")
 
-    ! char vs. unallocated, zero-length char
+    ! char vs. not initialized, zero-length char
     if (allocated(ch1)) deallocate (ch1)
     allocate (ch1, source="")
-    call tc%assert_false (s99 == ch1, "str == char, lhs unallocated, rhs zero-length")
-    call tc%assert_false (ch1 == s99, "str == str, rhs unallocated, lhs zero-length")
+    call tc%assert_true (s99 == ch1, "str == char, lhs not initialized, rhs zero-length")
+    call tc%assert_true (ch1 == s99, "str == str, rhs not initialized, lhs zero-length")
 
-    call tc%assert_false (s99 /= ch1, "str /= char, lhs unallocated, rhs zero-length")
-    call tc%assert_false (ch1 /= s99, "str /= str, rhs unallocated, lhs zero-length")
+    call tc%assert_false (s99 /= ch1, "str /= char, lhs not initialized, rhs zero-length")
+    call tc%assert_false (ch1 /= s99, "str /= str, rhs not initialized, lhs zero-length")
 
     ! both operands zero-length: should equal
     s1 = ""
@@ -204,16 +274,16 @@ subroutine test_equal (tests)
     ! non-zero str vs. non-zero str of equal length
     s1 = CHAR_VALUE1
     s2 = CHAR_VALUE1
-    call tc%assert_true (s1 == s2, "str == str, both equal, both allocated, both non-zero")
-    call tc%assert_false (s1 /= s2, "str /= str, both equal, both allocated, both non-zero")
+    call tc%assert_true (s1 == s2, "str == str, both equal, both initialized, both non-zero")
+    call tc%assert_false (s1 /= s2, "str /= str, both equal, both initialized, both non-zero")
 
-    ! non-zero vs. zero-length str, both allocated
+    ! non-zero vs. zero-length str, both initialized
     s1 = CHAR_VALUE1
     s2 = ""
-    call tc%assert_false (s1 == s2, "str == str, both allocated, rhs zero-length")
-    call tc%assert_false (s2 == s1, "str == str, both allocated, lhs zero-length")
-    call tc%assert_true (s1 /= s2, "str /= str, both allocated, rhs zero-length")
-    call tc%assert_true (s2 /= s1, "str /= str, both allocated, lhs zero-length")
+    call tc%assert_false (s1 == s2, "str == str, both initialized, rhs zero-length")
+    call tc%assert_false (s2 == s1, "str == str, both initialized, lhs zero-length")
+    call tc%assert_true (s1 /= s2, "str /= str, both initialized, rhs zero-length")
+    call tc%assert_true (s2 /= s1, "str /= str, both initialized, lhs zero-length")
 
     ! non-zero str vs. non-zero char, equal values
     s1 = CHAR_VALUE1
@@ -234,9 +304,9 @@ subroutine test_substring (tests)
 
     tc => tests%add_test("String substring() method")
 
-    ! unallocated string, unallocated substring
+    ! not initialized string, not initialized substring
     s2 = s1%substring (1, 1)
-    call tc%assert_true (len(s2) < 0, "str::substring(1, 1), unallocated str")
+    call tc%assert_true (len(s2) == 0, "str::substring(1, 1), not initialized str")
 
     ! zero-length substring
     s1 = ""
@@ -270,7 +340,7 @@ subroutine test_concat (tests)
     class (test_suite) :: tests
     class (test_case), pointer :: tc
 
-    type (str) :: s1, s2, s3
+    type (str) :: s1, s2, s3, s99
     character (len=:), allocatable :: ch1
 
     tc => tests%add_test("String concatenation")
@@ -281,28 +351,48 @@ subroutine test_concat (tests)
     ! manually compute result
     allocate (character (len=len(CHAR_VALUE1) + len(CHAR_VALUE2)) :: ch1)
     ch1 = CHAR_VALUE1 // CHAR_VALUE2
-    call tc%assert_true (s2 == ch1, "Concatenation: str + character")
+    call tc%assert_true (s2 == ch1, "str + character")
 
     ! concatenate using //
     s2 = s1 // CHAR_VALUE2
-    call tc%assert_true (s2 == ch1, "Concatenation: str // character")
+    call tc%assert_true (s2 == ch1, "str // character")
 
     ! concatenate str + str
     s2 = CHAR_VALUE2
     s3 = s1 + s2
-    call tc%assert_true (s3 == ch1, "Concatenation: str + str")
+    call tc%assert_true (s3 == ch1, "str + str")
 
     s3 = s1 // s2
-    call tc%assert_true (s3 == ch1, "Concatenation: str // str")
+    call tc%assert_true (s3 == ch1, "str // str")
 
     ! use CHARACTER as lhs operand
     s2 = CHAR_VALUE2 // s1
     ch1 = CHAR_VALUE2 // CHAR_VALUE1
-    call tc%assert_true (s2 == ch1, "Concatenation: character // str")
+    call tc%assert_true (s2 == ch1, "character // str")
 
     s2 = CHAR_VALUE2 + s1
-    call tc%assert_true (s2 == ch1, "Concatenation: character + str")
+    call tc%assert_true (s2 == ch1, "character + str")
 
+    ! concatenate non-initialized string
+    s1 = CHAR_VALUE1
+    s2 = ""
+    s2 = s1 // s99
+    call tc%assert_true (s2 == s1, "str // str, rhs not initialized")
+
+    s2 = ""
+    s2 = s99 // s1
+    call tc%assert_true (s2 == s1, "str // str, lhs not initialized")
+
+    ! concatenate zero-length string
+    s1 = CHAR_VALUE1
+    s2 = ""
+    s3 = ""
+    s3 = s1 // s2
+    call tc%assert_true (s3 == s1, "str // str, rhs zero-length")
+
+    s3 = ""
+    s3 = s2 // s1
+    call tc%assert_true (s3 == s1, "str // str, lhs zero-length")
 
 end subroutine
 
@@ -334,7 +424,7 @@ subroutine test_join (tests)
     call tc%assert_true (s5 == ch1 .and. len(ch1) == len(s5), &
         "str::join(), 3 arguments")
 
-    ! test joining with a unallocated separator string
+    ! test joining with a non-initialized separator string
     s5 = s99%join([s1, s2, s3])
 
     n = len(CHAR_VALUE1) + len(CHAR_VALUE2) + len(CHAR_VALUE3)
@@ -343,16 +433,16 @@ subroutine test_join (tests)
     ch1 = CHAR_VALUE1 // CHAR_VALUE2 // CHAR_VALUE3
 
     call tc%assert_true (s5 == ch1 .and. len(ch1) == len(s5), &
-        "str::join(), 3 arguments (unallocated separator)")
+        "str::join(), 3 arguments (not initialized separator)")
 
     ! test with empty string separator
     s4 = sep2
     s5 = s4%join([s1, s2, s3])
 
     call tc%assert_true (s5 == ch1 .and. len(ch1) == len(s5), &
-        "str::join(), 3 arguments (zero-string separator)")
+        "str::join(), 3 arguments (zero-length separator)")
 
-    ! test join with unallocated string argument
+    ! test join with not initialized string argument, empty string sep.
     s4 = sep2
     s5 = s4%join ([s1, s2, s3, s99])
 
@@ -362,7 +452,7 @@ subroutine test_join (tests)
     ch1 = CHAR_VALUE1 // CHAR_VALUE2 // CHAR_VALUE3
 
     call tc%assert_true (s5 == ch1 .and. len(ch1) == len(s5), &
-        "str::join(), 4 arguments (unallocated argument)")
+        "str::join(), 4 arguments (not initialized argument)")
 
     ! test with a single argument
     s4 = sep1
@@ -370,6 +460,31 @@ subroutine test_join (tests)
 
     call tc%assert_true (s5 == s1 .and. len(s5) == len(s1), &
         "str::join(), 1 argument")
+
+    ! test with non-empty separator and empty components
+    s4 = sep1
+    s5 = s4%join([s1, s99])
+    n = len(s1) + len(s4)
+    call tc%assert_true (s5 == s1 // s4 .and. len(s5) == n, &
+        "str::join(), 2 arguments, one not initialized")
+
+    ! test with only zero-length arguments
+    s4 = sep1
+    s5 = s4%join([s99, s99])
+    n = len(s4)
+    call tc%assert_true (s5 == s4 .and. len(s5) == n, &
+        "str::join(), 2 arguments, both not initalized")
+
+    ! test with all non-initialized sep. and arguments
+    s5 = s99%join([s99, s99, s99])
+    call tc%assert_true (s5 == "" .and. len(s5) == 0, &
+        "str::join(), zero-length separator and arguments")
+
+    ! test with multi-character separator
+    s4 = " - "
+    s5 = s4%join([s1, s2, s3])
+    call tc%assert_true (s5 == (s1 // s4 // s2 // s4 // s3), &
+        "str::join(), multi-character separator")
 end subroutine
 
 subroutine test_repeat (tests)
@@ -382,10 +497,9 @@ subroutine test_repeat (tests)
 
     tc => tests%add_test ("String repeat()")
 
-    ! repeat unallocated str
+    ! repeat not initialized str
     s2 = s99 * 0
-    call tc%assert_false (s2 == "", "str == str * 0, rhs unallocated")
-    call tc%assert_false (s2 /= "", "str /= str * 0, rhs unallocated")
+    call tc%assert_true (s2 == "", "str == str * 0, rhs not initialized")
 
     ! repeat zero-length str 0 times
     s1 = ""
@@ -409,7 +523,7 @@ subroutine test_repeat (tests)
     ch1 = repeat(CHAR_VALUE1, n)
     call tc%assert_true (s2 == ch1, "str = str * n")
 
-    ! repeat() override for str
+    ! repeat() generic for str
     s1 = CHAR_VALUE1
     n = 10
     s2 = repeat(s1, n)
@@ -429,7 +543,7 @@ subroutine test_startswith (tests)
 
     ! str argument
     s1 = CHAR_VALUE1
-    s2 = CHAR_VALUE1(:5)
+    s2 = CHAR_VALUE1(:len(CHAR_VALUE1)-1)
     call tc%assert_true (s1%startswith (s2), &
         "str::startswith(str) evaluating to true")
 
@@ -446,9 +560,9 @@ subroutine test_startswith (tests)
     call tc%assert_true (s1%startswith (s2), &
         "str::startswith(str), zero-length argument")
 
-    ! test unallocated argument
+    ! test not initialized argument
     call tc%assert_false (s1%endswith (s99), &
-        "str::startswith(str), unallocated argument")
+        "str::startswith(str), not initialized argument")
 end subroutine
 
 subroutine test_endswith (tests)
@@ -461,7 +575,7 @@ subroutine test_endswith (tests)
 
     ! str argument
     s1 = CHAR_VALUE1
-    s2 = CHAR_VALUE1(5:)
+    s2 = CHAR_VALUE1(len(CHAR_VALUE1)-1:)
     call tc%assert_true (s1%endswith (s2), &
         "str::endswith(str) evaluating to true")
 
@@ -478,9 +592,9 @@ subroutine test_endswith (tests)
     call tc%assert_true (s1%endswith (s2), &
         "str::endswith(str), zero-length argument")
 
-    ! test unallocated argument
+    ! test not initialized argument
     call tc%assert_false (s1%endswith (s99), &
-        "str::endswith(str), unallocated argument")
+        "str::endswith(str), not initialized argument")
 end subroutine
 
 

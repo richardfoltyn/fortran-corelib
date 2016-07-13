@@ -1,3 +1,8 @@
+! define implementation-indep. function to determine whether string
+! has been initialized with some value
+#define _VALID(obj) (allocated(obj%value))
+#define _CLEAR(obj) if (allocated(obj%value)) deallocate(obj%value)
+
 module corelib_string
 
     use iso_fortran_env
@@ -5,20 +10,15 @@ module corelib_string
     implicit none
     private
 
-    integer, parameter :: UNALLOCATED = -1
+    character (*), parameter :: EMPTY_VALUE = ""
 
     type :: str
         private
-
-        integer :: n = UNALLOCATED
         character (len=:), allocatable :: value
-
     contains
 
-        procedure, pass :: is_valid
-
+        procedure, pass :: reset
         procedure, public, pass :: to_char
-        procedure, public, pass :: length
 
         ! inquiry functions
         procedure, pass :: startswith_str
@@ -46,7 +46,13 @@ module corelib_string
     end type
 
     interface str
-        module procedure ctor_char, ctor_real64, ctor_real, ctor_int64, ctor_int32
+        module procedure ctor_char, ctor_real64, ctor_real, ctor_int64, &
+            ctor_int32
+    end interface
+
+    interface str_array
+        module procedure str_array_1d_int32, str_array_1d_int64, &
+            str_array_1d_real32, str_array_1d_real64
     end interface
 
     ! allow assignment from str to character
@@ -90,7 +96,7 @@ module corelib_string
             repeat_int64_str
     end interface
 
-    public :: str, len, repeat
+    public :: str, str_array, len, repeat
     public :: operator (+), operator (//), operator (/=), operator (==), operator (*)
     public :: assignment (=)
 contains
@@ -103,7 +109,6 @@ elemental function ctor_char (ch) result(res)
     type (str) :: res
 
     allocate (res%value, source=ch)
-    res%n = len(res%value)
 
 end function
 
@@ -122,8 +127,6 @@ elemental function ctor_real64 (from_real, fmt) result(res)
     end if
 
     allocate (res%value, source=trim(buf))
-    res%n = len(res%value)
-
 end function
 
 elemental function ctor_real (from_real, fmt) result(res)
@@ -141,8 +144,6 @@ elemental function ctor_real (from_real, fmt) result(res)
     end if
 
     allocate (res%value, source=trim(buf))
-    res%n = len(res%value)
-
 end function
 
 elemental function ctor_int64 (from_int, fmt) result(res)
@@ -162,12 +163,12 @@ elemental function ctor_int64 (from_int, fmt) result(res)
     end if
 
     allocate (res%value, source=trim(buf))
-    res%n = len(res%value)
-
 end function
 
 elemental function ctor_int32 (from_int, fmt) result(res)
-    integer (int32), intent(in) :: from_int
+    integer, parameter :: INTSIZE = int32
+
+    integer (INTSIZE), intent(in) :: from_int
     character (len=*), intent(in), optional :: fmt
     type (str) :: res
 
@@ -183,15 +184,6 @@ elemental function ctor_int32 (from_int, fmt) result(res)
     end if
 
     allocate (res%value, source=trim(buf))
-    res%n = len(res%value)
-
-end function
-
-elemental function is_valid (self) result(res)
-    class (str), intent(in) :: self
-    logical :: res
-
-    res = self%n >= 0 .and. allocated (self%value)
 end function
 
 pure function pad_format (fmt) result(res)
@@ -213,21 +205,36 @@ pure function pad_format (fmt) result(res)
 end function
 
 ! *****************************************************************************
-! Public attributes
-
-function length(self) result(res)
-    class (str), intent(in) :: self
-    integer :: res
-
-    res = len(self)
-
+! String representations of arrays
+pure function str_array_1d_int32 (x, fmt) result(res)
+    integer (int32), intent(in), dimension(:) :: x
+    include "include/str_array_1d.f90"
 end function
+
+pure function str_array_1d_int64 (x, fmt) result(res)
+    integer (int64), intent(in), dimension(:) :: x
+    include "include/str_array_1d.f90"
+end function
+
+pure function str_array_1d_real32 (x, fmt) result(res)
+    real (real32), intent(in), dimension(:) :: x
+    include "include/str_array_1d.f90"
+end function
+
+pure function str_array_1d_real64 (x, fmt) result(res)
+    real (real64), intent(in), dimension(:) :: x
+    include "include/str_array_1d.f90"
+end function
+
+! *****************************************************************************
+! Public attributes
 
 elemental function len_str (self) result(res)
     class (str), intent(in) :: self
     integer :: res
 
-    res = self%n
+    res = 0
+    if (_VALID(self)) res = len(self%value)
 end function
 
 ! *****************************************************************************
@@ -237,8 +244,11 @@ pure function to_char(self) result(res)
     class (str), intent(in) :: self
     character (len=len(self)) :: res
 
-    res = ""
-    if (allocated(self%value)) res = self%value
+    if (_VALID(self)) then
+        res = self%value
+    else
+        res = EMPTY_VALUE
+    end if
 
 end function
 
@@ -256,7 +266,7 @@ elemental function startswith_char(self, prefix) result(res)
 
     res = .false.
 
-    if (self%is_valid() .and. len(self) >= len(prefix)) then
+    if (_VALID(self) .and. len(self) >= len(prefix)) then
         res = self%value(1:len(prefix)) == prefix
     end if
 
@@ -267,7 +277,7 @@ elemental function startswith_str(self, prefix) result(res)
     logical :: res
 
     res = .false.
-    if (self%is_valid() .and. prefix%is_valid()) then
+    if (_VALID(self) .and. _VALID(prefix)) then
         res = startswith_char(self, prefix%value)
     end if
 
@@ -285,7 +295,7 @@ elemental function endswith_char (self, suffix) result(res)
 
     res = .false.
 
-    if (self%is_valid() .and. (len(self) >= len(suffix))) then
+    if (_VALID(self) .and. (len(self) >= len(suffix))) then
         ifrom = len(self)-len(suffix) + 1
         ito = len(self)
         res = self%value(ifrom:ito) == suffix
@@ -297,7 +307,7 @@ elemental function endswith_str(self, suffix) result(res)
     logical :: res
 
     res = .false.
-    if (self%is_valid() .and. suffix%is_valid()) then
+    if (_VALID(self) .and. _VALID(suffix)) then
         res = endswith_char(self, suffix%value)
     end if
 
@@ -309,16 +319,16 @@ elemental subroutine assign_str_str(lhs, rhs)
     type (str), intent(out) :: lhs
     class (str), intent(in) :: rhs
 
-    ! prevent unallocated rhs object to be used to allocate lhs, as then
-    ! allocated (lhs%value) returns .TRUE.
-    if (rhs%is_valid()) then
-        ! lhs%value should be automatically deallocated due to intent(out)
-        allocate (lhs%value, source=rhs%value)
-        lhs%n = len(lhs%value)
-    else
-        ! if RHS is valid, put lhs into unallocated state
-        if (allocated(lhs%value)) deallocate (lhs%value)
-        lhs%n = UNALLOCATED
+    integer :: n
+
+    ! lhs%value should be automatically deallocated due to intent(out),
+    ! but make sure this is the case
+    call lhs%reset ()
+
+    if (_VALID(rhs)) then
+        n = len(rhs)
+        allocate (character (len=n) :: lhs%value)
+        lhs%value = rhs%value
     end if
 end subroutine
 
@@ -328,17 +338,17 @@ elemental subroutine assign_str_char(lhs, rhs)
 
     ! lhs%value should be automatically deallocated due to intent(out)
     allocate (lhs%value, source=rhs)
-    lhs%n = len(lhs%value)
 end subroutine
 
 elemental subroutine assign_char_str (lhs, rhs)
     character (len=*), intent(in out) :: lhs
     class (str), intent(in) :: rhs
 
-    ! invoke intrinsic assignment if str%value is allocated, otherwise leave
-    ! lhs character unchanged
-    if (rhs%is_valid()) lhs = rhs%to_char()
-
+    if (_VALID(rhs)) then
+        lhs = rhs%value
+    else
+        lhs = EMPTY_VALUE
+    end if
 end subroutine
 
 ! *****************************************************************************
@@ -349,10 +359,13 @@ elemental function eq_str_str (lhs, rhs) result(res)
     logical :: res
 
     res = .false.
-    if ((lhs%is_valid().and. rhs%is_valid()) .and. &
-        (lhs%n == rhs%n)) then
-
+    if ((_VALID(lhs) .and. _VALID(rhs)) .and. (len(lhs) == len(rhs))) then
         res = (lhs%value == rhs%value)
+    else
+        ! in all other cases it's sufficient if both strings have length zero,
+        ! which is the case if either of them is unallocated and the other
+        ! one is a zero-length string
+        res = (len(rhs) == 0) .and. (len(lhs) == 0)
     end if
 end function
 
@@ -362,8 +375,11 @@ elemental function eq_str_char (lhs, rhs) result(res)
     logical :: res
 
     res = .false.
-    if (lhs%is_valid() .and. (len(lhs) == len(rhs))) then
-        res = (lhs%value == rhs)
+    if (_VALID(lhs)) then
+        if (len(lhs) == len(rhs)) res = (lhs%value == rhs)
+    else
+        ! non-initialized str is equal to zero-length char
+        res = (rhs == "")
     end if
 end function
 
@@ -382,8 +398,7 @@ elemental function neq_str_str (lhs, rhs) result(res)
     class (str), intent(in) :: lhs, rhs
     logical :: res
 
-    res = .false.
-    if (lhs%is_valid() .and. rhs%is_valid()) res = .not. eq_str_str (lhs, rhs)
+    res = .not. eq_str_str (lhs, rhs)
 end function
 
 elemental function neq_str_char(lhs, rhs) result(res)
@@ -391,8 +406,7 @@ elemental function neq_str_char(lhs, rhs) result(res)
     character (len=*), intent(in) :: rhs
     logical :: res
 
-    res = .false.
-    if (lhs%is_valid()) res = .not. eq_str_char(lhs, rhs)
+    res = .not. eq_str_char(lhs, rhs)
 end function
 
 elemental function neq_char_str(lhs, rhs) result(res)
@@ -406,13 +420,13 @@ end function
 ! *****************************************************************************
 ! CONCATENATION operator
 
-function concat_str_str (lhs, rhs) result(res)
+pure function concat_str_str (lhs, rhs) result(res)
     class (str), intent(in) :: lhs, rhs
     type (str) :: res
 
-    if (rhs%is_valid() .and. rhs%is_valid()) then
-        call concat_impl (lhs%value, rhs%value, res)
-    else if (lhs%is_valid()) then
+    if (_VALID(lhs) .and. _VALID(rhs)) then
+        res = lhs%value // rhs%value
+    else if (_VALID(lhs)) then
         res = lhs
     else
         res = rhs
@@ -420,42 +434,32 @@ function concat_str_str (lhs, rhs) result(res)
 
 end function
 
-function concat_str_char(lhs, rhs) result(res)
+pure function concat_str_char(lhs, rhs) result(res)
     class (str), intent(in) :: lhs
     character (len=*), intent(in) :: rhs
     type (str) :: res
 
-    if (lhs%is_valid()) then
-        call concat_impl (lhs%value, rhs, res)
+    if (_VALID(lhs)) then
+        res = lhs%value // rhs
     else
         res = rhs
     end if
 
 end function
 
-function concat_char_str (lhs, rhs) result(res)
+pure function concat_char_str (lhs, rhs) result(res)
     character (len=*), intent(in) :: lhs
     class (str), intent(in) :: rhs
     type (str) :: res
 
-    if (rhs%is_valid()) then
-        call concat_impl (lhs, rhs%value, res)
+    if (_VALID(rhs)) then
+        res = lhs // rhs%value
     else
         res = lhs
     end if
 
 end function
 
-subroutine concat_impl(lhs, rhs, res)
-    character (len=*), intent(in) :: lhs, rhs
-    ! intent(out) will automatically deallocate value in res
-    type (str), intent(out) :: res
-
-    ! lhs%value should be automatically deallocated due to intent(out)
-    allocate (res%value, source=lhs // rhs)
-    res%n = len(res%value)
-
-end subroutine
 
 ! *****************************************************************************
 ! SUBSTRING method
@@ -499,17 +503,13 @@ elemental subroutine substring_impl (self, ifrom, ito, res)
 
     integer (int64) :: lifrom, lito
 
-    if (self%is_valid()) then
-        if (self == "") then
-            ! treat empty string separately, any substring of an empty string can
-            ! only be empty.
-            res = ""
-        else
+    if (_VALID(self)) then
+        if (self /= "") then
             lifrom = adj_bound (self, ifrom)
             lito = adj_bound (self, ito)
 
-            allocate (res%value, source=self%value(lifrom:lito))
-            res%n = len(res%value)
+            call res%reset ()
+            res = self%value(lifrom:lito)
         end if
     end if
 
@@ -580,54 +580,43 @@ pure subroutine join_impl(self, str_list, res)
 
     ! automatically deallocated on subroutine exit
     character (len=:), allocatable :: sep, work
-    integer :: nstr, i, length, ifrom, ito, n
-    logical, dimension(size(str_list)) :: is_valid
+    integer :: n, i, ifrom, ito
+    integer :: res_len, sep_len, lengths(size(str_list))
 
-    ! separator: use empty string as default separator if self is not in
-    ! valid state
-    if (self%is_valid()) then
-        n = len(self%value)
-        ! gfortran does not support components as source parameters!
-        allocate (character (len=n) :: sep)
-        sep = self%value
-    else
-        allocate (sep, source="")
-    end if
+    sep_len = len(self)
+    ! gfortran does not support components as source parameters!
+    allocate (character (len=sep_len) :: sep)
+    sep = self
 
-    is_valid = str_list%is_valid()
+    n = size(str_list)
+    lengths = len(str_list)
 
-    ! determine the length of all components; ingore those not valid since
-    ! they might have len < 0, but will be ignored in the concatenation
-    length = sum(pack(str_list%n, is_valid))
-    ! number of allocated strings to be joined
-    nstr = count(is_valid)
-
-    ! add length of separators
-    length = length + max(len(sep) * nstr - 1, 0)
+    ! determine the length of resulting string
+    res_len = sum(lengths) + max(sep_len * (n - 1), 0)
 
     ! write result string in work array, as allocating character
     ! component with dynamic length crashes gfortran
-    allocate (character (len=length) :: work)
+    allocate (character (len=res_len) :: work)
 
     ifrom = 1
-    do i = 1,nstr
-        if (str_list(i)%is_valid()) then
-            ! insert separator
-            if (i > 1) then
-                ito = ifrom + len(sep) - 1
-                work(ifrom:ito) = sep
-                ifrom = ito + 1
-            end if
-
-            ito = ifrom + str_list(i)%n - 1
-            work(ifrom:ito) = str_list(i)%value
-
+    do i = 1,n
+        ! insert separator
+        if (i > 1) then
+            ito = ifrom + sep_len - 1
+            work(ifrom:ito) = sep
             ifrom = ito + 1
         end if
+
+        if (lengths(i) > 0) then
+            ito = ifrom + lengths(i) - 1
+            work(ifrom:ito) = str_list(i)%to_char()
+        end if
+
+        ifrom = ito + 1
     end do
 
+    ! implementation-dependent!
     call move_alloc (work, res%value)
-    res%n = len(res%value)
 
 end subroutine
 
@@ -673,22 +662,22 @@ subroutine repeat_impl (s, n, res)
     type (str), intent(out) :: res
 
     ! if s is unallocated, return an unallocated string
-    if (s%is_valid()) then
-        allocate (res%value, source=repeat(s%to_char(), n))
-        res%n = len(res%value)
-    end if
+    res = repeat(s%to_char(), n)
 
 end subroutine
 
 ! *****************************************************************************
 ! Finalization
 
-! elemental subroutine finalize(self)
-!     type (str), intent(in out) :: self
-!
-!     if (allocated(self%value)) deallocate (self%value)
-!     self%n = UNALLOCATED
-!
-! end subroutine
+! RESET reverts string object to initial state, ie. as if it had not been
+! assigned a value.
+! This procedure depends on how the string value is implemented, so no
+! abstraction is gained by using preprocessor definitions
+elemental subroutine reset(self)
+    ! Note: unlike a finalizer, argument should be defined as polymorphic
+    class (str), intent(in out) :: self
+
+    if (allocated(self%value)) deallocate (self%value)
+end subroutine
 
 end module
