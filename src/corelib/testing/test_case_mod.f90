@@ -216,7 +216,6 @@ subroutine print (self, lun)
     ! deallocated automatically on subroutine exit
     class (iterator), allocatable :: iter
 
-    integer, parameter :: LINEWIDTH = 80
     character (len=*), parameter :: PREFIX = ">>>"
     integer, parameter :: LEFT_INDENT = 1, ASSERT_INDENT = 2
     character (len=100) :: fmt_str
