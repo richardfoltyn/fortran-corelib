@@ -57,7 +57,9 @@ endif()
 # Set additional Fortran compiler FLAGS
 
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-    set(${PROJECT_NAME}_Fortran_FLAGS "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure -std=f2008")
+    # explicitly add -cpp to run C preprocessor
+    set(GNU_WARN "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure -Warray-temporaries -Wrealloc-lhs -pedantic")
+    set(${PROJECT_NAME}_Fortran_FLAGS "${GNU_WARN} -std=f2008")
 elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
     if (WIN32)
         set (${PROJECT_NAME}_Fortran_FLAGS "/warn:all /standard-semantics /stand:f08")
