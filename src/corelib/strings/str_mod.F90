@@ -15,14 +15,12 @@
 module str_mod
 
     use iso_fortran_env
-    ! use base_str
 
     implicit none
     private
 
     character (*), parameter :: EMPTY_VALUE = ""
 
-    !type, extends(base_str) :: str
     type :: str
         private
         character (len=:), allocatable :: value
