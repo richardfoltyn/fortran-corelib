@@ -23,7 +23,7 @@ option(BUILD_TESTS "Build unit tests" ON)
 
 ###############################################################################
 # Detect target architecture
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/submodules/cmake-modules/Modules")
 
 include(FindTargetArch)
 find_target_arch()

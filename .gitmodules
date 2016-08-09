@@ -1,0 +1,3 @@
+[submodule "src/submodules/cmake-modules"]
+	path = src/submodules/cmake-modules
+	url = https://richardfoltyn@bitbucket.org/richardfoltyn/cmake-modules.git
