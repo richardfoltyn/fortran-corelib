@@ -28,21 +28,29 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/submodules/cmake/Modu
 include(FindTargetArch)
 find_target_arch()
 
-if (NOT INSTALL_INCLUDE_ROOT OR NOT INSTALL_LIBRARY_ROOT)
+# if INSTALL_LIBRARY_PREFIX or INSTALL_INCLUDE_PREFIX were specified on the
+# command line, use those as prefixes beneath CMAKE_INSTALL_PREFIX where
+# library and include files should be placed.
+
+if (NOT INSTALL_LIBRARY_PREFIX)
+  set(INSTALL_LIBRARY_PREFIX lib)
+endif()
+
+# Otherwise define compiler- and architecture-specific prefixes so that
+# MOD files from gfortran and ifort can coexist in the same CMAKE_INSTALL_PREFIX
+if (NOT INSTALL_INCLUDE_PREFIX)
     if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
         set(INCLUDE_SUBDIR "gfortran")
     elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-        if (TARGET_ARCH_BITS STREQUAL "64")
-            set(INCLUDE_SUBDIR "intel64")
-        else()
-            set(INCLUDE_SUBDIR "intel")
-        endif()
+      set(INCLUDE_SUBDIR "intel")
+        # if (TARGET_ARCH_BITS STREQUAL "64")
+        #     set(INCLUDE_SUBDIR "intel64")
+        # else()
+        #     set(INCLUDE_SUBDIR "intel")
+        # endif()
     endif ()
-    set(INSTALL_INCLUDE_ROOT "include/${INCLUDE_SUBDIR}"
+    set(INSTALL_INCLUDE_PREFIX "include/${INCLUDE_SUBDIR}"
         CACHE STRING "Relative installation directory for MOD files" FORCE
-    )
-    set(INSTALL_LIBRARY_ROOT "lib/${INCLUDE_SUBDIR}"
-        CACHE STRING "Relative installation directory for libraries" FORCE
     )
 endif()
 
@@ -87,8 +95,8 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Fortran compiler flags: ${CMAKE_Fortran_FLAGS}")
 message(STATUS "Additional Fortran compiler flags for ${CMAKE_BUILD_TYPE}: ${CMAKE_Fortran_FLAGS_${CMAKE_BUILD_TYPE}}")
 
-message(STATUS "Library install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIBRARY_ROOT}")
-message(STATUS "MOD file install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDE_ROOT}")
+message(STATUS "Library install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIBRARY_PREFIX}")
+message(STATUS "MOD file install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDE_PREFIX}")
 
 ###############################################################################
 # Output directories
