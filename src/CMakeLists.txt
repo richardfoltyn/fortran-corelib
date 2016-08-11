@@ -31,7 +31,7 @@ if (NOT INSTALL_LIBRARY_PREFIX)
 endif()
 
 if (NOT INSTALL_INCLUDE_PREFIX)
-    set(INSTALL_INCLUDE_PREFIX include)
+    set(INSTALL_INCLUDE_PREFIX include/fcore)
 endif()
 
 ###############################################################################
