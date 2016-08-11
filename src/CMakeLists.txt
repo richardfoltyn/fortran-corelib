@@ -14,44 +14,24 @@ if (NOT CMAKE_BUILD_TYPE)
       FORCE)
 endif (NOT CMAKE_BUILD_TYPE)
 
-set(CMAKE_VERBOSE_MAKEFILE ON)
-
 ###############################################################################
 # User-definable options
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 option(BUILD_TESTS "Build unit tests" ON)
 
 ###############################################################################
-# Detect target architecture
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/submodules/cmake/Modules")
-
-include(FindTargetArch)
-find_target_arch()
+# Path suffixes beneath CMAKE_INSTALL_PREFIX
 
 # if INSTALL_LIBRARY_PREFIX or INSTALL_INCLUDE_PREFIX were specified on the
 # command line, use those as prefixes beneath CMAKE_INSTALL_PREFIX where
 # library and include files should be placed.
 
 if (NOT INSTALL_LIBRARY_PREFIX)
-  set(INSTALL_LIBRARY_PREFIX lib)
+    set(INSTALL_LIBRARY_PREFIX lib)
 endif()
 
-# Otherwise define compiler- and architecture-specific prefixes so that
-# MOD files from gfortran and ifort can coexist in the same CMAKE_INSTALL_PREFIX
 if (NOT INSTALL_INCLUDE_PREFIX)
-    if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-        set(INCLUDE_SUBDIR "gfortran")
-    elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-      set(INCLUDE_SUBDIR "intel")
-        # if (TARGET_ARCH_BITS STREQUAL "64")
-        #     set(INCLUDE_SUBDIR "intel64")
-        # else()
-        #     set(INCLUDE_SUBDIR "intel")
-        # endif()
-    endif ()
-    set(INSTALL_INCLUDE_PREFIX "include/${INCLUDE_SUBDIR}"
-        CACHE STRING "Relative installation directory for MOD files" FORCE
-    )
+    set(INSTALL_INCLUDE_PREFIX include)
 endif()
 
 ###############################################################################
@@ -74,8 +54,6 @@ elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
     elseif (WIN32)
         set (${PROJECT_NAME}_Fortran_FLAGS "-warn all -standard-semantics -std08")
     endif (WIN32)
-else ()
-    message(FATAL_ERROR "Unsupported Fortran compiler: ${Fortran_COMPILER_NAME}")
 endif ()
 
 # append additional FLAGS to default cmake FLAGS
