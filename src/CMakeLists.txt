@@ -9,7 +9,7 @@ set(LIBRARY_NAME fcore)
 
 # make sure that the default is a RELEASE
 if (NOT CMAKE_BUILD_TYPE)
-  set (CMAKE_BUILD_TYPE RELEASE CACHE STRING
+  set (CMAKE_BUILD_TYPE Release CACHE STRING
       "Choose the type of build, options are: None Debug Release."
       FORCE)
 endif (NOT CMAKE_BUILD_TYPE)
@@ -44,22 +44,24 @@ endif()
 ###############################################################################
 # Set additional Fortran compiler FLAGS
 
+set(_FFLAGS)
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-    # explicitly add -cpp to run C preprocessor
-    set(GNU_WARN "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure -Warray-temporaries -Wrealloc-lhs -pedantic")
-    set(${PROJECT_NAME}_Fortran_FLAGS "${GNU_WARN} -std=f2008")
+    # explicitly add -cpp to run C preprocessor if required
+    set(GNU_WARN "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure \
+      -Warray-temporaries -Wrealloc-lhs -pedantic")
+    set(_FFLAGS "${GNU_WARN} -std=f2008")
 elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
     if (WIN32)
-        set (${PROJECT_NAME}_Fortran_FLAGS "/warn:all /standard-semantics /stand:f08")
-    elseif (WIN32)
-        set (${PROJECT_NAME}_Fortran_FLAGS "-warn all -standard-semantics -std08")
+        set (_FFLAGS "/warn:all /standard-semantics /stand:f08")
+    else ()
+        set (_FFLAGS "-warn all -standard-semantics -std08")
     endif (WIN32)
 endif ()
 
 # append additional FLAGS to default cmake FLAGS
-set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${${PROJECT_NAME}_Fortran_FLAGS}")
-set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} ${${PROJECT_NAME}_Fortran_FLAGS_RELEASE}")
-set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${${PROJECT_NAME}_Fortran_FLAGS_DEBUG}")
+set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${_FFLAGS}")
+# set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} ${_FFLAGS}")
+# set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${_FFLAGS}")
 
 ###############################################################################
 # Report options and settings
@@ -71,7 +73,9 @@ endif(BUILD_SHARED_LIBS)
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Fortran compiler flags: ${CMAKE_Fortran_FLAGS}")
-message(STATUS "Additional Fortran compiler flags for ${CMAKE_BUILD_TYPE}: ${CMAKE_Fortran_FLAGS_${CMAKE_BUILD_TYPE}}")
+# Make sure build type is upper case, otherwise the wrong flags will be shown
+string(TOUPPER "${CMAKE_BUILD_TYPE}" _BUILD_TYPE)
+message(STATUS "Additional Fortran compiler flags for ${CMAKE_BUILD_TYPE}: ${CMAKE_Fortran_FLAGS_${_BUILD_TYPE}}")
 
 message(STATUS "Library install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIBRARY_PREFIX}")
 message(STATUS "MOD file install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDE_PREFIX}")
