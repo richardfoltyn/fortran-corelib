@@ -22,16 +22,27 @@ option(BUILD_TESTS "Build unit tests" ON)
 ###############################################################################
 # Path suffixes beneath CMAKE_INSTALL_PREFIX
 
-# if INSTALL_LIBRARY_PREFIX or INSTALL_INCLUDE_PREFIX were specified on the
+# if CMAKE_INSTALL_LIBDIR or CMAKE_INSTALL_INCLUDEDIR were specified on the
 # command line, use those as prefixes beneath CMAKE_INSTALL_PREFIX where
 # library and include files should be placed.
 
-if (NOT INSTALL_LIBRARY_PREFIX)
-    set(INSTALL_LIBRARY_PREFIX lib)
+# store values in tempoprary variables, will be overwritten by GNUInstallDirs
+set(_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}")
+set(_INSTALL_INCLUDEDDIR "${CMAKE_INSTALL_INCLUDEDIR}")
+
+include(GNUInstallDirs)
+
+# fill in any missing values
+if (_INSTALL_LIBDIR)
+    set(CMAKE_INSTALL_LIBDIR "${_INSTALL_LIBDIR}")
+elseif (NOT CMAKE_INSTALL_LIBDIR)
+    set(CMAKE_INSTALL_LIBDIR lib)
 endif()
 
-if (NOT INSTALL_INCLUDE_PREFIX)
-    set(INSTALL_INCLUDE_PREFIX include/fcore)
+if (_INSTALL_INCLUDEDDIR)
+    set(CMAKE_INSTALL_INCLUDEDIR "${_INSTALL_INCLUDEDDIR}")
+elseif (NOT CMAKE_INSTALL_INCLUDEDIR)
+    set(CMAKE_INSTALL_INCLUDEDIR include)
 endif()
 
 ###############################################################################
@@ -77,8 +88,8 @@ message(STATUS "Fortran compiler flags: ${CMAKE_Fortran_FLAGS}")
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _BUILD_TYPE)
 message(STATUS "Additional Fortran compiler flags for ${CMAKE_BUILD_TYPE}: ${CMAKE_Fortran_FLAGS_${_BUILD_TYPE}}")
 
-message(STATUS "Library install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIBRARY_PREFIX}")
-message(STATUS "MOD file install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDE_PREFIX}")
+message(STATUS "Library install directory: ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+message(STATUS "MOD file install directory: ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}")
 
 ###############################################################################
 # Output directories
