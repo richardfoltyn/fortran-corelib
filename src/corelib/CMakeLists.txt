@@ -2,6 +2,8 @@
 unset(CORELIB_SOURCE_FILES)
 
 add_subdirectory(collections)
+add_subdirectory(datetime)
+add_subdirectory(logging)
 add_subdirectory(strings)
 add_subdirectory(testing)
 
