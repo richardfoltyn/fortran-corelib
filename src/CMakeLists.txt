@@ -1,7 +1,7 @@
 # src/CMakeLists.txt
 # Root cmake configuration file for Fortran corelib
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.1)
 
 project(fcorelib Fortran)
 # name used for library files, include directory, etc.
@@ -100,7 +100,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(${PROJECT_NAME}_TESTS_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tests")
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/include)
-set(${LIBRARY_NAME}_MODDIR ${CMAKE_Fortran_MODULE_DIRECTORY})
+set(${PROJECT_NAME}_MODDIR ${CMAKE_Fortran_MODULE_DIRECTORY})
 
 add_subdirectory(corelib)
 

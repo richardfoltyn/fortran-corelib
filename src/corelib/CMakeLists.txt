@@ -1,22 +1,36 @@
 
-unset(CORELIB_SOURCE_FILES)
+set(CORELIB_COMPONENTS collections datetime logging strings testing utils)
 
-add_subdirectory(collections)
-add_subdirectory(datetime)
-add_subdirectory(logging)
-add_subdirectory(strings)
-add_subdirectory(testing)
+include_directories("${${PROJECT_NAME}_MODDIR}")
 
-# build static library so tests can link against it
-if (BUILD_TESTS)
-    add_library(${LIBRARY_NAME}_static STATIC ${CORELIB_SOURCE_FILES})
-endif()
+set(COMPONENT_OBJECTS)
 
-add_library(${LIBRARY_NAME} ${CORELIB_SOURCE_FILES})
+foreach(_comp IN LISTS CORELIB_COMPONENTS)
+    add_subdirectory(${_comp})
+    set_target_properties(${_comp} PROPERTIES
+        Fortran_MODULE_DIRECTORY "${${PROJECT_NAME}_MODDIR}"
+    )
+
+    # we need to make sure that -fPIC etc. is passed to compiler when building
+    # object libraries that will be used to create a shared lib
+    if (BUILD_SHARED_LIBS)
+        set_target_properties(${_comp} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    endif ()
+
+    # append created objects, to be used as input in main library
+    list(APPEND COMPONENT_OBJECTS $<TARGET_OBJECTS:${_comp}>)
+endforeach()
+
+add_library(${LIBRARY_NAME} ${COMPONENT_OBJECTS})
 set_target_properties(${LIBRARY_NAME} PROPERTIES
     OUTPUT_NAME ${LIBRARY_NAME}
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
 )
+
+# build static library so tests can link against it
+if (BUILD_TESTS)
+    add_library(${LIBRARY_NAME}_static STATIC ${COMPONENT_OBJECTS})
+endif()
 
 install(TARGETS ${LIBRARY_NAME}
     RUNTIME DESTINATION "${CMAKE_INSTALL_LIBDIR}"
@@ -26,6 +40,6 @@ install(TARGETS ${LIBRARY_NAME}
     ARCHIVE INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
-install(DIRECTORY ${${LIBRARY_NAME}_MODDIR}/
+install(DIRECTORY ${${PROJECT_NAME}_MODDIR}/
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/fcore"
 )

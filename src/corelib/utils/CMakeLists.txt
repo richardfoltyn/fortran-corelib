@@ -1,11 +1,12 @@
 
+
 get_filename_component(COMPONENT_NAME "${CMAKE_CURRENT_SOURCE_DIR}" NAME)
 
 set(SOURCE_FILES
-    corelib_string.f90
-    str_mod.F90
+    alloc_mod.f90
+    utils_mod.f90
 )
 
 include_directories(${${PROJECT_NAME}_MODDIR})
 add_library(${COMPONENT_NAME} OBJECT ${SOURCE_FILES})
-add_dependencies(${COMPONENT_NAME} utils)
+# add_dependencies(${COMPONENT_NAME})
