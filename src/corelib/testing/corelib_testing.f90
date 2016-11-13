@@ -1,8 +1,8 @@
 ! wrapper module to export relevant unittest components
 module corelib_testing
 
-    use test_case_mod, only: test_case
-    use test_suite_mod, only: test_suite
+    use corelib_testing_test_case_mod, only: test_case
+    use corelib_testing_test_suite_mod, only: test_suite
 
     implicit none
     private

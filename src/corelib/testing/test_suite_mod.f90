@@ -1,10 +1,9 @@
-module test_suite_mod
+module corelib_testing_test_suite_mod
 
     use iso_fortran_env
-    use linked_list_mod
-    use test_case_mod
-    use collection_mod
-    use corelib_string
+    use corelib_testing_test_case_mod
+    use corelib_collections
+    use corelib_strings
 
     implicit none
     private

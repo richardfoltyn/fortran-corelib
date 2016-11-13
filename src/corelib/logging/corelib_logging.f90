@@ -2,7 +2,7 @@ module corelib_logging
 
     use iso_fortran_env
     use corelib_datetime
-    use corelib_string
+    use corelib_strings
 
     implicit none
     private

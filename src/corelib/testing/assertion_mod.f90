@@ -1,8 +1,8 @@
-module assertion_mod
+module corelib_testing_assertion_mod
 
     use iso_fortran_env
-    use linked_list_mod
-    use corelib_string
+    use corelib_collections
+    use corelib_strings
 
     implicit none
     private

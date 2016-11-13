@@ -12,7 +12,7 @@
 #define _POLYMORPHIC_ARRAY(t) class (t)
 #endif
 
-module str_mod
+module corelib_string_str_mod
 
     use iso_fortran_env
 

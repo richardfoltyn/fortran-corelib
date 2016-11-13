@@ -1,7 +1,7 @@
 program test_strings
 
     use iso_fortran_env
-    use corelib_string
+    use corelib_strings
     use corelib_testing
 
     implicit none
@@ -22,7 +22,7 @@ subroutine test_all()
 
     type (test_suite) :: tests
 
-    call tests%set_label ("core.string unit tests")
+    call tests%set_label ("corelib_strings::str unit tests")
 
     ! run individual test cases
     call test_init (tests)

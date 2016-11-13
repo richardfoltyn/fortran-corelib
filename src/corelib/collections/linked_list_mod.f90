@@ -1,6 +1,6 @@
-module linked_list_mod
+module corelib_collections_linked_list_mod
 
-    use collection_mod
+    use corelib_collections_abc_mod
 
     implicit none
     private

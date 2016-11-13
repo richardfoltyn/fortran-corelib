@@ -1,7 +1,7 @@
 module corelib_datetime
 
     use iso_fortran_env, only: int64
-    use corelib_string
+    use corelib_strings
     use corelib_utils, only: assert_alloc
     implicit none
     private

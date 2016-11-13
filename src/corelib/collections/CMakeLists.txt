@@ -3,7 +3,8 @@
 get_filename_component(COMPONENT_NAME "${CMAKE_CURRENT_SOURCE_DIR}" NAME)
 
 set(SOURCE_FILES
-    collection_mod.f90
+    corelib_collections.f90
+    abc_mod.f90
     linked_list_mod.f90
 )
 

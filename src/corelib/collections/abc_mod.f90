@@ -1,4 +1,7 @@
-module collection_mod
+! Module contains abstract base classes and interfaces shared by
+! collection classes.
+
+module corelib_collections_abc_mod
 
     implicit none
     private
