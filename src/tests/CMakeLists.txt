@@ -2,7 +2,7 @@
 # Build file for unit tests
 
 set(TEST_DIRS strings)
-set(TEST_SOURCE_FILES_strings strings/test_strings.f90)
+set(TEST_SOURCE_FILES_strings strings/test_str.f90)
 
 foreach (dir IN LISTS TEST_DIRS)
 
