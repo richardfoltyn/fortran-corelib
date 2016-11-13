@@ -86,6 +86,7 @@ function add_test_str (self, label) result (res)
     type (test_case), pointer :: res
     ! local copy of test case
     type (test_case) :: tc
+    class (*), pointer :: ptr_item
 
     ! check that tests list was allocated
     call self%check_init ()
@@ -99,7 +100,8 @@ function add_test_str (self, label) result (res)
     ! retrieve pointer to created test_case object. We need to do this after
     ! the object was *copied* into the list to be sure that pointer has the
     ! correct target!
-    res => test_case_cast (self%tests%item (self%tests%length()))
+    ptr_item => self%tests%item (self%tests%length())
+    call dynamic_cast (ptr_item, res)
 
 end function
 
@@ -134,9 +136,10 @@ subroutine tally_results (self, passed, failed)
     class (test_suite), intent(in) :: self
     integer, intent(out) :: passed, failed
 
-    class (test_case), pointer :: ptr_test
+    type (test_case), pointer :: ptr_test
     ! deallocated automatically on subroutine exit
     class (iterator), allocatable :: iter
+    class (*), pointer :: ptr_item
 
     integer :: passed_i, failed_i
 
@@ -147,7 +150,8 @@ subroutine tally_results (self, passed, failed)
     call self%tests%get_iter (iter)
 
     do while (iter%has_next())
-        ptr_test => test_case_cast (iter%item())
+        ptr_item => iter%item()
+        call dynamic_cast (ptr_item, ptr_test)
 
         ! get tally from individual test case
         call ptr_test%tally_results (passed_i, failed_i)
@@ -162,7 +166,8 @@ subroutine print (self, lun)
     class (test_suite), intent(in) :: self
     integer, intent(in), optional :: lun
 
-    class (test_case), pointer :: ptr_test
+    type (test_case), pointer :: ptr_test
+    class (*), pointer :: ptr_item
     ! deallocated automatically on subroutine exit
     class (iterator), allocatable :: iter
 
@@ -207,7 +212,8 @@ subroutine print (self, lun)
         call self%tests%get_iter (iter)
 
         do while (iter%has_next())
-            ptr_test => test_case_cast (iter%item())
+            ptr_item => iter%item()
+            call dynamic_cast (ptr_item, ptr_test)
 
             call ptr_test%print (llun)
         end do

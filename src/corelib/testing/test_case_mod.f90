@@ -45,7 +45,11 @@ module test_case_mod
         module procedure ctor_char, ctor_str, ctor_default
     end interface
 
-    public :: test_case, test_case_cast
+    interface dynamic_cast
+        module procedure cast_any_to_test_case
+    end interface
+
+    public :: test_case, dynamic_cast
 
 contains
 
@@ -292,17 +296,16 @@ end subroutine
 ! *****************************************************************************
 ! CASTS
 
-function test_case_cast (base) result(res)
+subroutine cast_any_to_test_case (base, res)
     class (*), intent(in), pointer :: base
-    class (test_case), pointer :: res
+    type (test_case), intent(out), pointer :: res
 
     select type (obj => base)
     class is (test_case)
         res => obj
     class default
-        stop "Unsupported cast"
+        error stop "Unsupported cast"
     end select
-
-end function
+end subroutine
 
 end module
