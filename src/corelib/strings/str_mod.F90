@@ -19,6 +19,9 @@ module corelib_string_str_mod
     implicit none
     private
 
+    integer, public, parameter :: STR_PARSE_INVALID = 1
+    integer, public, parameter :: STR_PARSE_SUCCESS = 0
+
     character (*), parameter :: EMPTY_VALUE = ""
 
     type :: str
@@ -54,13 +57,24 @@ module corelib_string_str_mod
         procedure, pass :: join_char
         generic, public :: join => join_str, join_char
 
+        ! Parsers for other data types
+        procedure, pass :: parse_int32
+        procedure, pass :: parse_int64
+        procedure, pass :: parse_real32
+        procedure, pass :: parse_real64
+        procedure, pass :: parse_str
+        procedure, pass :: parse_char
+        procedure, pass :: parse_logical
+        generic, public :: parse => parse_int32, parse_int64, parse_real32, &
+            parse_real64, parse_str, parse_char, parse_logical
+
         ! Finalizers
         ! final :: finalize
     end type
 
     interface str
-        module procedure ctor_char, ctor_real64, ctor_real, ctor_int64, &
-            ctor_int32
+        module procedure ctor_char, ctor_real64, ctor_real32, ctor_int64, &
+            ctor_int32, ctor_logical
     end interface
 
     interface str_array
@@ -142,8 +156,8 @@ elemental function ctor_real64 (from_real, fmt) result(res)
     call res%alloc (trim(buf))
 end function
 
-elemental function ctor_real (from_real, fmt) result(res)
-    real, intent(in) :: from_real
+elemental function ctor_real32 (from_real, fmt) result(res)
+    real (real32), intent(in) :: from_real
     character (len=*), intent(in), optional :: fmt
     type (str) :: res
 
@@ -197,6 +211,18 @@ elemental function ctor_int32 (from_int, fmt) result(res)
     end if
 
     call res%alloc (trim(buf))
+end function
+
+elemental function ctor_logical (x) result(res)
+    logical, intent(in) :: x
+    type (str) :: res
+
+    integer, parameter :: LEN_BUFFER = 10
+    character (len=LEN_BUFFER) :: buf
+
+    write (unit=buf, fmt=*) x
+    call res%alloc (trim(buf))
+
 end function
 
 pure function pad_format (fmt) result(res)
@@ -664,6 +690,62 @@ pure subroutine repeat_impl (s, n, res)
     ! if s is unallocated, return an unallocated string
     res = repeat(s%to_char(), n)
 
+end subroutine
+
+! *****************************************************************************
+! Converstion to other native data types
+subroutine parse_int32 (self, val, status)
+    integer (int32) :: val
+    include "include/str_parse.f90"
+end subroutine
+
+subroutine parse_int64 (self, val, status)
+    integer (int64) :: val
+
+    include "include/str_parse.f90"
+end subroutine
+
+subroutine parse_real32 (self, val, status)
+    real (real32) :: val
+    include "include/str_parse.f90"
+end subroutine
+
+subroutine parse_real64 (self, val, status)
+    real (real64) :: val
+    include "include/str_parse.f90"
+end subroutine
+
+subroutine parse_str(self, val, status)
+    class (str), intent(in) :: self
+    class (str), intent(out) :: val
+    integer, intent(out), optional :: status
+
+    if (present(status)) status = STR_PARSE_SUCCESS
+
+    if (_VALID(self)) then
+        val = self%value
+    else
+        val = ""
+    end if
+end subroutine
+
+subroutine parse_char(self, val, status)
+    class (str), intent(in) :: self
+    character (*), intent(out) :: val
+    integer, intent(out), optional :: status
+
+    if (present(status)) status = STR_PARSE_SUCCESS
+
+    if (_VALID(self)) then
+        val = self%value
+    else
+        val = ""
+    end if
+end subroutine
+
+subroutine parse_logical (self, val, status)
+    logical :: val
+    include "include/str_parse.f90"
 end subroutine
 
 ! *****************************************************************************
