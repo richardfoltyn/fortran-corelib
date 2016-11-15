@@ -9,7 +9,7 @@ module corelib_argparse_argument
     type, public :: argument
         private
         type (str) :: name, abbrev
-        class (*), allocatable :: default
+        class (*), dimension(:), allocatable :: default
         integer :: action = ARGPARSE_ACTION_STORE
         logical :: required = .false.
         logical :: is_present = .false.
@@ -22,33 +22,34 @@ module corelib_argparse_argument
         procedure, public, pass :: parse => argument_parse
     end type
 
-    interface dynamic_cast
-        module procedure cast_any_to_argument
-    end interface
-
-    public :: dynamic_cast
-
 contains
 
 subroutine argument_get_int32 (self, val, status)
     class (argument), intent(in), target :: self
-    integer (int32), intent(out) :: val
+    integer (int32), intent(out), dimension(:) :: val
     integer, intent(out), optional :: status
 
     integer (int32), pointer :: ptr_default
-    integer :: lstatus
+    integer :: lstatus, i
 
     lstatus = ARGPARSE_STATUS_PARSED
 
+    if (size(val) < self%nargs) then
+        lstatus = ARGPARSE_STATUS_INCORRECT_NARGS
+        goto 100
+    end if
+
     if (self%is_present) then
-        call self%passed_value%parse (val, lstatus)
-        if (lstatus /= STR_PARSE_SUCCESS) then
-            lstatus = ARGPARSE_STATUS_PARSE_ERROR
-            goto 100
-        end if
+        do i = 1, self%nargs
+            call self%passed_value(i)%parse (val(i), lstatus)
+            if (lstatus /= STR_PARSE_SUCCESS) then
+                lstatus = ARGPARSE_STATUS_PARSE_ERROR
+                goto 100
+            end if
+        end do
     else if (allocated (self%default)) then
         call dynamic_cast (self%default, ptr_default)
-        val = ptr_default
+        val(i) = ptr_default
     end if
 
 100 continue
@@ -56,24 +57,24 @@ subroutine argument_get_int32 (self, val, status)
 
 end subroutine
 
-subroutine argument_parse_scalar (self, val, status)
-    class (argument), intent(in out) :: self
-    character (*), intent(in), optional :: val
-
-    if (self%action == ARGPARSE_ACTION_STORE) then
-        self
-end subroutine
+! subroutine argument_parse_scalar (self, val, status)
+!     class (argument), intent(in out) :: self
+!     character (*), intent(in), optional :: val
+!
+!     if (self%action == ARGPARSE_ACTION_STORE) then
+!         self
+! end subroutine
 
 ! ------------------------------------------------------------------------------
 ! Casts
 
-subroutine cast_any_to_argument (base, res)
-    class (*), intent(in), pointer :: base
-    type (Argument), intent(out), pointer :: res
+subroutine dynamic_cast_argument (tgt, ptr)
+    class (*), intent(in), pointer :: obj
+    class (argument), intent(out), pointer :: ptr
 
-    select type (obj => base)
-    class is (Argument)
-        res => obj
+    select type (tgt)
+    class is (argument)
+        ptr => tgt
     class default
         error stop "Unsupported cast"
     end select

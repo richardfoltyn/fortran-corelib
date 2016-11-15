@@ -13,6 +13,7 @@ module corelib_argparse_constants
     integer, parameter :: ARGPARSE_STATUS_PARSE_ERROR = 4
     integer, parameter :: ARGPARSE_STATUS_PARSED = 8
     integer, parameter :: ARGPARSE_STATUS_UNKNOWN_ARGUMENT = 16
+    integer, parameter :: ARGPARSE_STATUS_INCORRECT_NARGS = 32
     integer, parameter :: ARGPARSE_STATUS_UNKNOWN = 128
 
 end module
