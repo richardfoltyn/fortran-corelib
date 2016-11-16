@@ -3,7 +3,7 @@
 #define _VALID(obj) allocated(obj%value)
 #define _CLEAR(obj) if (allocated(obj%value)) deallocate(obj%value)
 
-! gfortran up v5.x incorrectly processes procedure calls if the actual argument
+! gfortran up to v5.x incorrectly processes procedure calls if the actual argument
 ! is a temporary array of user-derived type, and the dummy argument is
 ! polymorphic; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60322
 #ifdef __GFORTRAN__
@@ -15,12 +15,10 @@
 module corelib_string_str_mod
 
     use iso_fortran_env
+    use corelib_common
 
     implicit none
     private
-
-    integer, public, parameter :: STR_PARSE_INVALID = 1
-    integer, public, parameter :: STR_PARSE_SUCCESS = 0
 
     character (*), parameter :: EMPTY_VALUE = ""
 
@@ -121,6 +119,10 @@ module corelib_string_str_mod
     interface repeat
         module procedure repeat_str_int64, repeat_str_int32, repeat_int32_str, &
             repeat_int64_str
+    end interface
+
+    interface dynamic_cast
+        module procedure cast_any_to_str
     end interface
 
     public :: str, str_array, len, repeat
@@ -720,7 +722,7 @@ subroutine parse_str(self, val, status)
     class (str), intent(out) :: val
     integer, intent(out), optional :: status
 
-    if (present(status)) status = STR_PARSE_SUCCESS
+    if (present(status)) status = STATUS_OK
 
     if (_VALID(self)) then
         val = self%value
@@ -734,7 +736,7 @@ subroutine parse_char(self, val, status)
     character (*), intent(out) :: val
     integer, intent(out), optional :: status
 
-    if (present(status)) status = STR_PARSE_SUCCESS
+    if (present(status)) status = STATUS_OK
 
     if (_VALID(self)) then
         val = self%value
@@ -746,6 +748,44 @@ end subroutine
 subroutine parse_logical (self, val, status)
     logical :: val
     include "include/str_parse.f90"
+end subroutine
+
+! ******************************************************************************
+! Casts to str polymorphic objects
+subroutine cast_any_to_str (tgt, ptr, status)
+    class (*), intent(in), target :: tgt
+    class (str), intent(out), pointer :: ptr
+    integer, intent(out), optional :: status
+
+    integer :: lstatus
+
+    lstatus = STATUS_UNSUPPORTED_OPERATION
+
+    select type (tgt)
+    class is (str)
+        ptr => tgt
+        lstatus = STATUS_OK
+    end select
+
+    if (present(status)) status = lstatus
+end subroutine
+
+subroutine cast_any_to_str_array (tgt, ptr, status)
+    class (*), intent(in), dimension(:), target :: tgt
+    class (str), intent(out), dimension(:), pointer :: ptr
+    integer, intent(out), optional :: status
+
+    integer :: lstatus
+
+    lstatus = STATUS_UNSUPPORTED_OPERATION
+
+    select type (tgt)
+    class is (str)
+        ptr => tgt
+        lstatus = STATUS_OK
+    end select
+
+    if (present(status)) status = lstatus
 end subroutine
 
 ! *****************************************************************************
