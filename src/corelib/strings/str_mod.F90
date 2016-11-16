@@ -122,12 +122,13 @@ module corelib_string_str_mod
     end interface
 
     interface dynamic_cast
-        module procedure cast_any_to_str
+        module procedure cast_any_to_str, cast_any_to_str_array
     end interface
 
     public :: str, str_array, len, repeat
     public :: operator (+), operator (//), operator (/=), operator (==), operator (*)
     public :: assignment (=)
+    public :: dynamic_cast
 contains
 
 ! *****************************************************************************
