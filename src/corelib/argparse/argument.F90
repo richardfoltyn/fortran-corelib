@@ -29,10 +29,9 @@ module corelib_argparse_argument
         type (str), dimension(:), allocatable :: passed_values
         type (str) :: help
     contains
-        procedure, pass :: argument_init
-
-        procedure, pass :: get_scalar => argument_get_int32
-        generic, public :: get => get_int32
+        procedure, pass :: init_array => argument_init
+        procedure, pass :: init_scalar => argument_init_scalar
+        generic, public :: init => init_array, init_scalar
 
         procedure, pass :: set_scalar => argument_set_scalar
         procedure, pass :: set_array => argument_set_array
@@ -45,7 +44,33 @@ module corelib_argparse_argument
         procedure, pass :: store_default_array => argument_store_default_array
         procedure, pass :: store_default_scalar => argument_store_default_scalar
         generic :: store_default => store_default_array, store_default_scalar
+
+        procedure, pass :: get_array => argument_get_array
+        procedure, pass :: get_scalar_int32 => argument_get_scalar_int32
+        procedure, pass :: get_scalar_int64 => argument_get_scalar_int64
+        procedure, pass :: get_scalar_real64 => argument_get_scalar_real32
+        procedure, pass :: get_scalar_real32 => argument_get_scalar_real64
+        procedure, pass :: get_scalar_logical => argument_get_scalar_logical
+        procedure, pass :: get_scalar_str => argument_get_scalar_str
+        generic, public :: get => get_array, &
+            get_scalar_int32, get_scalar_int64, &
+            get_scalar_real32, get_scalar_real64, &
+            get_scalar_logical, get_scalar_str
+
+        procedure, pass :: parse_array_int32 => argument_parse_array_int32
+        procedure, pass :: parse_array_int64 => argument_parse_array_int64
+        procedure, pass :: parse_array_real32 => argument_parse_array_real32
+        procedure, pass :: parse_array_real64 => argument_parse_array_real64
+        procedure, pass :: parse_array_logical => argument_parse_array_logical
+        procedure, pass :: parse_array_str => argument_parse_array_str
+        generic, public :: parse => parse_array_int32, parse_array_int64, &
+            parse_array_real32, parse_array_real64, parse_array_logical, &
+            parse_array_str
     end type
+
+    interface dynamic_cast
+        module procedure cast_any_to_argument
+    end interface
 
 contains
 
@@ -59,8 +84,8 @@ subroutine argument_init (self, name, abbrev, action, required, nargs, const, &
     type (str), intent(in), optional :: abbrev
     integer, intent(in), optional :: action
     logical, intent(in), optional :: required
-    integer, intent(in), optional :: nargs
-    class (*), intent(in) :: const
+    integer, intent(in) :: nargs
+    class (*), intent(in), dimension(:), optional :: const
     class (*), intent(in), dimension(:), optional :: default
     type (str), intent(in), optional :: help
     integer, intent(out), optional :: status
@@ -75,11 +100,11 @@ subroutine argument_init (self, name, abbrev, action, required, nargs, const, &
 
     ! overwrite with provided arguments
     if (present(action)) laction = action
-    if (present(nargs)) lnargs = nargs
+    lnargs = nargs
     if (present(required)) lrequired = required
 
     ! Input validation: check before modifying argument object
-    if (present(nargs) .and. present(default)) then
+    if (present(default)) then
         if (size(default) /= nargs) goto 100
     end if
 
@@ -88,11 +113,9 @@ subroutine argument_init (self, name, abbrev, action, required, nargs, const, &
     if (.not. lrequired .and. .not. present(default)) goto 100
 
     ! require constant to be present and have the right array size
-    if (laction == ARGPARSE_STORE_CONST) then
+    if (laction == ARGPARSE_ACTION_STORE_CONST) then
         if (.not. present(const)) goto 100
-        if (present(const) .and. present(nargs)) then
-            if (size(const) /= nargs) goto 100
-        end if
+        if (size(const) /= nargs) goto 100
     end if
 
     ! preliminary input validation succeeded, store data in attributes
@@ -101,17 +124,17 @@ subroutine argument_init (self, name, abbrev, action, required, nargs, const, &
     select case (laction)
     case (ARGPARSE_ACTION_STORE_TRUE)
         lnargs = 0
-        laction = ARGPARSE_STORE_CONST
+        laction = ARGPARSE_ACTION_STORE_CONST
         call self%store_const (.true.)
         call self%store_default (.false.)
     case (ARGPARSE_ACTION_STORE_FALSE)
         lnargs = 0
-        laction = ARGPARSE_STORE_CONST
+        laction = ARGPARSE_ACTION_STORE_CONST
         call self%store_const (.false.)
         call self%store_default (.true.)
     case (ARGPARSE_ACTION_STORE_CONST)
-        ! verified above that const is present and has correct size
-        if (.not. present(nargs)) lnargs = size(const)
+        ! no arguments expected when requested to store const
+        lnargs = 0
         call self%store_const (const)
         call self%store_default (default)
     case default
@@ -155,10 +178,19 @@ subroutine argument_init_scalar (self, name, abbrev, action, required, &
 
     class (*), dimension(:), allocatable :: work1, work2
 
-    allocate (work1(1), source=const)
-    allocate (work2(1), source=default)
+    if (present(const)) allocate (work1(1), source=const)
+    if (present(default)) allocate (work2(2), source=default)
 
-    call self%argument (name, abbrev, action, required, 1, work1, work2, help, status)
+    if (present(const) .and. present(default)) then
+        call self%init (name, abbrev, action, required, 1, work1, work2, &
+            help, status)
+    else if (present(const)) then
+        call self%init (name, abbrev, action, required, 1, const=work1, &
+            help=help, status=status)
+    else if (present(default)) then
+        call self%init (name, abbrev, action, required, 1, default=work2, &
+            help=help, status=status)
+    end if
 
 end subroutine
 
@@ -214,15 +246,11 @@ subroutine argument_set_scalar (self, val)
     class (argument), intent(in out) :: self
     type (str), intent(in) :: val
 
-    type (str), dimension(:) :: work
+    type (str), dimension(:), allocatable :: work
 
-    if (present(val)) then
-        allocate (work(1))
-        work(1) = val
-        call self%set (work)
-    else
-        call self%set()
-    end if
+    allocate (work(1))
+    work(1) = val
+    call self%set (work)
 end subroutine
 
 subroutine argument_set_array (self, val)
@@ -246,7 +274,7 @@ end subroutine
 
 subroutine argument_get_array (self, val, status)
     class (argument), intent(in) :: self
-    class (*), intent(out), dimension(:) :: val
+    class (*), intent(out), dimension(:), target :: val
     integer, intent(out), optional :: status
 
     integer :: lstatus
@@ -257,15 +285,23 @@ subroutine argument_get_array (self, val, status)
     integer (int64), dimension(:), pointer :: ptr_int64
     real (real32), dimension(:), pointer :: ptr_real32
     real (real64), dimension(:), pointer :: ptr_real64
+    logical, dimension(:), pointer :: ptr_logical
     _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr_str
-    character (*), dimension(:), pointer :: ptr_char
 
     lstatus = STATUS_OK
 
-    if (size(val) < self%nargs) then
-        lstatus = STATUS_INVALID_INPUT
-        msg = "Array length different from number of command line arguments"
-        goto 100
+    if (self%action == ARGPARSE_ACTION_STORE_CONST) then
+        if (size(val) < size(self%const)) then
+            lstatus = STATUS_INVALID_INPUT
+            msg = "Array size insufficient to store constant"
+            goto 100
+        end if
+    else if (self%action == ARGPARSE_ACTION_STORE) then
+        if (size(val) < self%nargs) then
+            lstatus = STATUS_INVALID_INPUT
+            msg = "Array size insufficient to store command line arguments"
+            goto 100
+        end if
     end if
 
     select type (val)
@@ -281,12 +317,12 @@ subroutine argument_get_array (self, val, status)
     type is (real(real64))
         ptr_real64 => val
         call self%parse (ptr_real64, lstatus)
+    type is (logical)
+        ptr_logical => val
+        call self%parse (ptr_logical, lstatus)
     class is (str)
         ptr_str => val
         call self%parse (ptr_str, lstatus)
-    class is (character)
-        ptr_char => val
-        call self%parse (ptr_char, lstatus)
     class default
         lstatus = STATUS_INVALID_INPUT
         msg = "Unsupported argument type"
@@ -298,12 +334,59 @@ subroutine argument_get_array (self, val, status)
 
 end subroutine
 
+subroutine argument_get_scalar_int32 (self, val, status)
+    integer, parameter :: INTSIZE = int32
+    integer (INTSIZE), intent(out) :: val
+    integer (INTSIZE), dimension(1) :: work
+    include "include/argument_get_scalar.f90"
+end subroutine
 
+subroutine argument_get_scalar_int64 (self, val, status)
+    integer, parameter :: INTSIZE = int64
+    integer (INTSIZE), intent(out) :: val
+    integer (INTSIZE), dimension(1) :: work
+    include "include/argument_get_scalar.f90"
+end subroutine
+
+subroutine argument_get_scalar_real32 (self, val, status)
+    integer, parameter :: PREC = real32
+    real (PREC), intent(out) :: val
+    real (PREC), dimension(1) :: work
+    include "include/argument_get_scalar.f90"
+end subroutine
+
+subroutine argument_get_scalar_real64 (self, val, status)
+    integer, parameter :: PREC = real64
+    real (PREC), intent(out) :: val
+    real (PREC), dimension(1) :: work
+    include "include/argument_get_scalar.f90"
+end subroutine
+
+subroutine argument_get_scalar_logical (self, val, status)
+    logical, intent(out) :: val
+    logical, dimension(1) :: work
+    include "include/argument_get_scalar.f90"
+end subroutine
+
+subroutine argument_get_scalar_str (self, val, status)
+    class (argument), intent(in) :: self
+    class (str), intent(out) :: val
+    integer, intent(out), optional :: status
+
+    class (str), dimension(:), allocatable :: work
+
+    allocate (work(1), source=val)
+    call self%get (work, status)
+    if (status == STATUS_OK) val = work(1)
+end subroutine
+
+! ------------------------------------------------------------------------------
+! PARSE method
 subroutine argument_parse_array_int32 (self, val, status)
     integer (int32), intent(out), dimension(:) :: val
     integer (int32), dimension(:), pointer :: ptr
 
-    include "argument_parse_array_impl.f90"
+    include "include/argument_parse_array_impl.f90"
 end subroutine
 
 subroutine argument_parse_array_int64 (self, val, status)
@@ -311,7 +394,7 @@ subroutine argument_parse_array_int64 (self, val, status)
     integer (INTSIZE), intent(out), dimension(:) :: val
     integer (INTSIZE), dimension(:), pointer :: ptr
 
-    include "argument_parse_array_impl.f90"
+    include "include/argument_parse_array_impl.f90"
 end subroutine
 
 subroutine argument_parse_array_real32 (self, val, status)
@@ -319,7 +402,7 @@ subroutine argument_parse_array_real32 (self, val, status)
     real (PREC), intent(out), dimension(:) :: val
     real (PREC), dimension(:), pointer :: ptr
 
-    include "argument_parse_array_impl.f90"
+    include "include/argument_parse_array_impl.f90"
 end subroutine
 
 subroutine argument_parse_array_real64 (self, val, status)
@@ -327,43 +410,26 @@ subroutine argument_parse_array_real64 (self, val, status)
     real (PREC), intent(out), dimension(:) :: val
     real (PREC), dimension(:), pointer :: ptr
 
-    include "argument_parse_array_impl.f90"
+    include "include/argument_parse_array_impl.f90"
+end subroutine
+
+subroutine argument_parse_array_logical (self, val, status)
+    logical, intent(out), dimension(:) :: val
+    logical, dimension(:), pointer :: ptr
+    include "include/argument_parse_array_impl.f90"
 end subroutine
 
 subroutine argument_parse_array_str (self, val, status)
     _POLYMORPHIC_ARRAY (str), intent(out), dimension(:) :: val
     _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
-
-    include "argument_parse_array_impl.f90"
+    include "include/argument_parse_array_impl.f90"
 end subroutine
-
-subroutine argument_parse_array_char (self, val, status)
-    character (*), intent(out), dimension(:) :: val
-    character (*), dimension(:), pointer :: ptr
-
-    include "argument_parse_array_impl.f90"
-end subroutine
-
-
-subroutine argument_parse_scalar_int32 (self, val, status)
-    integer, parameter :: INTSIZE = int32
-    integer (INTSIZE), intent(out), :: val
-    integer (INTSIZE), dimension(1) :: work
-
-    class (argument), intent(in) :: self
-    integer, intent(out) :: status
-
-    call self%parse (work, status)
-    if (status == STATUS_OK) val = work(1)
-
-end subroutine
-
 
 ! ------------------------------------------------------------------------------
 ! Casts
 
-subroutine dynamic_cast_argument (tgt, ptr)
-    class (*), intent(in), pointer :: obj
+subroutine cast_any_to_argument (tgt, ptr)
+    class (*), intent(in), pointer :: tgt
     class (argument), intent(out), pointer :: ptr
 
     select type (tgt)

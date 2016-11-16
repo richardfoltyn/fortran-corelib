@@ -29,11 +29,17 @@ module corelib_argparse_parser
         procedure, pass :: init_char => argparser_init_char
         generic, public :: init => init_str, init_char
 
+        procedure, pass :: get_scalar_str => argparse_get_scalar_str
+        procedure, pass :: get_scalar_char => argparse_get_scalar_char
+        procedure, pass :: get_array_str => argparse_get_array_str
+        procedure, pass :: get_array_char => argparse_get_array_char
+        generic, public :: get => get_scalar_str, get_scalar_char, &
+            get_array_str, get_array_char
+
+        procedure, public, pass :: parse => argparse_parse
+
         procedure, pass :: append => argparser_append
-        ! procedure, pass :: parse_args_str
-        ! procedure, pass :: parse_args_cmdline
-        !
-        ! generic, public :: parse_args => parse_args_str, parse_args_cmdline
+        procedure, pass :: find_arg => argparser_find_arg
     end type
 
 
@@ -173,21 +179,15 @@ end subroutine
 ! GET methods
 
 subroutine argparser_get_array_str (self, name, val, status)
-    class (ArgParser), intent(in out) :: self
+    class (argparser), intent(in out) :: self
     type (str), intent(in) :: name
     class (*), intent(out), dimension(:) :: val
     integer, intent(out), optional :: status
 
     class (argument), pointer :: ptr_arg
-    ! deallocated automatically on subroutine exit
-    class (iterator), allocatable :: iter
-    class (*), pointer :: ptr_item
     character (100) :: msg
 
     integer :: lstatus
-
-    ! supported value types
-    integer (int32), pointer :: ptr_int32
 
     ! this is an error that should be trigged by the developer,
     ! no need to exit gracefully
@@ -202,6 +202,93 @@ subroutine argparser_get_array_str (self, name, val, status)
         goto 100
     end if
 
+    call self%find_arg (name, ptr_arg)
+
+    if (.not. associated(ptr_arg)) then
+        lstatus = ARGPARSE_STATUS_UNKNOWN_ARGUMENT
+        msg = "Unknown argument: " // name%to_char()
+        goto 100
+    end if
+
+    ! at this point ptr_arg points to the argument identified by name.
+    ! Retrieve stored argument value
+    call ptr_arg%get (val, lstatus)
+
+100 continue
+    if (present(status)) status = lstatus
+    if (len_trim(msg) > 0) write (ERROR_UNIT, fmt=*) msg
+end subroutine
+
+subroutine argparser_get_scalar_str (self, name, val, status)
+    class (argparser), intent(in out) :: self
+    type (str), intent(in) :: name
+    class (*), intent(out) :: val
+    integer, intent(out), optional :: status
+
+    class (argument), pointer :: ptr_arg
+    character (100) :: msg
+
+    integer :: lstatus
+
+    ! this is an error that should be trigged by the developer,
+    ! no need to exit gracefully
+    if (self%status == ARGPARSE_STATUS_INIT) then
+        error stop "No arguments have been specified"
+    else if (self%status == ARGPARSE_STATUS_PARSE_ERROR) then
+        lstatus = ARGPARSE_STATUS_PARSE_ERROR
+        goto 100
+    else if (self%status /= ARGPARSE_STATUS_PARSED) then
+        lstatus = ARGPARSE_STATUS_UNKNOWN
+        msg = "Unknown error encountered"
+        goto 100
+    end if
+
+    call self%find_arg (name, ptr_arg)
+
+    if (.not. associated(ptr_arg)) then
+        lstatus = ARGPARSE_STATUS_UNKNOWN_ARGUMENT
+        msg = "Unknown argument: " // name%to_char()
+        goto 100
+    end if
+
+    ! at this point ptr_arg points to the argument identified by name.
+    ! Retrieve stored argument value
+    call ptr_arg%get (val, lstatus)
+
+100 continue
+    if (present(status)) status = lstatus
+    if (len_trim(msg) > 0) write (ERROR_UNIT, fmt=*) msg
+end subroutine
+
+subroutine argparser_get_array_char (self, name, val, status)
+    class (argparser), intent(in out) :: self
+    character (*), intent(in) :: name
+    class (*), intent(out), dimension(:) :: val
+    integer, intent(out), optional :: status
+
+    call self%get (str(name), val, status)
+end subroutine
+
+subroutine argparser_get_scalar_char (self, name, val, status)
+    class (argparser), intent(in out) :: self
+    character (*), intent(in) :: name
+    class (*), intent(out) :: val
+    integer, intent(out), optional :: status
+
+    call self%get (str(name), val, status)
+end subroutine
+
+! ------------------------------------------------------------------------------
+! FIND_ARG method
+subroutine argparser_find_arg (self, name, ptr_arg)
+    class (argparser), intent(in) :: self
+    class (str), intent(in) :: name
+    class (argument), intent(out), pointer :: ptr_arg
+
+    ! deallocated automatically on subroutine exit
+    class (iterator), allocatable :: iter
+    class (*), pointer :: ptr_item
+
     ! try to locate name in list of arguments
     ! get list iterator
     call self%args%get_iter (iter)
@@ -210,31 +297,29 @@ subroutine argparser_get_array_str (self, name, val, status)
 
     do while (iter%has_next())
         ptr_item => iter%item()
-        call dynamic_cast_argument (ptr_item, ptr_arg)
+        call dynamic_cast (ptr_item, ptr_arg)
 
         if (ptr_arg%name == name) exit
         nullify (ptr_arg)
     end do
 
-    if (.not. associated(ptr_arg)) then
-        lstatus = ARGPARSE_STATUS_UNKNOWN_ARGUMENT
-        msg = "Unknown argument: " // name%to_char()
-        goto 100
-    end if
-
-    ! at this point ptr_arg points to the argument identified by name
-    select type (val)
-    type is (integer(int32))
-        ptr_int32 => val
-        call ptr_arg%get (ptr_int32)
-    end select
-
-    return
-100 continue
-    if (present(status)) status = lstatus
-    if (len_trim(msg) > 0) write (ERROR_UNIT, *) msg
 end subroutine
 
+! ------------------------------------------------------------------------------
+! PARSE method
 
+subroutine argparse_parse (self, status)
+    class (argparse), intent(in out) :: self
+    integer, intent(out), optional :: status
+
+    integer :: lstatus
+    character (100) :: msg
+
+
+100 continue
+    if (present(status)) status = lstatus
+    if (len(msg) > 0) write (ERROR_UNIT, fmt=*) msg
+
+end subroutine
 
 end module
