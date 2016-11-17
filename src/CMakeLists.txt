@@ -16,9 +16,24 @@ endif (NOT CMAKE_BUILD_TYPE)
 
 ###############################################################################
 # User-definable options
-option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+if (WIN32)
+    option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+else()
+    option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+endif()
+
 option(BUILD_TESTS "Build unit tests" ON)
 option(BUILD_EXAMPLES "Build example code" ON)
+
+###############################################################################
+# Version
+set(CORELIB_VERSION_COUNT 3)
+set(CORELIB_VERSION_MAJOR 0)
+set(CORELIB_VERSION_MINOR 1)
+set(CORELIB_VERSION_PATCH 0)
+set(CORELIB_VERSION
+	"${CORELIB_VERSION_MAJOR}.${CORELIB_VERSION_MINOR}.${CORELIB_VERSION_PATCH}"
+)
 
 ###############################################################################
 # Path suffixes beneath CMAKE_INSTALL_PREFIX

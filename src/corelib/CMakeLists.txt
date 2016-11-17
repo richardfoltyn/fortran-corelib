@@ -3,6 +3,11 @@ set(CORELIB_COMPONENTS argparse common collections datetime logging strings test
 
 include_directories("${${PROJECT_NAME}_MODDIR}")
 
+# Update version module
+configure_file(version.f90.in
+	${CMAKE_BINARY_DIR}/version.f90
+)
+
 set(COMPONENT_OBJECTS)
 
 foreach(_comp IN LISTS CORELIB_COMPONENTS)
@@ -21,7 +26,12 @@ foreach(_comp IN LISTS CORELIB_COMPONENTS)
     list(APPEND COMPONENT_OBJECTS $<TARGET_OBJECTS:${_comp}>)
 endforeach()
 
-add_library(${LIBRARY_NAME} ${COMPONENT_OBJECTS})
+set(SOURCE_FILES
+    ${CMAKE_BINARY_DIR}/version.f90
+    corelib.f90
+)
+
+add_library(${LIBRARY_NAME} ${SOURCE_FILES} ${COMPONENT_OBJECTS})
 set_target_properties(${LIBRARY_NAME} PROPERTIES
     OUTPUT_NAME ${LIBRARY_NAME}
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
@@ -29,7 +39,7 @@ set_target_properties(${LIBRARY_NAME} PROPERTIES
 
 # build static library so tests can link against it
 if (BUILD_TESTS)
-    add_library(${LIBRARY_NAME}_static STATIC ${COMPONENT_OBJECTS})
+    add_library(${LIBRARY_NAME}_static STATIC ${SOURCE_FILES} ${COMPONENT_OBJECTS})
 endif()
 
 install(TARGETS ${LIBRARY_NAME}
