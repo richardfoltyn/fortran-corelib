@@ -47,16 +47,15 @@ module corelib_argparse_parser
             argparser_get_array_char, &
             argparser_get_scalar_char
 
-        procedure, public, pass :: parse => argparse_parse
+        procedure, public, pass :: parse => argparser_parse
 
         procedure, pass :: append => argparser_append
         procedure, pass :: find_arg => argparser_find_arg
         procedure, pass :: parse_long => argparser_parse_long
         procedure, pass :: parse_abbrev => argparser_parse_abbrev
         procedure, pass :: collect_values => argparser_collect_values
+        procedure, pass :: has_args => argparser_has_args
     end type
-
-
 
 contains
 
@@ -64,18 +63,34 @@ contains
 ! Initialization
 
 pure subroutine argparser_init_str (self, description)
-    class (ArgParser), intent(in out) :: self
+    class (argparser), intent(in out) :: self
     class (str), intent(in), optional :: description
 
     if (present(description)) self%description = description
 end subroutine
 
 pure subroutine argparser_init_char (self, description)
-    class (ArgParser), intent(in out) :: self
+    class (argparser), intent(in out) :: self
     character (len=*), intent(in) :: description
 
     call self%init (str(description))
 end subroutine
+
+! ------------------------------------------------------------------------------
+! Helper functions
+
+function argparser_has_args (self) result(res)
+    class (argparser), intent(in) :: self
+    logical :: res
+    
+    logical :: is_allocated, has_args
+    
+    has_args = .false.
+    is_allocated = allocated(self%args)
+    if (is_allocated) has_args = len(self%args) > 0
+    
+    res = is_allocated .and. has_args
+end function
 
 ! ------------------------------------------------------------------------------
 ! Adding arguments
@@ -271,11 +286,13 @@ subroutine argparser_get_array_str (self, name, val, status)
     character (100) :: msg
 
     integer :: lstatus
+    
+    msg = ""
 
-    ! this is an error that should be trigged by the developer,
-    ! no need to exit gracefully
-    if (self%status == ARGPARSE_STATUS_INIT) then
-        error stop "No arguments have been specified"
+    if (.not. self%has_args()) then
+        lstatus = STATUS_INVALID_STATE
+        msg = "No arguments have been specified"
+        goto 100
     else if (self%status == ARGPARSE_STATUS_PARSE_ERROR) then
         lstatus = ARGPARSE_STATUS_PARSE_ERROR
         goto 100
@@ -310,13 +327,14 @@ subroutine argparser_get_scalar_str (self, name, val, status)
 
     class (argument), pointer :: ptr_arg
     character (100) :: msg
-
     integer :: lstatus
+    
+    msg = ""
 
-    ! this is an error that should be trigged by the developer,
-    ! no need to exit gracefully
-    if (self%status == ARGPARSE_STATUS_INIT) then
-        error stop "No arguments have been specified"
+    if (.not. self%has_args()) then
+        lstatus = STATUS_INVALID_STATE
+        msg = "No arguments have been specified"
+        goto 100
     else if (self%status == ARGPARSE_STATUS_PARSE_ERROR) then
         lstatus = ARGPARSE_STATUS_PARSE_ERROR
         goto 100
@@ -400,7 +418,7 @@ end subroutine
 ! ------------------------------------------------------------------------------
 ! PARSE method
 
-subroutine argparse_parse (self, status)
+subroutine argparser_parse (self, status)
     class (argparser), intent(in out) :: self
     integer, intent(out), optional :: status
 
@@ -409,12 +427,11 @@ subroutine argparse_parse (self, status)
     character (100) :: msg
     character (CMD_BUFFER_SIZE) :: buf
     type (str) :: cmd_arg, str_tmp
-    class (argument), pointer :: ptr_arg
 
-    lstatus = STATUS_OK
+    lstatus = STATUS_INVALID_STATE
+    msg = ""
 
-    if (self%status == ARGPARSE_STATUS_INIT) then
-        lstatus = STATUS_INVALID_STATE
+    if (.not. self%has_args()) then
         msg = "Need to add arguments before parsing"
         goto 100
     end if
@@ -422,11 +439,13 @@ subroutine argparse_parse (self, status)
     ! count does not include the command name
     cmd_nargs = command_argument_count()
     if (cmd_nargs == 0) then
-        lstatus = STATUS_INVALID_STATE
         msg = "No command line arguments specified"
         goto 100
     end if
 
+    ! argparser state seems to be valid for parsing
+    lstatus = STATUS_OK
+    
     i = 1
     do while (i < cmd_nargs)
         call get_command_argument (i, buf)
@@ -477,6 +496,7 @@ subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status)
     integer :: j
 
     status = STATUS_OK
+    msg = ""
 
     ! check whether there is an = and separate token in that case
     j = index (cmd_arg, "=")
@@ -506,6 +526,9 @@ subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status)
         ! collect the number of requested arguments from the following commands
         call self%collect_values (offset+1, cmd_nargs, ptr_arg, cmd_values, status)
         if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
+        
+        ! store command line arguments in argument object
+        call ptr_arg%set (cmd_values)
 
         ! skip the next nargs arguments, those were used as values
         offset = offset + ptr_arg%nargs
@@ -527,7 +550,7 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status)
     integer, intent(in) :: cmd_nargs
     integer, intent(out) :: status
 
-    type (str) :: cmd_name, str_tmp
+    type (str) :: cmd_name
     type (str), dimension(:), allocatable :: cmd_values
     class (argument), pointer :: ptr_arg
     character (100) :: msg
@@ -535,6 +558,7 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status)
     integer :: j
 
     status = STATUS_OK
+    msg = ""
 
     ! loop through all characters; note that argument values can
     ! only be specified for the very last argument, ie
@@ -555,9 +579,11 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status)
         else if (ptr_arg%nargs > 0) then
             ! need to collect argument values
             call self%collect_values (offset+1, cmd_nargs, ptr_arg, cmd_values, status)
-
             if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
-
+            
+            ! store command line arguments in argument object
+            call ptr_arg%set (cmd_values)
+            
             ! skip the next nargs arguments, those were used as values
             offset = offset + ptr_arg%nargs
 
@@ -575,7 +601,7 @@ end subroutine
 subroutine argparser_collect_values (self, offset, cmd_nargs, ptr_arg, cmd_values, status)
     class (argparser), intent(in out) :: self
     integer, intent(in) :: offset, cmd_nargs
-    class (argument), pointer :: ptr_arg
+    class (argument), intent(in), pointer :: ptr_arg
     type (str), intent(out), dimension(:), allocatable :: cmd_values
     integer, intent(out) :: status
 
@@ -584,12 +610,13 @@ subroutine argparser_collect_values (self, offset, cmd_nargs, ptr_arg, cmd_value
     integer :: j
 
     status = STATUS_OK
+    msg = ""
     if (allocated(cmd_values)) deallocate (cmd_values)
 
     allocate (cmd_values(ptr_arg%nargs))
 
     j = 0
-    do while (j <= ptr_arg%nargs)
+    do while (j < ptr_arg%nargs)
         ! check that the number of command line arguments is not too low
         if (offset + j > cmd_nargs) then
             status = ARGPARSE_STATUS_INSUFFICIENT_ARGS

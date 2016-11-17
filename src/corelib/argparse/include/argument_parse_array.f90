@@ -4,6 +4,8 @@
 
     integer :: i
 
+    msg = ""
+
     if (self%is_present) then
         if (self%action == ARGPARSE_ACTION_STORE) then
             do i = 1, self%nargs

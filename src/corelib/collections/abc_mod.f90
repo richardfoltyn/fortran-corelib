@@ -9,6 +9,7 @@ module corelib_collections_abc_mod
     type, abstract :: collection
     contains
         procedure (iface_iter), deferred, public, pass :: get_iter
+        procedure (iface_length), deferred, public, pass :: length
     end type
 
     type, abstract :: iterator
@@ -45,9 +46,28 @@ module corelib_collections_abc_mod
             class (collection), intent(in) :: self
             class (iterator), intent(out), allocatable :: iter
         end subroutine
+
+        function iface_length (self) result(res)
+            import collection
+            class (collection), intent(in) :: self
+            integer :: res
+        end function
+    end interface
+
+    interface len
+        module procedure len_collection
     end interface
 
     public :: collection, iterator
+    public :: len
 
+contains
+
+function len_collection (obj) result(res)
+    class (collection), intent(in) :: obj
+    integer :: res
+
+    res = obj%length ()
+end function
 
 end module
