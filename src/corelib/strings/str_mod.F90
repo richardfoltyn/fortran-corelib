@@ -121,14 +121,19 @@ module corelib_string_str_mod
             repeat_int64_str
     end interface
 
+    interface index
+        module procedure index_str_str, index_char_str, index_str_char
+    end interface
+
     interface dynamic_cast
         module procedure cast_any_to_str, cast_any_to_str_array
     end interface
 
-    public :: str, str_array, len, repeat
+    public :: str, str_array, len, repeat, index
     public :: operator (+), operator (//), operator (/=), operator (==), operator (*)
     public :: assignment (=)
     public :: dynamic_cast
+
 contains
 
 ! *****************************************************************************
@@ -695,6 +700,55 @@ pure subroutine repeat_impl (s, n, res)
 
 end subroutine
 
+! ******************************************************************************
+! INDEX routine
+
+elemental function index_str_str (s1, s2, back, kind) result(res)
+    class (str), intent(in) :: s1, s2
+    logical, intent(in), optional :: back
+    integer, intent(in), optional :: kind
+    integer :: res
+
+    if (_VALID(s1) .and. _VALID(s2)) then
+        res = index (s1%value, s2%value, back)
+    else if (_VALID(s1)) then
+        res = index (s1%value, "", back)
+    else if (_VALID(s2)) then
+        res = index ("", s2%value, back)
+    else
+        res = index ("", "", back)
+    end if
+
+end function
+
+elemental function index_str_char (s, char, back, kind) result(res)
+    class (str), intent(in) :: s
+    character (*), intent(in) :: char
+    logical, intent(in), optional :: back
+    integer, intent(in), optional :: kind
+    integer :: res
+
+    if (_VALID(s)) then
+        res = index (s%value, char, back)
+    else
+        res = index ("", char, back)
+    end if
+end function
+
+elemental function index_char_str (char, s1, back, kind) result(res)
+    character (*), intent(in) :: char
+    class (str), intent(in) :: s1
+    logical, intent(in), optional :: back
+    integer, intent(in), optional :: kind
+    integer :: res
+
+    if (_VALID(s1)) then
+        res = index (char, s1%value, back)
+    else
+        res = index (char, "", back)
+    end if
+end function
+
 ! *****************************************************************************
 ! Converstion to other native data types
 subroutine parse_int32 (self, val, status)
@@ -773,7 +827,7 @@ end subroutine
 
 subroutine cast_any_to_str_array (tgt, ptr, status)
     class (*), intent(in), dimension(:), target :: tgt
-    class (str), intent(out), dimension(:), pointer :: ptr
+    _POLYMORPHIC_ARRAY (str), intent(out), dimension(:), pointer :: ptr
     integer, intent(out), optional :: status
 
     integer :: lstatus

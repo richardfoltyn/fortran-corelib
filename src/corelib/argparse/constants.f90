@@ -9,13 +9,10 @@ module corelib_argparse_constants
 
     integer, parameter :: ARGPARSE_STATUS_OK = 0
     ! in intial state, no arguments added
-    integer, parameter :: ARGPARSE_STATUS_INIT = 1
-    integer, parameter :: ARGPARSE_STATUS_EMPTY_CMDLINE = 2
-    integer, parameter :: ARGPARSE_STATUS_PARSE_ERROR = 4
-    integer, parameter :: ARGPARSE_STATUS_PARSED = 2 ** 3
-    integer, parameter :: ARGPARSE_STATUS_UNKNOWN_ARGUMENT = 2 ** 4
-    integer, parameter :: ARGPARSE_STATUS_INCORRECT_NARGS = 2 ** 5
-    integer, parameter :: ARGPARSE_STATUS_INVALID_INPUT = 2 ** 6
-    integer, parameter :: ARGPARSE_STATUS_UNKNOWN = 2**10
+    integer, parameter :: ARGPARSE_STATUS_INIT = - 1
+    integer, parameter :: ARGPARSE_STATUS_EMPTY_CMDLINE = - 2
+    integer, parameter :: ARGPARSE_STATUS_PARSE_ERROR = - 4
+    integer, parameter :: ARGPARSE_STATUS_PARSED = - 2 ** 3
+    integer, parameter :: ARGPARSE_STATUS_INSUFFICIENT_ARGS = - 2 ** 11
 
 end module
