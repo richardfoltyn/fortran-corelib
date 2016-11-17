@@ -12,9 +12,12 @@ program argparse1
     logical :: flag1, flag2
     integer :: const
 
+    call parser%init ("argparse example 1")
     call parser%add_argument ("name", "n", required=.true., status=status)
-    call parser%add_argument ("flag1", action=ARGPARSE_ACTION_STORE_TRUE, status=status)
-    call parser%add_argument ("flag2", action=ARGPARSE_ACTION_STORE_FALSE, status=status)
+    call parser%add_argument ("flag1", action=ARGPARSE_ACTION_STORE_TRUE, &
+        status=status)
+    call parser%add_argument ("flag2", action=ARGPARSE_ACTION_STORE_FALSE, &
+        status=status)
     call parser%add_argument ("opt", "o", default="Default opt", status=status)
     call parser%add_argument ("const", "c", action=ARGPARSE_ACTION_STORE_CONST, &
         const=123, default=0, status=status)
