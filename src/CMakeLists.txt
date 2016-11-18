@@ -71,24 +71,28 @@ endif()
 ###############################################################################
 # Set additional Fortran compiler FLAGS
 
-set(_FFLAGS)
+unset(_FFLAGS)
+unset(_FFLAGS_DEBUG)
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     # explicitly add -cpp to run C preprocessor if required
     set(GNU_WARN "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure \
       -Warray-temporaries -Wrealloc-lhs -pedantic")
     set(_FFLAGS "${GNU_WARN} -std=f2008")
+    set(_FFLAGS_DEBUG "-fcheck=all")
 elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
     if (WIN32)
-        set (_FFLAGS "/warn:all /standard-semantics /stand:f08")
+        set(_FFLAGS "/warn:all /standard-semantics /stand:f08")
+        set(_FFLAGS_DEBUG "/check:all")
     else ()
-        set (_FFLAGS "-warn all -standard-semantics -std08")
+        set(_FFLAGS "-warn all -standard-semantics -std08")
+        set(_FFLAGS_DEBUG "-check all")
     endif (WIN32)
 endif ()
 
 # append additional FLAGS to default cmake FLAGS
-set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${_FFLAGS}")
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${_FFLAGS}")
 # set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} ${_FFLAGS}")
-# set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${_FFLAGS}")
+set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${_FFLAGS_DEBUG}")
 
 ###############################################################################
 # Report options and settings
