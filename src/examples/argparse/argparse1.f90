@@ -22,6 +22,9 @@ program argparse1
     call parser%add_argument ("const", "c", action=ARGPARSE_ACTION_STORE_CONST, &
         const=123, default=0, status=status)
 
+    ! test adding an argument with an existing name
+    call parser%add_argument ("name")
+
     call parser%parse ()
 
     call parser%get ("name", name, status=status)

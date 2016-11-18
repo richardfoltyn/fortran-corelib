@@ -13,6 +13,7 @@ module corelib_argparse_constants
     integer, parameter :: ARGPARSE_STATUS_EMPTY_CMDLINE = - 2
     integer, parameter :: ARGPARSE_STATUS_PARSE_ERROR = - 4
     integer, parameter :: ARGPARSE_STATUS_PARSED = - 2 ** 3
+    integer, parameter :: ARGPARSE_STATUS_ARG_DEFINED = - 2**4
     integer, parameter :: ARGPARSE_STATUS_INSUFFICIENT_ARGS = - 2 ** 11
 
 end module
