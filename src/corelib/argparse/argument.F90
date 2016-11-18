@@ -1,7 +1,7 @@
 ! gfortran up to v5.x incorrectly processes procedure calls if the actual argument
 ! is a temporary array of user-derived type, and the dummy argument is
 ! polymorphic; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60322
-#ifdef __GFORTRAN__
+#ifdef __GFORTRAN__ && __GNUC__  < 6
 #define _POLYMORPHIC_ARRAY(t) type (t)
 #else
 #define _POLYMORPHIC_ARRAY(t) class (t)
@@ -495,7 +495,7 @@ subroutine argument_parse_array_str (self, val, status, msg)
     class (*), dimension(:), pointer :: ptr_stored
 
     integer :: i
-    
+
     nullify (ptr_stored, ptr)
 
     if (self%is_present) then
@@ -545,7 +545,7 @@ subroutine argument_parse_array_char (self, val, status, msg)
     class (*), dimension(:), pointer :: ptr_stored
 
     integer :: i
-    
+
     nullify (ptr_stored, ptr)
 
     if (self%is_present) then
