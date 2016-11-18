@@ -358,7 +358,7 @@ end subroutine
 ! *****************************************************************************
 ! LINKED_LIST finalizer
 
-impure elemental subroutine list_finalize (self)
+elemental subroutine list_finalize (self)
     type (linked_list), intent(in out) :: self
     type (list_node), pointer :: ptr_node, ptr_next
 
@@ -370,7 +370,6 @@ impure elemental subroutine list_finalize (self)
         ptr_node => ptr_next
     end do
 
-    ! set to null. List
     nullify (self%ptr_first)
     nullify (self%ptr_last)
 
