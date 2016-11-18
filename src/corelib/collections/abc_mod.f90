@@ -47,7 +47,7 @@ module corelib_collections_abc_mod
             class (iterator), intent(out), allocatable :: iter
         end subroutine
 
-        function iface_length (self) result(res)
+        pure function iface_length (self) result(res)
             import collection
             class (collection), intent(in) :: self
             integer :: res
@@ -63,7 +63,7 @@ module corelib_collections_abc_mod
 
 contains
 
-function len_collection (obj) result(res)
+pure function len_collection (obj) result(res)
     class (collection), intent(in) :: obj
     integer :: res
 

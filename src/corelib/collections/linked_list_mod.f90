@@ -186,7 +186,7 @@ end subroutine
 
 ! *****************************************************************************
 ! ATTRIBUTES
-function list_length (self) result(res)
+pure function list_length (self) result(res)
     class (linked_list), intent(in) :: self
     integer :: res
 
