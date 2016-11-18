@@ -127,14 +127,8 @@ subroutine argparser_add_argument_array_str (self, name, abbrev, action, &
 
     msg = ""
 
-    call validate_args (name, abbrev, action, nargs, lstatus, msg)
+    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
     if (lstatus /= STATUS_OK) goto 100
-
-    if (self%has_arg(name, abbrev)) then
-        lstatus = ARGPARSE_STATUS_ARG_DEFINED
-        msg = "Argument '" // name // "' already defined"
-        goto 100
-    end if
 
     call arg%init (name, abbrev, action, required, nargs, &
         help, lstatus, default, const)
@@ -165,11 +159,8 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
 
     msg = ""
 
-    if (self%has_arg(name, abbrev)) then
-        lstatus = ARGPARSE_STATUS_ARG_DEFINED
-        msg = "Argument '" // name // "' already defined"
-        goto 100
-    end if
+    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
+    if (lstatus /= STATUS_OK) goto 100
 
     call arg%init (name, abbrev, action, required, nargs, help, lstatus, default)
 
@@ -201,11 +192,8 @@ subroutine argparser_add_argument_scalar_str (self, name, abbrev, action, &
 
     msg = ""
 
-    if (self%has_arg(name, abbrev)) then
-        lstatus = ARGPARSE_STATUS_ARG_DEFINED
-        msg = "Argument '" // name // "' already defined"
-        goto 100
-    end if
+    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
+    if (lstatus /= STATUS_OK) goto 100
 
     call arg%init (name, abbrev, action, required, nargs, help, lstatus, default, const)
 
@@ -235,15 +223,13 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     character (MSG_LENGTH) :: msg
 
     msg = ""
+
+    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
+    if (lstatus /= STATUS_OK) goto 100
+
     lname = name
     if (present(help)) lhelp = str(help)
     if (present(abbrev)) labbrev = str(abbrev)
-
-    if (self%has_arg(lname, labbrev)) then
-        lstatus = ARGPARSE_STATUS_ARG_DEFINED
-        msg = "Argument '" // name // "' already defined"
-        goto 100
-    end if
 
     call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, default)
     if (lstatus == STATUS_OK) call self%append (arg)
@@ -272,17 +258,15 @@ subroutine argparser_add_argument_scalar_char (self, name, abbrev, action, &
     character (MSG_LENGTH) :: msg
 
     msg = ""
+
+    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
+    if (lstatus /= STATUS_OK) goto 100
+
     lname = name
     if (present(help)) lhelp = str(help)
     if (present(abbrev)) labbrev = str(abbrev)
 
-    if (self%has_arg(lname, labbrev)) then
-        lstatus = ARGPARSE_STATUS_ARG_DEFINED
-        msg = "Argument '" // name // "' already defined"
-        goto 100
-    end if
-
-    call arg%init (str(name), labbrev, action, required, nargs, lhelp, lstatus, &
+    call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
         default, const)
 
     if (lstatus == STATUS_OK) call self%append (arg)
@@ -312,20 +296,15 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
     character (MSG_LENGTH) :: msg
 
     msg = ""
+
+    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
+    if (lstatus /= STATUS_OK) goto 100
+
     lname = name
     if (present(help)) lhelp = str(help)
     if (present(abbrev)) labbrev = str(abbrev)
 
-    call validate_args (lname, labbrev, action, nargs, lstatus, msg)
-    if (lstatus /= STATUS_OK) goto 100
-
-    if (self%has_arg(lname, labbrev)) then
-        lstatus = ARGPARSE_STATUS_ARG_DEFINED
-        call duplicate_error_msg (lname, labbrev, msg)
-        goto 100
-    end if
-
-    call arg%init (str(name), labbrev, action, required, nargs, lhelp, lstatus, &
+    call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
         default, const)
 
     if (lstatus == STATUS_OK) call self%append (arg)
@@ -333,15 +312,6 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
 100 continue
     if (present(status)) status = lstatus
     call print_error (msg)
-end subroutine
-
-subroutine argparser_append (self, arg)
-    class (argparser), intent(in out) :: self
-    class (argument), intent(in) :: arg
-
-    if (.not. allocated(self%args)) allocate (self%args)
-
-    call self%args%append (arg)
 end subroutine
 
 subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status, msg)
@@ -352,14 +322,29 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status,
     integer, intent(out) :: status
     character (*), intent(out) :: msg
 
+    ! by default return invalid input status
     status = STATUS_INVALID_INPUT
+
     if (len_trim(name) == 0) then
         msg = "Invalid argument: name"
         return
     end if
+
+    ! check whether argument with this name is already defined
+    if (self%has_arg (name)) then
+        msg = "Argument '" // name // "' already defined"
+        return
+    end if
+
     if (present(abbrev)) then
         if (len_trim(abbrev) == 0) then
             msg = "Invalid argument: abbrev"
+            return
+        end if
+
+        ! check whether abbreviation of this name already exists
+        if (self%has_arg (abbrev, is_abbrev=.true.)) then
+            msg = "Argument with abbreviation '" // abbrev // "' already defined"
         end if
     end if
 
@@ -389,9 +374,13 @@ subroutine argparser_check_input_char (self, name, abbrev, action, nargs, status
 
     type (str) :: labbrev, lname
     lname = name
-    if (present (abbrev)) labbrev = abbrev
-
-    call self%check_input (lname, labbrev, action, nargs, status, msg)
+    if (present (abbrev)) then
+        labbrev = abbrev
+        call self%check_input (lname, labbrev, action, nargs, status, msg)
+    else
+        call self%check_input (lname, action=action, nargs=nargs, &
+            status=status, msg=msg)
+    end if
 end subroutine
 
 subroutine validate_action (action, status)
@@ -415,18 +404,15 @@ subroutine validate_action (action, status)
     end select
 end subroutine
 
-subroutine duplicate_error_msg (name, abbrev, msg)
-    type (str), intent(in) :: name, abbrev
-    character (*), intent(out) :: msg
-    optional :: abbrev
+! ------------------------------------------------------------------------------
+! APPEND method
+subroutine argparser_append (self, arg)
+    class (argparser), intent(in out) :: self
+    class (argument), intent(in) :: arg
 
-    if (present(abbrev)) then
-        if (len(abbrev) > 0) then
-            msg = "Argument --" // name // " or -" // abbrev " already defined"
-        end if
-    else
-        msg = "Argument --" // name // " already defined"
-    end if
+    if (.not. allocated(self%args)) allocate (self%args)
+
+    call self%args%append (arg)
 end subroutine
 
 ! ------------------------------------------------------------------------------
@@ -577,15 +563,16 @@ end function
 ! ------------------------------------------------------------------------------
 ! HAS_ARG method
 
-function argparser_has_arg (self, name) result (res)
+function argparser_has_arg (self, identifier, is_abbrev) result (res)
     class (argparser), intent(in) :: self
-    type (str), intent(in) :: name
+    type (str), intent(in) :: identifier
+    logical, intent(in), optional :: is_abbrev
     logical :: res
 
     type (argument), pointer :: ptr_arg
 
     nullify (ptr_arg)
-    ptr_arg => self%find_arg (name)
+    ptr_arg => self%find_arg (identifier, is_abbrev)
 
     res = associated (ptr_arg)
 end function
