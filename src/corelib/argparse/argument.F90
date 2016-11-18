@@ -46,34 +46,43 @@ module corelib_argparse_argument
         procedure, pass :: store_default_scalar => argument_store_default_scalar
         generic :: store_default => store_default_array, store_default_scalar
 
-        procedure, pass :: get_array => argument_get_array
-        procedure, pass :: get_scalar => argument_get_scalar
-        generic, public :: get => get_array, get_scalar
-
         procedure, pass :: argument_parse_array_int32
         procedure, pass :: argument_parse_array_int64
         procedure, pass :: argument_parse_array_real32
         procedure, pass :: argument_parse_array_real64
         procedure, pass :: argument_parse_array_logical
         procedure, pass :: argument_parse_array_str
+        procedure, pass :: argument_parse_array_char
         procedure, pass :: argument_parse_scalar_int32
         procedure, pass :: argument_parse_scalar_int64
         procedure, pass :: argument_parse_scalar_real32
         procedure, pass :: argument_parse_scalar_real64
         procedure, pass :: argument_parse_scalar_logical
         procedure, pass :: argument_parse_scalar_str
-        generic, public :: parse => argument_parse_array_int32, &
+        procedure, pass :: argument_parse_scalar_char
+        generic :: parse_impl => argument_parse_array_int32, &
             argument_parse_array_int64, &
             argument_parse_array_real32, &
             argument_parse_array_real64, &
             argument_parse_array_logical, &
             argument_parse_array_str, &
+            argument_parse_array_char, &
             argument_parse_scalar_int32, &
             argument_parse_scalar_int64, &
             argument_parse_scalar_real32, &
             argument_parse_scalar_real64, &
             argument_parse_scalar_logical, &
-            argument_parse_scalar_str
+            argument_parse_scalar_str, &
+            argument_parse_scalar_char
+
+        procedure, pass :: argument_parse_array
+        procedure, pass :: argument_parse_scalar
+        generic, public :: parse => argument_parse_scalar, argument_parse_array
+
+        procedure, pass :: argument_parse_check_input_scalar
+        procedure, pass :: argument_parse_check_input_array
+        generic :: parse_check_input => argument_parse_check_input_scalar, &
+            argument_parse_check_input_array
 
     end type
 
@@ -355,148 +364,96 @@ subroutine argument_set_array (self, val)
     self%is_present = .true.
 end subroutine
 
-
 ! ------------------------------------------------------------------------------
-! GET methods
+! PARSE dispatched methods
 
-subroutine argument_get_array (self, val, status)
+subroutine argument_parse_array (self, val, status, msg)
     class (argument), intent(in) :: self
     class (*), intent(out), dimension(:), target :: val
     integer, intent(out), optional :: status
+    character (*), intent(out), optional :: msg
 
     integer :: lstatus
-    character (100) :: msg
-
-    ! pointers to supported data types
-    integer (int32), dimension(:), pointer :: ptr_int32
-    integer (int64), dimension(:), pointer :: ptr_int64
-    real (real32), dimension(:), pointer :: ptr_real32
-    real (real64), dimension(:), pointer :: ptr_real64
-    logical, dimension(:), pointer :: ptr_logical
-    _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr_str
 
     lstatus = STATUS_OK
-    msg = ""
 
-    if (self%action == ARGPARSE_ACTION_STORE_CONST) then
-        if (size(val) < size(self%const)) then
-            lstatus = STATUS_INVALID_INPUT
-            msg = "Array size insufficient to store constant"
-            goto 100
-        end if
-    else if (self%action == ARGPARSE_ACTION_STORE) then
-        if (size(val) < self%nargs) then
-            lstatus = STATUS_INVALID_INPUT
-            msg = "Array size insufficient to store command line arguments"
-            goto 100
-        end if
-    end if
+    call self%parse_check_input (val, status, msg)
+    if (status /= STATUS_OK) goto 100
 
     select type (val)
     type is (integer(int32))
-        ptr_int32 => val
-        call self%parse (ptr_int32, lstatus)
+        call self%parse_impl (val, lstatus, msg)
     type is (integer(int64))
-        ptr_int64 => val
-        call self%parse (ptr_int64, lstatus)
+        call self%parse_impl (val, lstatus, msg)
     type is (real(real32))
-        ptr_real32 => val
-        call self%parse (ptr_real32, lstatus)
+        call self%parse_impl (val, lstatus, msg)
     type is (real(real64))
-        ptr_real64 => val
-        call self%parse (ptr_real64, lstatus)
+        call self%parse_impl (val, lstatus, msg)
     type is (logical)
-        ptr_logical => val
-        call self%parse (ptr_logical, lstatus)
+        call self%parse_impl (val, lstatus, msg)
+    type is (character (*))
+        call self%parse_impl (val, lstatus, msg)
     class is (str)
-        ptr_str => val
-        call self%parse (ptr_str, lstatus)
+        call self%parse_impl (val, lstatus, msg)
     class default
         lstatus = STATUS_INVALID_INPUT
-        msg = "Unsupported argument type"
+        if (present(msg)) msg = "Unsupported argument type"
     end select
 
 100 continue
     if (present(status)) status = lstatus
-    if (len(msg) > 0) write(ERROR_UNIT, fmt=*) msg
 
 end subroutine
 
-subroutine argument_get_scalar (self, val, status)
+subroutine argument_parse_scalar (self, val, status, msg)
     class (argument), intent(in) :: self
     class (*), intent(out), target :: val
     integer, intent(out), optional :: status
+    character (*), intent(out), optional :: msg
 
     integer :: lstatus
-    character (100) :: msg
-
-    ! pointers to supported data types
-    integer (int32), pointer :: ptr_int32
-    integer (int64), pointer :: ptr_int64
-    real (real32), pointer :: ptr_real32
-    real (real64), pointer :: ptr_real64
-    logical, pointer :: ptr_logical
-    class (str), pointer :: ptr_str
 
     lstatus = STATUS_OK
-    msg = ""
 
-    if (self%action == ARGPARSE_ACTION_STORE_CONST) then
-        if (size(self%const) > 1) then
-            lstatus = STATUS_INVALID_INPUT
-            msg = "Array size insufficient to store constant"
-            goto 100
-        end if
-    else if (self%action == ARGPARSE_ACTION_STORE) then
-        if (self%nargs > 1) then
-            lstatus = STATUS_INVALID_INPUT
-            msg = "Array size insufficient to store command line arguments"
-            goto 100
-        end if
-    end if
+    call self%parse_check_input (val, status, msg)
+    if (status /= STATUS_OK) goto 100
 
     select type (val)
     type is (integer(int32))
-        ptr_int32 => val
-        call self%parse (ptr_int32, lstatus)
+        call self%parse_impl (val, lstatus, msg)
     type is (integer(int64))
-        ptr_int64 => val
-        call self%parse (ptr_int64, lstatus)
+        call self%parse_impl (val, lstatus, msg)
     type is (real(real32))
-        ptr_real32 => val
-        call self%parse (ptr_real32, lstatus)
+        call self%parse_impl (val, lstatus, msg)
     type is (real(real64))
-        ptr_real64 => val
-        call self%parse (ptr_real64, lstatus)
+        call self%parse_impl (val, lstatus, msg)
     type is (logical)
-        ptr_logical => val
-        call self%parse (ptr_logical, lstatus)
+        call self%parse_impl (val, lstatus, msg)
+    type is (character (*))
+        call self%parse_impl (val, lstatus, msg)
     class is (str)
-        ptr_str => val
-        call self%parse (ptr_str, lstatus)
+        call self%parse_impl (val, lstatus, msg)
     class default
         lstatus = STATUS_INVALID_INPUT
-        msg = "Unsupported argument type"
+        if (present(msg)) msg = "Unsupported argument type"
     end select
 
 100 continue
     if (present(status)) status = lstatus
-    if (len(msg) > 0) write(ERROR_UNIT, fmt=*) msg
 
 end subroutine
 
-
 ! ------------------------------------------------------------------------------
-! PARSE method
+! PARSE implementation
 
-subroutine argument_parse_array_int32 (self, val, status)
+subroutine argument_parse_array_int32 (self, val, status, msg)
     integer (int32), intent(out), dimension(:) :: val
     integer (int32), dimension(:), pointer :: ptr
 
     include "include/argument_parse_array.f90"
 end subroutine
 
-subroutine argument_parse_array_int64 (self, val, status)
+subroutine argument_parse_array_int64 (self, val, status, msg)
     integer, parameter :: INTSIZE = int64
     integer (INTSIZE), intent(out), dimension(:) :: val
     integer (INTSIZE), dimension(:), pointer :: ptr
@@ -504,7 +461,7 @@ subroutine argument_parse_array_int64 (self, val, status)
     include "include/argument_parse_array.f90"
 end subroutine
 
-subroutine argument_parse_array_real32 (self, val, status)
+subroutine argument_parse_array_real32 (self, val, status, msg)
     integer, parameter :: PREC = real32
     real (PREC), intent(out), dimension(:) :: val
     real (PREC), dimension(:), pointer :: ptr
@@ -512,7 +469,7 @@ subroutine argument_parse_array_real32 (self, val, status)
     include "include/argument_parse_array.f90"
 end subroutine
 
-subroutine argument_parse_array_real64 (self, val, status)
+subroutine argument_parse_array_real64 (self, val, status, msg)
     integer, parameter :: PREC = real64
     real (PREC), intent(out), dimension(:) :: val
     real (PREC), dimension(:), pointer :: ptr
@@ -520,26 +477,114 @@ subroutine argument_parse_array_real64 (self, val, status)
     include "include/argument_parse_array.f90"
 end subroutine
 
-subroutine argument_parse_array_logical (self, val, status)
+subroutine argument_parse_array_logical (self, val, status, msg)
     logical, intent(out), dimension(:) :: val
     logical, dimension(:), pointer :: ptr
     include "include/argument_parse_array.f90"
 end subroutine
 
-subroutine argument_parse_array_str (self, val, status)
-    _POLYMORPHIC_ARRAY (str), intent(out), dimension(:) :: val
+! NB: Handle str seperately as we want to be able to convert stored const or
+! default values of type character
+subroutine argument_parse_array_str (self, val, status, msg)
+    _POLYMORPHIC_ARRAY (str), intent(in out), dimension(:) :: val
     _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
-    include "include/argument_parse_array.f90"
+
+    class (argument), intent(in), target :: self
+    integer, intent(out) :: status
+    character (*) , intent(out), optional :: msg
+    class (*), dimension(:), pointer :: ptr_stored
+
+    integer :: i
+
+    call self%parse_check_input (val, status, msg)
+    if (status /= STATUS_OK) goto 100
+
+    if (self%is_present) then
+        if (self%action == ARGPARSE_ACTION_STORE) then
+            do i = 1, self%nargs
+                call self%passed_values(i)%parse (val(i), status)
+            end do
+
+            return
+
+        else if (self%action == ARGPARSE_ACTION_STORE_CONST) then
+            ptr_stored => self%const
+        end if
+    else if (allocated (self%default)) then
+        ptr_stored => self%default
+    end if
+
+    call dynamic_cast (ptr_stored, ptr, status)
+    if (status == STATUS_OK) then
+        val = ptr
+    else
+        select type (ptr_stored)
+        type is (character (*))
+            val = ptr_stored
+        class default
+            if (present(msg)) &
+                msg = "Argument type incompatible with stored default value"
+        end select
+    end if
+
+    100 continue
 end subroutine
 
-subroutine argument_parse_scalar_int32 (self, val, status)
+! NB: Handle str seperately as we want to be able to convert stored const or
+! default values of type character
+subroutine argument_parse_array_char (self, val, status, msg)
+    character (*), intent(out), dimension(:) :: val
+    character (len(val)), dimension(:), pointer :: ptr
+
+    class (argument), intent(in), target :: self
+    integer, intent(out) :: status
+    character (*) , intent(out), optional :: msg
+    class (*), dimension(:), pointer :: ptr_stored
+
+    integer :: i
+
+    call self%parse_check_input (val, status, msg)
+    if (status /= STATUS_OK) goto 100
+
+    if (self%is_present) then
+        if (self%action == ARGPARSE_ACTION_STORE) then
+            do i = 1, self%nargs
+                call self%passed_values(i)%parse (val(i), status)
+            end do
+
+            return
+
+        else if (self%action == ARGPARSE_ACTION_STORE_CONST) then
+            ptr_stored => self%const
+        end if
+    else if (allocated (self%default)) then
+        ptr_stored => self%default
+    end if
+
+    call dynamic_cast (ptr_stored, ptr, status)
+    if (status == STATUS_OK) then
+        val = ptr
+    else
+        select type (ptr_stored)
+        class is (str)
+            val = ptr_stored
+        class default
+            if (present(msg)) &
+                msg = "Argument type incompatible with stored value"
+        end select
+    end if
+
+    100 continue
+end subroutine
+
+subroutine argument_parse_scalar_int32 (self, val, status, msg)
     integer (int32), intent(out) :: val
     integer (int32), pointer :: ptr
 
     include "include/argument_parse_scalar.f90"
 end subroutine
 
-subroutine argument_parse_scalar_int64 (self, val, status)
+subroutine argument_parse_scalar_int64 (self, val, status, msg)
     integer, parameter :: INTSIZE = int64
     integer (INTSIZE), intent(out) :: val
     integer (INTSIZE), pointer :: ptr
@@ -547,7 +592,7 @@ subroutine argument_parse_scalar_int64 (self, val, status)
     include "include/argument_parse_scalar.f90"
 end subroutine
 
-subroutine argument_parse_scalar_real32 (self, val, status)
+subroutine argument_parse_scalar_real32 (self, val, status, msg)
     integer, parameter :: PREC = real32
     real (PREC), intent(out) :: val
     real (PREC), pointer :: ptr
@@ -555,7 +600,7 @@ subroutine argument_parse_scalar_real32 (self, val, status)
     include "include/argument_parse_scalar.f90"
 end subroutine
 
-subroutine argument_parse_scalar_real64 (self, val, status)
+subroutine argument_parse_scalar_real64 (self, val, status, msg)
     integer, parameter :: PREC = real64
     real (PREC), intent(out) :: val
     real (PREC), pointer :: ptr
@@ -563,7 +608,7 @@ subroutine argument_parse_scalar_real64 (self, val, status)
     include "include/argument_parse_scalar.f90"
 end subroutine
 
-subroutine argument_parse_scalar_logical (self, val, status)
+subroutine argument_parse_scalar_logical (self, val, status, msg)
     logical, intent(out) :: val
     logical, pointer :: ptr
     include "include/argument_parse_scalar.f90"
@@ -571,11 +616,149 @@ end subroutine
 
 ! NB: Handle str seperately as we want to be able to convert stored const or
 ! default values of type character
-subroutine argument_parse_scalar_str (self, val, status)
-    class (str), intent(out) :: val
+subroutine argument_parse_scalar_str (self, val, status, msg)
+    class (str), intent(in out) :: val
     class (str), pointer :: ptr
-    include "include/argument_parse_scalar.f90"
+
+    class (argument), intent(in), target :: self
+    integer, intent(out) :: status
+    character (*), intent(out), optional :: msg
+    class (*), pointer :: ptr_stored
+
+    call self%parse_check_input (val, status, msg)
+    if (status /= STATUS_OK) goto 100
+
+    if (self%is_present) then
+
+        if (self%action == ARGPARSE_ACTION_STORE) then
+            val = self%passed_values(1)
+            return
+        else if (self%action == ARGPARSE_ACTION_STORE_CONST) then
+            ! need to interpret stored const in terms of output data type
+            ptr_stored => self%const(1)
+        end if
+    else if (allocated (self%default)) then
+        ptr_stored => self%default(1)
+    end if
+
+    ! at this point we need to retrieve and convert the value stored in either
+    ! const or default
+    call dynamic_cast (ptr_stored, ptr, status)
+    if (status == STATUS_OK) then
+        val = ptr
+    else
+        ! in case stored data is of type character and return value is of type str,
+        ! cast will fail and we convert the character data to str
+        select type (ptr_stored)
+        type is (character (*))
+            val = ptr_stored
+        class default
+            if (present(msg)) &
+                msg = "Argument type incompatible with stored default value"
+        end select
+    end if
+
+    100 continue
 end subroutine
+
+! NB: Handle char return values seperately so we can transparently convert
+! const and default values stored as str if necessary.
+subroutine argument_parse_scalar_char (self, val, status, msg)
+    character (*), intent(out) :: val
+    character (len(val)), pointer :: ptr
+
+    class (argument), intent(in), target :: self
+    integer, intent(out) :: status
+    character (*), intent(out), optional :: msg
+    class (*), pointer :: ptr_stored
+
+    call self%parse_check_input (val, status, msg)
+    if (status /= STATUS_OK) goto 100
+
+    if (self%is_present) then
+
+        if (self%action == ARGPARSE_ACTION_STORE) then
+            val = self%passed_values(1)
+            return
+        else if (self%action == ARGPARSE_ACTION_STORE_CONST) then
+            ! need to interpret stored const in terms of output data type
+            ptr_stored => self%const(1)
+        end if
+    else if (allocated (self%default)) then
+        ptr_stored => self%default(1)
+    end if
+
+    ! at this point we need to retrieve and convert the value stored in either
+    ! const or default
+    call dynamic_cast (ptr_stored, ptr, status)
+    if (status == STATUS_OK) then
+        val = ptr
+    else
+        ! in case stored data is of type character and return value is of type str,
+        ! cast will fail and we convert the character data to str
+        select type (ptr_stored)
+        class is (str)
+            val = ptr_stored
+        class default
+            if (present(msg)) &
+                msg = "Argument type incompatible with stored value"
+        end select
+    end if
+
+100 continue
+end subroutine
+
+! ------------------------------------------------------------------------------
+! PARSE helpers
+
+pure subroutine argument_parse_check_input_scalar (self, val, status, msg)
+    class (argument), intent(in) :: self
+    class (*), intent(in) :: val
+    integer, intent(out) :: status
+    character (*), intent(out), optional :: msg
+
+    status = STATUS_OK
+
+    if (self%action == ARGPARSE_ACTION_STORE_CONST) then
+        if (size(self%const) > 1) then
+            status = STATUS_INVALID_INPUT
+            if (present(msg)) msg = "Array size insufficient to store constant"
+            return
+        end if
+    else if (self%action == ARGPARSE_ACTION_STORE) then
+        if (self%nargs > 1) then
+            status = STATUS_INVALID_INPUT
+            if (present(msg)) &
+                msg = "Array size insufficient to store command line arguments"
+            return
+        end if
+    end if
+end subroutine
+
+pure subroutine argument_parse_check_input_array (self, val, status, msg)
+    class (argument), intent(in) :: self
+    class (*), intent(in), dimension(:) :: val
+    integer, intent(out) :: status
+    character (*), intent(out), optional :: msg
+
+    status = STATUS_OK
+
+    if (self%action == ARGPARSE_ACTION_STORE_CONST) then
+        if (size(val) < size(self%const)) then
+            status = STATUS_INVALID_INPUT
+            if (present(msg)) msg = "Array size insufficient to store constant"
+            return
+        end if
+    else if (self%action == ARGPARSE_ACTION_STORE) then
+        if (size(val) < self%nargs) then
+            status = STATUS_INVALID_INPUT
+            if (present(msg)) &
+                msg = "Array size insufficient to store command line arguments"
+            return
+        end if
+    end if
+end subroutine
+
 
 ! ------------------------------------------------------------------------------
 ! Casts

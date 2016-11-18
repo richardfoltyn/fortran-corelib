@@ -82,13 +82,13 @@ end subroutine
 function argparser_has_args (self) result(res)
     class (argparser), intent(in) :: self
     logical :: res
-    
+
     logical :: is_allocated, has_args
-    
+
     has_args = .false.
     is_allocated = allocated(self%args)
     if (is_allocated) has_args = len(self%args) > 0
-    
+
     res = is_allocated .and. has_args
 end function
 
@@ -286,7 +286,7 @@ subroutine argparser_get_array_str (self, name, val, status)
     character (100) :: msg
 
     integer :: lstatus
-    
+
     msg = ""
 
     if (.not. self%has_args()) then
@@ -312,7 +312,7 @@ subroutine argparser_get_array_str (self, name, val, status)
 
     ! at this point ptr_arg points to the argument identified by name.
     ! Retrieve stored argument value
-    call ptr_arg%get (val, lstatus)
+    call ptr_arg%parse (val, lstatus, msg)
 
 100 continue
     if (present(status)) status = lstatus
@@ -328,7 +328,7 @@ subroutine argparser_get_scalar_str (self, name, val, status)
     class (argument), pointer :: ptr_arg
     character (100) :: msg
     integer :: lstatus
-    
+
     msg = ""
 
     if (.not. self%has_args()) then
@@ -354,7 +354,7 @@ subroutine argparser_get_scalar_str (self, name, val, status)
 
     ! at this point ptr_arg points to the argument identified by name.
     ! Retrieve stored argument value
-    call ptr_arg%get (val, lstatus)
+    call ptr_arg%parse (val, lstatus, msg)
 
 100 continue
     if (present(status)) status = lstatus
@@ -445,7 +445,7 @@ subroutine argparser_parse (self, status)
 
     ! argparser state seems to be valid for parsing
     lstatus = STATUS_OK
-    
+
     i = 1
     do while (i < cmd_nargs)
         call get_command_argument (i, buf)
@@ -526,7 +526,7 @@ subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status)
         ! collect the number of requested arguments from the following commands
         call self%collect_values (offset+1, cmd_nargs, ptr_arg, cmd_values, status)
         if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
-        
+
         ! store command line arguments in argument object
         call ptr_arg%set (cmd_values)
 
@@ -580,10 +580,10 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status)
             ! need to collect argument values
             call self%collect_values (offset+1, cmd_nargs, ptr_arg, cmd_values, status)
             if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
-            
+
             ! store command line arguments in argument object
             call ptr_arg%set (cmd_values)
-            
+
             ! skip the next nargs arguments, those were used as values
             offset = offset + ptr_arg%nargs
 
