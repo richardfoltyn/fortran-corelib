@@ -115,6 +115,10 @@ module corelib_string_str_mod
         module procedure len_str
     end interface
 
+    interface len_trim
+        module procedure len_trim_str
+    end interface
+
     ! overload instrinsic repeat() to operator on str types
     interface repeat
         module procedure repeat_str_int64, repeat_str_int32, repeat_int32_str, &
@@ -129,7 +133,7 @@ module corelib_string_str_mod
         module procedure cast_any_to_str, cast_any_to_str_array
     end interface
 
-    public :: str, str_array, len, repeat, index
+    public :: str, str_array, len, len_trim, repeat, index
     public :: operator (+), operator (//), operator (/=), operator (==), operator (*)
     public :: assignment (=)
     public :: dynamic_cast
@@ -276,12 +280,20 @@ end function
 ! *****************************************************************************
 ! Public attributes
 
-elemental function len_str (self) result(res)
-    class (str), intent(in) :: self
+elemental function len_str (obj) result(res)
+    class (str), intent(in) :: obj
     integer :: res
 
     res = 0
-    if (_VALID(self)) res = len(self%value)
+    if (_VALID(obj)) res = len(obj%value)
+end function
+
+elemental function len_trim_str (obj) result(res)
+    class (str), intent(in) :: obj
+    integer :: res
+
+    res = 0
+    if (_VALID(obj)) res = len_trim(obj%value)
 end function
 
 ! *****************************************************************************
