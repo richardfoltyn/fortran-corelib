@@ -232,16 +232,16 @@ subroutine argument_init_scalar_default (self, name, abbrev, action, required, n
     ! we interpret 'default' argument to be this constant scalar.
     if (present(action)) then
         if (action == ARGPARSE_ACTION_STORE_CONST) then
-            call self%init (name, abbrev, action, required, 1, const=work1, &
-                help=help, status=status)
+            call self%init (name, abbrev, action, required, 1, &
+                help, status, const=work1)
             return
         end if
     end if
 
     ! In all other scenarios (no action present, or action != store_const)
     ! interpret 'default' argument as actual default argument
-    call self%init (name, abbrev, action, required, 1, default=work1, &
-        help=help, status=status)
+    call self%init (name, abbrev, action, required, 1, &
+        help, status, default=work1)
 
 100 continue
     if (present(status)) status = lstatus
@@ -278,8 +278,8 @@ subroutine argument_init_scalar (self, name, abbrev, action, required, nargs, &
         end if
     end if
 
-    allocate (work1(1), source=const)
-    allocate (work2(1), source=default)
+    allocate (work1(1), source=default)
+    allocate (work2(1), source=const)
 
     call self%init (name, abbrev, action, required, 1, help, lstatus, work1, work2)
 
@@ -495,9 +495,8 @@ subroutine argument_parse_array_str (self, val, status, msg)
     class (*), dimension(:), pointer :: ptr_stored
 
     integer :: i
-
-    call self%parse_check_input (val, status, msg)
-    if (status /= STATUS_OK) goto 100
+    
+    nullify (ptr_stored, ptr)
 
     if (self%is_present) then
         if (self%action == ARGPARSE_ACTION_STORE) then
@@ -514,20 +513,24 @@ subroutine argument_parse_array_str (self, val, status, msg)
         ptr_stored => self%default
     end if
 
-    call dynamic_cast (ptr_stored, ptr, status)
-    if (status == STATUS_OK) then
-        val = ptr
+    if (associated (ptr_stored)) then
+        call dynamic_cast (ptr_stored, ptr, status)
+        if (status == STATUS_OK) then
+            val = ptr
+        else
+            select type (ptr_stored)
+            type is (character (*))
+                val = ptr_stored
+            class default
+                if (present(msg)) &
+                    msg = "Argument type incompatible with stored default value"
+            end select
+        end if
     else
-        select type (ptr_stored)
-        type is (character (*))
-            val = ptr_stored
-        class default
-            if (present(msg)) &
-                msg = "Argument type incompatible with stored default value"
-        end select
+        status = STATUS_INVALID_STATE
+        if (present(msg)) msg = "Argument not present and no default value provided"
     end if
 
-    100 continue
 end subroutine
 
 ! NB: Handle str seperately as we want to be able to convert stored const or
@@ -542,9 +545,8 @@ subroutine argument_parse_array_char (self, val, status, msg)
     class (*), dimension(:), pointer :: ptr_stored
 
     integer :: i
-
-    call self%parse_check_input (val, status, msg)
-    if (status /= STATUS_OK) goto 100
+    
+    nullify (ptr_stored, ptr)
 
     if (self%is_present) then
         if (self%action == ARGPARSE_ACTION_STORE) then
@@ -561,20 +563,24 @@ subroutine argument_parse_array_char (self, val, status, msg)
         ptr_stored => self%default
     end if
 
-    call dynamic_cast (ptr_stored, ptr, status)
-    if (status == STATUS_OK) then
-        val = ptr
+    if (associated(ptr_stored)) then
+        call dynamic_cast (ptr_stored, ptr, status)
+        if (status == STATUS_OK) then
+            val = ptr
+        else
+            select type (ptr_stored)
+            class is (str)
+                val = ptr_stored
+            class default
+                if (present(msg)) &
+                    msg = "Argument type incompatible with stored value"
+            end select
+        end if
     else
-        select type (ptr_stored)
-        class is (str)
-            val = ptr_stored
-        class default
-            if (present(msg)) &
-                msg = "Argument type incompatible with stored value"
-        end select
+        status = STATUS_INVALID_STATE
+        if (present(msg)) msg = "Argument not present and no default value provided"
     end if
 
-    100 continue
 end subroutine
 
 subroutine argument_parse_scalar_int32 (self, val, status, msg)
@@ -625,9 +631,6 @@ subroutine argument_parse_scalar_str (self, val, status, msg)
     character (*), intent(out), optional :: msg
     class (*), pointer :: ptr_stored
 
-    call self%parse_check_input (val, status, msg)
-    if (status /= STATUS_OK) goto 100
-
     if (self%is_present) then
 
         if (self%action == ARGPARSE_ACTION_STORE) then
@@ -658,7 +661,6 @@ subroutine argument_parse_scalar_str (self, val, status, msg)
         end select
     end if
 
-    100 continue
 end subroutine
 
 ! NB: Handle char return values seperately so we can transparently convert
@@ -671,9 +673,6 @@ subroutine argument_parse_scalar_char (self, val, status, msg)
     integer, intent(out) :: status
     character (*), intent(out), optional :: msg
     class (*), pointer :: ptr_stored
-
-    call self%parse_check_input (val, status, msg)
-    if (status /= STATUS_OK) goto 100
 
     if (self%is_present) then
 
@@ -705,7 +704,6 @@ subroutine argument_parse_scalar_char (self, val, status, msg)
         end select
     end if
 
-100 continue
 end subroutine
 
 ! ------------------------------------------------------------------------------

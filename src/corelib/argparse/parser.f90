@@ -316,7 +316,7 @@ subroutine argparser_get_array_str (self, name, val, status)
 
 100 continue
     if (present(status)) status = lstatus
-    if (len_trim(msg) > 0) write (ERROR_UNIT, fmt=*) msg
+    if (len_trim(msg) > 0) write (ERROR_UNIT, fmt=*) trim(msg)
 end subroutine
 
 subroutine argparser_get_scalar_str (self, name, val, status)
@@ -358,7 +358,7 @@ subroutine argparser_get_scalar_str (self, name, val, status)
 
 100 continue
     if (present(status)) status = lstatus
-    if (len_trim(msg) > 0) write (ERROR_UNIT, fmt=*) msg
+    if (len_trim(msg) > 0) write (ERROR_UNIT, fmt=*) trim(msg)
 end subroutine
 
 subroutine argparser_get_array_char (self, name, val, status)
@@ -447,7 +447,7 @@ subroutine argparser_parse (self, status)
     lstatus = STATUS_OK
 
     i = 1
-    do while (i < cmd_nargs)
+    do while (i <= cmd_nargs)
         call get_command_argument (i, buf)
         cmd_arg = trim(buf)
 
@@ -456,13 +456,13 @@ subroutine argparser_parse (self, status)
         if (cmd_arg%startswith ('--')) then
             ! pass argument name and (possible) =value to "long" parser
             str_tmp = cmd_arg%substring (3, -1)
-            call self%parse_long (i, str_tmp, cmd_nargs, lstatus)
+            call self%parse_long (i, str_tmp, cmd_nargs, lstatus, msg)
             if (lstatus /= STATUS_OK) goto 100
 
         else if (cmd_arg%startswith ('-')) then
 
             str_tmp = cmd_arg%substring (2, -1)
-            call self%parse_abbrev (i, str_tmp, cmd_nargs, lstatus)
+            call self%parse_abbrev (i, str_tmp, cmd_nargs, lstatus, msg)
             if (lstatus /= STATUS_OK) goto 100
 
         end if
@@ -477,32 +477,31 @@ subroutine argparser_parse (self, status)
 100 continue
     if (present(status)) status = lstatus
     if (lstatus /= STATUS_OK) self%status = ARGPARSE_STATUS_PARSE_ERROR
-    if (len(msg) > 0) write (ERROR_UNIT, fmt=*) msg
+    if (len_trim(msg) > 0) write (ERROR_UNIT, fmt=*) trim(msg)
 
 end subroutine
 
-subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status)
+subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status, msg)
     class (argparser), intent(in out) :: self
     integer, intent(in out) :: offset
     type (str), intent(in) :: cmd_arg
     integer, intent(in) :: cmd_nargs
     integer, intent(out) :: status
+    character (*), intent(out) :: msg
 
     type (str) :: cmd_name, str_tmp
     type (str), dimension(:), allocatable :: cmd_values
     class (argument), pointer :: ptr_arg
-    character (100) :: msg
 
     integer :: j
 
     status = STATUS_OK
-    msg = ""
 
     ! check whether there is an = and separate token in that case
     j = index (cmd_arg, "=")
     if (j > 0) then
         cmd_name = cmd_arg%substring (j-1)
-        str_tmp = cmd_arg%substring (j, -1)
+        str_tmp = cmd_arg%substring (j+1, -1)
         allocate (cmd_values(1), source=str_tmp)
     else
         cmd_name = cmd_arg
@@ -510,6 +509,15 @@ subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status)
 
     ! find corresponding argument object
     call self%find_arg (cmd_name, ptr_arg, is_abbrev=.false.)
+    
+    ! Check that the argument name given on command line corresponds to
+    ! defined argument
+    if (.not. associated (ptr_arg)) then
+        status = STATUS_INVALID_INPUT
+        msg = "Unknown argument name: " // cmd_name
+        goto 100
+    end if
+    
     ! collect required number of argument values
     if (allocated (cmd_values) .and. ptr_arg%nargs /= 1) then
         status = ARGPARSE_STATUS_PARSE_ERROR
@@ -524,7 +532,8 @@ subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status)
         call ptr_arg%set (cmd_values)
     else
         ! collect the number of requested arguments from the following commands
-        call self%collect_values (offset+1, cmd_nargs, ptr_arg, cmd_values, status)
+        call self%collect_values (offset+1, cmd_nargs, ptr_arg, cmd_values, &
+            status, msg)
         if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
 
         ! store command line arguments in argument object
@@ -540,25 +549,23 @@ subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status)
     offset = offset + 1
 
 100 continue
-    if (len(msg) > 0) write (ERROR_UNIT, fmt=*) msg
 end subroutine
 
-subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status)
+subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status, msg)
     class (argparser), intent(in out) :: self
     integer, intent(in out) :: offset
     type (str), intent(in) :: cmd_arg
     integer, intent(in) :: cmd_nargs
     integer, intent(out) :: status
+    character (*), intent(out) :: msg
 
     type (str) :: cmd_name
     type (str), dimension(:), allocatable :: cmd_values
     class (argument), pointer :: ptr_arg
-    character (100) :: msg
 
     integer :: j
 
     status = STATUS_OK
-    msg = ""
 
     ! loop through all characters; note that argument values can
     ! only be specified for the very last argument, ie
@@ -566,6 +573,14 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status)
     do j = 1, len(cmd_arg)
         cmd_name = cmd_arg%substring (j, j)
         call self%find_arg (cmd_name, ptr_arg, is_abbrev=.true.)
+        
+        ! Check that the argument name given on command line corresponds to
+        ! defined argument
+        if (.not. associated (ptr_arg)) then
+            status = STATUS_INVALID_INPUT
+            msg = "Unknown argument name: " // cmd_name
+            goto 100
+        end if
 
         if (ptr_arg%nargs > 0 .and. j < len(cmd_arg)) then
             ! cannot satisfy any positive number of values for abbrev.
@@ -578,7 +593,8 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status)
             call ptr_arg%set ()
         else if (ptr_arg%nargs > 0) then
             ! need to collect argument values
-            call self%collect_values (offset+1, cmd_nargs, ptr_arg, cmd_values, status)
+            call self%collect_values (offset+1, cmd_nargs, ptr_arg, &
+                cmd_values, status, msg)
             if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
 
             ! store command line arguments in argument object
@@ -595,22 +611,22 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status)
     offset = offset + 1
 
 100 continue
-    if (len(msg) > 0) write (ERROR_UNIT, fmt=*) msg
 end subroutine
 
-subroutine argparser_collect_values (self, offset, cmd_nargs, ptr_arg, cmd_values, status)
+subroutine argparser_collect_values (self, offset, cmd_nargs, ptr_arg, &
+        cmd_values, status, msg)
+    
     class (argparser), intent(in out) :: self
     integer, intent(in) :: offset, cmd_nargs
     class (argument), intent(in), pointer :: ptr_arg
     type (str), intent(out), dimension(:), allocatable :: cmd_values
     integer, intent(out) :: status
+    character (*), intent(out) :: msg
 
     character (CMD_BUFFER_SIZE) :: buf
-    character (100) :: msg
     integer :: j
 
     status = STATUS_OK
-    msg = ""
     if (allocated(cmd_values)) deallocate (cmd_values)
 
     allocate (cmd_values(ptr_arg%nargs))
@@ -622,7 +638,7 @@ subroutine argparser_collect_values (self, offset, cmd_nargs, ptr_arg, cmd_value
             status = ARGPARSE_STATUS_INSUFFICIENT_ARGS
             msg = "Argument '" // ptr_arg%name  // "': expected " // &
                 str(ptr_arg%nargs) // " arguments, found " // str(j-1)
-            goto 100
+            return
         end if
 
         call get_command_argument (offset + j, buf)
@@ -630,8 +646,6 @@ subroutine argparser_collect_values (self, offset, cmd_nargs, ptr_arg, cmd_value
         j = j + 1
     end do
 
-100 continue
-    if (len_trim(msg) > 0) write (ERROR_UNIT, fmt=*) msg
 end subroutine
 
 end module

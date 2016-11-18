@@ -7,6 +7,7 @@ class (*), dimension(:), pointer :: ptr_stored
 
 integer :: i
 
+nullify (ptr, ptr_stored)
 
 if (self%is_present) then
     if (self%action == ARGPARSE_ACTION_STORE) then
@@ -28,11 +29,16 @@ else if (allocated (self%default)) then
     ptr_stored => self%default
 end if
 
-call dynamic_cast (self%default, ptr, status)
-if (status == STATUS_OK) then
-    val = ptr
+if (associated (ptr_stored)) then
+    call dynamic_cast (self%default, ptr, status)
+    if (status == STATUS_OK) then
+        val = ptr
+    else
+        if (present(msg)) msg = "Argument type incompatible with stored value"
+    end if
 else
-    if (present(msg)) msg = "Argument type incompatible with stored value"
+    status = STATUS_INVALID_STATE
+    if (present(msg)) msg = "Argument not present and no default value provided"
 end if
 
 100 continue
