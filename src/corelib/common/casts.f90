@@ -11,7 +11,8 @@ module corelib_common_casts
             cast_any_to_int64, cast_any_to_array_int64, &
             cast_any_to_real32, cast_any_to_array_real32, &
             cast_any_to_real64, cast_any_to_array_real64, &
-            cast_any_to_logical, cast_any_to_array_logical
+            cast_any_to_logical, cast_any_to_array_logical, &
+            cast_any_to_char, cast_any_to_array_char
     end interface
 
     public :: dynamic_cast
@@ -200,6 +201,42 @@ subroutine cast_any_to_array_logical (tgt, ptr, status)
 
     select type (tgt)
     type is (logical)
+        ptr => tgt
+        lstatus = STATUS_OK
+    end select
+
+    if (present(status)) status = lstatus
+end subroutine
+
+subroutine cast_any_to_char (tgt, ptr, status)
+    class (*), intent(in), target :: tgt
+    character (*), intent(out), pointer :: ptr
+    integer, intent(out), optional :: status
+
+    integer :: lstatus
+
+    lstatus = STATUS_UNSUPPORTED_OPERATION
+
+    select type (tgt)
+    type is (character (*))
+        ptr => tgt
+        lstatus = STATUS_OK
+    end select
+
+    if (present(status)) status = lstatus
+end subroutine
+
+subroutine cast_any_to_array_char (tgt, ptr, status)
+    class (*), intent(in), dimension(:), target :: tgt
+    character (*), intent(out), dimension(:), pointer :: ptr
+    integer, intent(out), optional :: status
+
+    integer :: lstatus
+
+    lstatus = STATUS_UNSUPPORTED_OPERATION
+
+    select type (tgt)
+    type is (character (*))
         ptr => tgt
         lstatus = STATUS_OK
     end select
