@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.1)
 
 project(fcorelib Fortran)
 # name used for library files, include directory, etc.
-set(LIBRARY_NAME fcore)
+set(LIBRARY_NAME fcorelib)
 
 # make sure that the default is a RELEASE
 if (NOT CMAKE_BUILD_TYPE)
