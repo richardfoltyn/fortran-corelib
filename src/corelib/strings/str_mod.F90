@@ -21,6 +21,11 @@ module corelib_string_str_mod
     implicit none
     private
 
+    integer, parameter :: ASCII_TAB = 9
+    ! 10, 11, and 12 are additional white space characters
+    integer, parameter :: ASCII_CR = 13
+    integer, parameter :: ASCII_SPACE = 32
+
     character (*), parameter :: EMPTY_VALUE = ""
 
     type :: str
@@ -55,6 +60,12 @@ module corelib_string_str_mod
         procedure, pass :: join_str
         procedure, pass :: join_char
         generic, public :: join => join_str, join_char
+
+        procedure, pass :: split_str
+        procedure, pass :: split_char
+        generic, public :: split => split_str, split_char
+
+        procedure, pass :: count
 
         ! Parsers for other data types
         procedure, pass :: parse_int32
@@ -664,6 +675,87 @@ pure subroutine join_impl(self, str_list, res)
             ifrom = ito + 1
         end if
     end do
+
+end subroutine
+
+! *****************************************************************************
+! COUNT method
+
+elemental function count (self, s, start, end) result(res)
+    class (str), intent(in) :: self, s
+    integer, intent(in), optional :: start, end
+    integer :: res
+
+    integer :: lstart, lend, n, ns
+
+    lstart = 0
+    lend = len(self)
+    n = lend
+    ns = len(s)
+    ! default return value
+    res = 0
+
+    ! return zero if value is not allocated
+    if (.not. _VALID(self)) return
+
+    if (present(start)) lstart = start
+    if (present(end)) lend = end
+
+    ! ignore any out of bounds errors with start and end arguments
+    ! interpret negative indices as starting from the end of the string
+    if (lstart < 0) lstart = n + lstart + 1
+    lstart = min(max(1, lstart), n)
+    if (lend < 0) lend = n + lend = 1
+    lend = min(max(1, lend), n)
+
+    ! return 0 if requested range makes no sense
+    if (lstart > lend) return
+
+    ! if s is the empty string, return the number of characters in the requested
+    ! substring + 1; ie. an empty string separates each character and is also
+    ! present and the start and end of the substring.
+    if (ns == 0) then
+        res = lend - lstart + 2
+        return
+    end if
+
+    ! At this point we have a properly defined problem, it remains to cycle through
+    ! the characters and count the number of non-overlapping occurences.
+    i = lstart
+    do while (i <= lend - ns + 1)
+        if (self%value(i:i+ns) == s) then
+            count = count + 1
+            i = i + ns
+            cycle
+        end if
+    end do
+
+end function
+
+! *****************************************************************************
+! SPLIT method
+
+pure subroutine split_str (self, sep, str_list)
+    class (str), intent(in) :: self
+    class (str), intent(in), optional :: sep
+    type (str), intent(out), dimension(:), allocatable :: str_list
+
+    type (str) :: lsep
+    integer :: i, nsep, n
+
+    lsep = ' '
+    if (present(sep)) lsep = sep
+    nsep = len(lsep)
+    n = len(self)
+
+    ! emulate Python behavior when self == sep and return a list of two empty
+    ! strings
+    if (self == '') then
+        allocate (str_list(1))
+        str_list(1) = ''
+    else if ()
+    end if
+
 
 end subroutine
 
