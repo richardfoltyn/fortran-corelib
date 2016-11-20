@@ -1,5 +1,7 @@
 
-set(CORELIB_COMPONENTS argparse common collections datetime logging strings testing utils)
+set(CORELIB_COMPONENTS argparse common collections datetime
+    io logging strings testing utils
+)
 
 include_directories("${${PROJECT_NAME}_MODDIR}")
 
