@@ -7,4 +7,4 @@ set(SOURCE_FILES
 
 include_directories(${${PROJECT_NAME}_MODDIR})
 add_library(${COMPONENT_NAME} OBJECT ${SOURCE_FILES})
-add_dependencies(${COMPONENT_NAME} strings datetime utils)
+add_dependencies(${COMPONENT_NAME} common strings datetime)

@@ -17,7 +17,6 @@ module corelib_string_str_mod
 
     use iso_fortran_env
     use corelib_common
-    use corelib_utils
 
     implicit none
     private

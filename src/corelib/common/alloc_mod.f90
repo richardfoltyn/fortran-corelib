@@ -1,4 +1,4 @@
-module corelib_utils_alloc
+module corelib_common_alloc
 
     use, intrinsic :: iso_fortran_env
     implicit none

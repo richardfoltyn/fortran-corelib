@@ -1,9 +1,9 @@
 module corelib_argparse_parser
 
     use iso_fortran_env
+    use corelib_common
     use corelib_strings
     use corelib_collections
-    use corelib_utils
 
     use corelib_argparse_constants
     use corelib_argparse_argument

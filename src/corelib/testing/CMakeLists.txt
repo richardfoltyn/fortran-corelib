@@ -10,4 +10,4 @@ set(SOURCE_FILES
 
 include_directories(${${PROJECT_NAME}_MODDIR})
 add_library(${COMPONENT_NAME} OBJECT ${SOURCE_FILES})
-add_dependencies(${COMPONENT_NAME} collections strings utils)
+add_dependencies(${COMPONENT_NAME} common collections strings)
