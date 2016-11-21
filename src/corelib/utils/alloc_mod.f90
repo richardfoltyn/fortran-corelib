@@ -1,5 +1,6 @@
 module corelib_utils_alloc
 
+    use, intrinsic :: iso_fortran_env
     implicit none
     private
 
@@ -7,7 +8,11 @@ module corelib_utils_alloc
         module procedure assert_alloc_char
     end interface
 
-    public :: assert_alloc
+    interface alloc_minsize
+        module procedure alloc_minsize_1d_int32
+    end interface
+
+    public :: assert_alloc, alloc_minsize
 contains
 
 pure subroutine assert_alloc_char (obj, nmin, nbuffer, copy)
@@ -49,6 +54,23 @@ pure subroutine assert_alloc_char (obj, nmin, nbuffer, copy)
     else
         allocate (character (nalloc) :: obj)
     end if
+end subroutine
+
+pure subroutine alloc_minsize_1d_int32 (arr, minsize, increment)
+    integer, parameter :: INTSIZE = int32
+    integer (INTSIZE), intent(in out), dimension(:), allocatable :: arr
+    integer, intent(in) :: minsize, increment
+
+    integer (INTSIZE), dimension(:), allocatable :: work
+
+    if (.not. allocated(arr)) then
+        allocate (arr(minsize))
+    else if (size(arr) < minsize) then
+        allocate (work(minsize + increment))
+        work(1:size(arr)) = arr
+        call move_alloc (work, arr)
+    end if
+
 end subroutine
 
 end module
