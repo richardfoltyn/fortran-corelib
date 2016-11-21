@@ -17,6 +17,7 @@ module corelib_string_str_mod
 
     use iso_fortran_env
     use corelib_common
+    use corelib_utils
 
     implicit none
     private
@@ -65,7 +66,7 @@ module corelib_string_str_mod
         procedure, pass :: split_char
         generic, public :: split => split_str, split_char
 
-        procedure, pass :: count
+        procedure, pass :: count => str_count
 
         ! Parsers for other data types
         procedure, pass :: parse_int32
@@ -681,12 +682,18 @@ end subroutine
 ! *****************************************************************************
 ! COUNT method
 
-elemental function count (self, s, start, end) result(res)
+! COUNT returns the number of non-overlapping occurences of string 's' in
+! string instance, optionally limited to the substring identified by start:end.
+! The implementation is modelled after Python's string.count() function, and
+! should thus have the same behavior in "pathological" cases, in which
+! either the start:end range is invalid, or the string instance or the substring s
+! are empty.
+elemental function str_count (self, s, start, end) result(res)
     class (str), intent(in) :: self, s
     integer, intent(in), optional :: start, end
     integer :: res
 
-    integer :: lstart, lend, n, ns
+    integer :: lstart, lend, n, ns, i
 
     lstart = 0
     lend = len(self)
@@ -695,20 +702,26 @@ elemental function count (self, s, start, end) result(res)
     ! default return value
     res = 0
 
-    ! return zero if value is not allocated
-    if (.not. _VALID(self)) return
-
     if (present(start)) lstart = start
     if (present(end)) lend = end
 
-    ! ignore any out of bounds errors with start and end arguments
+    ! gracefully exit if start is larger than end index, or if start index
+    ! is outside of the valid range. Return 0
+    if (lstart > lend .or. lstart > max(1, n)) return
+    ! At this point we know that the start value is in the valid range 1:max(1,n);
+
     ! interpret negative indices as starting from the end of the string
     if (lstart < 0) lstart = n + lstart + 1
-    lstart = min(max(1, lstart), n)
-    if (lend < 0) lend = n + lend = 1
-    lend = min(max(1, lend), n)
+    if (lend < 0) lend = n + lend + 1
 
-    ! return 0 if requested range makes no sense
+    ! if selected range is an empty string within a *valid* range of
+    ! string instance, and substring is empty, return 1
+    if (lstart <= max(1, n) .and. (lstart == lend + 1) .and. ns == 0) then
+        res = 1
+        return
+    end if
+
+    ! return 0 if requested range makes no sense in all other cases
     if (lstart > lend) return
 
     ! if s is the empty string, return the number of characters in the requested
@@ -722,9 +735,10 @@ elemental function count (self, s, start, end) result(res)
     ! At this point we have a properly defined problem, it remains to cycle through
     ! the characters and count the number of non-overlapping occurences.
     i = lstart
+    res = 0
     do while (i <= lend - ns + 1)
         if (self%value(i:i+ns) == s) then
-            count = count + 1
+            res = res + 1
             i = i + ns
             cycle
         end if
@@ -735,29 +749,147 @@ end function
 ! *****************************************************************************
 ! SPLIT method
 
-pure subroutine split_str (self, sep, str_list)
+pure subroutine split_str (self, sep, str_list, status)
     class (str), intent(in) :: self
     class (str), intent(in), optional :: sep
-    type (str), intent(out), dimension(:), allocatable :: str_list
+    type (str), intent(in out), dimension(:), allocatable :: str_list
+    integer, intent(out), optional :: status
 
-    type (str) :: lsep
-    integer :: i, nsep, n
+    integer :: i, nsep, n, m, lstatus, nfound, is, ie
+    integer, dimension(:), allocatable :: istart, iend
+    logical :: in_substring
 
-    lsep = ' '
-    if (present(sep)) lsep = sep
-    nsep = len(lsep)
+    nsep = 0
+    if (present(sep)) then
+        nsep = len(sep)
+    end if
     n = len(self)
 
-    ! emulate Python behavior when self == sep and return a list of two empty
-    ! strings
+    ! do not allow empty separators, not even if the string instance is empty
+    if (present(sep) .and. nsep == 0) then
+        lstatus = STATUS_INVALID_INPUT
+        goto 100
+    endif
+
+    ! Emulate Python behavior: if string instance is empty, and substring
+    ! other than empty string will yield a return list with empty string as
+    ! only item.
     if (self == '') then
         allocate (str_list(1))
         str_list(1) = ''
-    else if ()
+        return
     end if
 
+    ! array to store list of starting indexes of sep instances; start with
+    ! array size of at most 10
+    m = min(max(2, n), 10)
+    allocate (istart(m), iend(m))
 
+    ! find all starting indices of non-overlapping instances of sep
+    nfound = 0
+
+    ! if sep is present, find substrings (potentially zero-length)
+    ! that are separated by non-overlapping sep.
+    if (present(sep)) then
+
+        istart(1) = 1
+
+        i = 1
+        do while (i <= n - nsep + 1)
+            if (self%value(i:i+nsep-1) == sep) then
+                nfound = nfound + 1
+                ! if required, allocate more space to hold indices
+                call alloc_minsize (istart, nfound + 1, 10)
+                call alloc_minsize (iend, nfound + 1, 10)
+
+                ! end of last string between separator instances
+                iend(nfound) = i-1
+
+                ! start of next string between non-overlapping separators
+                istart(nfound+1) = i + nsep
+
+                i = i + nsep
+            end if
+        end do
+        iend(nfound+1) = n
+        nfound = nfound + 1
+    else
+        ! handle default case when all contiguous white space is merged
+        ! to form a separator
+        i = 1
+        in_substring = .false.
+        do while (i <= n)
+            if (is_ascii_whitespace(self%value(i:i))) then
+                ! found end of substring of non-whitespace characters
+                if (in_substring) then
+                    call alloc_minsize (iend, nfound, 10)
+                    iend(nfound) = i - 1
+                    in_substring = .false.
+                end if
+                i = i + 1
+            else
+                ! found a new substring of non-whitespace characters
+                if (.not. in_substring) then
+                    in_substring = .true.
+                    nfound = nfound + 1
+                    call alloc_minsize (istart, nfound, 10)
+
+                    istart(nfound) = i
+                end if
+            end if
+        end do
+    end if
+
+    ! re-allocate if str_list is not exactly the size needed to
+    ! hold result
+    if (allocated(str_list)) then
+        if (size(str_list) /= nfound) then
+            deallocate(str_list)
+            allocate (str_list(nfound))
+        end if
+    else
+        allocate (str_list(nfound))
+    end if
+
+    do i = 1, nfound
+        is = istart(i)
+        ie = iend(i)
+        ! copy over substring if it's non-empty; otherwise
+        ! str_list(i) should already be an empty string due to how
+        ! is was allocated
+        if (is >= ie) then
+            str_list(i) = self%value(is:ie)
+        else
+            str_list(i) = ""
+        end if
+    end do
+
+100 continue
+    if (present(status)) status = lstatus
 end subroutine
+
+pure subroutine split_char (self, sep, str_list, status)
+    class (str), intent(in) :: self
+    character (*), intent(in) :: sep
+    type (str), intent(in out), dimension(:), allocatable :: str_list
+    integer, intent(out), optional :: status
+
+    type (str) :: lsep
+
+    lsep = sep
+    call self%split (lsep, str_list, status)
+end subroutine
+
+! IS_ASCII_WHITESPACE returns true if the first character in s
+! is considered whitespace in the ASCII character set.
+pure function is_ascii_whitespace (s) result(res)
+    character (*), intent(in) :: s
+    logical :: res
+
+    integer :: i
+    i = iachar(s)
+    res = (i >= ASCII_TAB .and. i <= ASCII_CR) .or. i == ASCII_SPACE
+end function
 
 ! *****************************************************************************
 ! REPEAT method (equivalently multiplication operator)
