@@ -755,7 +755,7 @@ pure subroutine split_str (self, sep, str_list, drop_empty, status)
     logical, intent(in), optional :: drop_empty
     integer, intent(out), optional :: status
 
-    integer :: i, nsep, n, m, lstatus, nfound, is, ie
+    integer :: i, nsep, n, m, lstatus, nfound, is, ie, iend_last_sep
     integer, dimension(:), allocatable :: istart, iend
     logical :: ldrop_emtpy
 
@@ -795,39 +795,33 @@ pure subroutine split_str (self, sep, str_list, drop_empty, status)
 
     ! find all starting indices of non-overlapping instances of sep
     nfound = 0
-    i = 1
-    in_substring = .false.
 
     ! if sep is present, find substrings (potentially zero-length)
     ! that are separated by non-overlapping sep.
     if (present(sep)) then
 
+        ! position in string where last encountered separator ends (include)
+        ! We pretent the string is sandwiched between two (virtual) separators.
+        iend_last_sep = 0
+        i = 1
+
         do while (i <= n - nsep + 1)
             if (self%value(i:i+nsep-1) == sep) then
-                if (i == 1) then
-                    is = 1
-                else if (nfound == 0) then
-                    ! for positions i /= 1 this can only happen if
-                    ! instructed to drop empty strings, and all previous
-                    ! strings would have been empty
-                    is = i
-                else
-                    is = iend(nfound) + nsep + 1
-                end if
-
+                ! start of valid substring is one past previously encountered
+                ! seperator
+                is = iend_last_sep + 1
                 ! end of valid substring is located at previous character
                 ie = i - 1
 
                 ! check whether the substring found is empty and include it
-                ! only if not instructed to drop empty strings
+                ! only if not dropping empty substrings
                 if (is <= ie .or. .not. ldrop_emtpy) then
                     nfound = nfound + 1
-                    ! if required, allocate more space to hold indices
-                    call alloc_minsize (istart, nfound, 10)
-                    call alloc_minsize (iend, nfound, 10)
-                    istart(nfound) = is
-                    iend(nfound) = ie
+                    call add_substring (istart, iend, nfound, is, ie)
                 end if
+
+                ! point to end of current separator
+                iend_last_sep = i + nsep - 1
 
                 i = i + nsep
             else
@@ -835,56 +829,48 @@ pure subroutine split_str (self, sep, str_list, drop_empty, status)
             end if
         end do
 
-        if (nfound > 0) then
+        ! add last substring that extends from last found separator to the
+        ! end of the string
+        is = iend_last_sep + 1
+        ie = n
 
-
+        ! only add if non-empty, or if empty substrings permitted
+        if (is <= ie .or. .not. ldrop_emtpy) then
             nfound = nfound + 1
-            ! append last substring that extends to the end of the string
-            call alloc_minsize (istart, nfound, 10)
-            call alloc_minsize (iend, nfound, 10)
-            istart = iend(nfound-1) + nsep + 1
-            iend(nfound) = n
+            call add_substring (istart, iend, nfound, is, ie)
         end if
     else
         ! handle default case when all contiguous white space is merged
         ! to form a separator
-        do while (i <= n)
+        do while (is <= n)
 
-            do while (is_ascii_whitespace(self%value(i:i)) .and. i <= n)
-                i = i + 1
+            do while (is_ascii_whitespace(self%value(is:is)) .and. is <= n)
+                is = is + 1
             end do
 
-            ! stepped one character too far; current position i is either
-            ! a non-whitespace character, or one element past the end of the string
-            i = i - 1
+            ! Exit loop if we reached the end of the string, no more valid
+            ! substrings to be expected
+            if (is == n + 1) exit
 
-            ! at this point we have either reached a non-whitespace character
-            ! of the end of the string;
-
-            ! Exit loop if we reached the end of the string
-            if (i == n) exit
-
-            ! If we haven't reached the end of the string, we found a
-            ! valid substring
-            nfound = nfound + 1
-            call alloc_minsize (istart, nfound, 10)
-            call alloc_minsize (iend, nfound, 10)
-
-            istart(nfound) = i
-
-            do while (.not. is_ascii_whitespace(self%value(i:i)) .and. i <= n)
-                i = i + 1
+            ! at this point we have reached a non-whitespace character;
+            ! locate end of valid substring
+            ie = is
+            do while (.not. is_ascii_whitespace(self%value(ie:ie)) .and. ie <= n)
+                ie = ie + 1
             end do
 
-            ! stepped one character too far, current i is either whitespace
+            ! stepped one character too far, current position is either whitespace
             ! or one element past the end of the string
-            i = i - 1
+            ie = ie - 1
 
-            iend(nfound) = i
+            ! store substring start and end indices
+            nfound = nfound + 1
+            call add_substring (istart, iend, nfound, is, ie)
 
-            ! start at the beginning to loop through the next sequence of
-            ! whitespace, unless we reached the end of the string
-            if (i == n) exit
+            ! if valid substring was at the end of string, terminate
+            if (ie == n) exit
+            ! otherwise continue with next character, which is white space
+            is = ie + 1
         end do
     end if
 
@@ -902,30 +888,38 @@ pure subroutine split_str (self, sep, str_list, drop_empty, status)
     do i = 1, nfound
         is = istart(i)
         ie = iend(i)
-        ! copy over substring if it's non-empty; otherwise
-        ! str_list(i) should already be an empty string due to how
-        ! is was allocated
-        if (is >= ie) then
-            str_list(i) = self%value(is:ie)
-        else
-            str_list(i) = ""
-        end if
+        str_list(i) = self%value(is:ie)
     end do
 
 100 continue
     if (present(status)) status = lstatus
+
+contains
+
+    pure subroutine add_substring (istart, iend, ifound, ie, is)
+        integer, intent(in out), dimension(:), allocatable :: istart, iend
+        integer, intent(in) :: ifound, ie, is
+
+        ! if required, allocate more space to hold indices
+        call alloc_minsize (istart, ifound, 10)
+        call alloc_minsize (iend, ifound, 10)
+
+        istart(ifound) = is
+        iend(ifound) = ie
+    end subroutine
 end subroutine
 
-pure subroutine split_char (self, sep, str_list, status)
+pure subroutine split_char (self, sep, str_list, drop_empty, status)
     class (str), intent(in) :: self
     character (*), intent(in) :: sep
     type (str), intent(in out), dimension(:), allocatable :: str_list
+    logical, intent(in), optional :: drop_empty
     integer, intent(out), optional :: status
 
     type (str) :: lsep
 
     lsep = sep
-    call self%split (lsep, str_list, status)
+    call self%split (lsep, str_list, drop_empty, status)
 end subroutine
 
 ! IS_ASCII_WHITESPACE returns true if the first character in s

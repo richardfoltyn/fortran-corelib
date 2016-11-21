@@ -35,6 +35,7 @@ subroutine test_all()
     call test_concat (tests)
 
     call test_join (tests)
+    call test_split (tests)
     call test_repeat (tests)
 
     call test_startswith (tests)
@@ -488,6 +489,32 @@ subroutine test_join (tests)
     call tc%assert_true (s5 == (s1 // s4 // s2 // s4 // s3), &
         "str::join(), multi-character separator")
 end subroutine
+
+subroutine test_split (tests)
+    class (test_suite) :: tests
+    class (test_case), pointer :: tc
+
+    type (str) :: s1, s2, s3, s4, sep
+    integer :: status, i
+    type (str), dimension(:), allocatable :: ilist, olist
+    logical :: res
+    tc => tests%add_test ("String split() method")
+
+    s1 = "foo"
+    s2 = "bar"
+    s3 = "baz"
+
+    allocate (ilist(3), source=[s1, s2, s3])
+    ! ilist = [s1, s2, s3]
+    sep = ","
+    s4 = sep%join (ilist)
+
+    call s4%split (sep, olist, status=status)
+    call tc%assert_true (all(ilist == olist), &
+        "str::split(), non-empty sep, non-empty str")
+
+end subroutine
+
 
 subroutine test_repeat (tests)
     class (test_suite) :: tests
