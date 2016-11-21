@@ -748,15 +748,20 @@ end function
 ! *****************************************************************************
 ! SPLIT method
 
-pure subroutine split_str (self, sep, str_list, status)
+pure subroutine split_str (self, sep, str_list, drop_empty, status)
     class (str), intent(in) :: self
     class (str), intent(in), optional :: sep
     type (str), intent(in out), dimension(:), allocatable :: str_list
+    logical, intent(in), optional :: drop_empty
     integer, intent(out), optional :: status
 
     integer :: i, nsep, n, m, lstatus, nfound, is, ie
     integer, dimension(:), allocatable :: istart, iend
-    logical :: in_substring
+    logical :: ldrop_emtpy
+
+    ! do not drop empty strings by default, thus replicating Python behavior
+    ldrop_emtpy = .false.
+    if (present(drop_empty)) ldrop_emtpy = drop_empty
 
     nsep = 0
     if (present(sep)) then
@@ -774,8 +779,12 @@ pure subroutine split_str (self, sep, str_list, status)
     ! other than empty string will yield a return list with empty string as
     ! only item.
     if (self == '') then
-        allocate (str_list(1))
-        str_list(1) = ''
+        if (ldrop_emtpy) then
+            allocate (str_list(0))
+        else
+            allocate (str_list(1))
+            str_list(1) = ''
+        end if
         return
     end if
 
@@ -786,56 +795,96 @@ pure subroutine split_str (self, sep, str_list, status)
 
     ! find all starting indices of non-overlapping instances of sep
     nfound = 0
+    i = 1
+    in_substring = .false.
 
     ! if sep is present, find substrings (potentially zero-length)
     ! that are separated by non-overlapping sep.
     if (present(sep)) then
 
-        istart(1) = 1
-
-        i = 1
         do while (i <= n - nsep + 1)
             if (self%value(i:i+nsep-1) == sep) then
-                nfound = nfound + 1
-                ! if required, allocate more space to hold indices
-                call alloc_minsize (istart, nfound + 1, 10)
-                call alloc_minsize (iend, nfound + 1, 10)
+                if (i == 1) then
+                    is = 1
+                else if (nfound == 0) then
+                    ! for positions i /= 1 this can only happen if
+                    ! instructed to drop empty strings, and all previous
+                    ! strings would have been empty
+                    is = i
+                else
+                    is = iend(nfound) + nsep + 1
+                end if
 
-                ! end of last string between separator instances
-                iend(nfound) = i-1
+                ! end of valid substring is located at previous character
+                ie = i - 1
 
-                ! start of next string between non-overlapping separators
-                istart(nfound+1) = i + nsep
+                ! check whether the substring found is empty and include it
+                ! only if not instructed to drop empty strings
+                if (is <= ie .or. .not. ldrop_emtpy) then
+                    nfound = nfound + 1
+                    ! if required, allocate more space to hold indices
+                    call alloc_minsize (istart, nfound, 10)
+                    call alloc_minsize (iend, nfound, 10)
+                    istart(nfound) = is
+                    iend(nfound) = ie
+                end if
 
                 i = i + nsep
+            else
+                i = i + 1
             end if
         end do
-        iend(nfound+1) = n
-        nfound = nfound + 1
+
+        if (nfound > 0) then
+
+
+            nfound = nfound + 1
+            ! append last substring that extends to the end of the string
+            call alloc_minsize (istart, nfound, 10)
+            call alloc_minsize (iend, nfound, 10)
+            istart = iend(nfound-1) + nsep + 1
+            iend(nfound) = n
+        end if
     else
         ! handle default case when all contiguous white space is merged
         ! to form a separator
-        i = 1
-        in_substring = .false.
         do while (i <= n)
-            if (is_ascii_whitespace(self%value(i:i))) then
-                ! found end of substring of non-whitespace characters
-                if (in_substring) then
-                    call alloc_minsize (iend, nfound, 10)
-                    iend(nfound) = i - 1
-                    in_substring = .false.
-                end if
-                i = i + 1
-            else
-                ! found a new substring of non-whitespace characters
-                if (.not. in_substring) then
-                    in_substring = .true.
-                    nfound = nfound + 1
-                    call alloc_minsize (istart, nfound, 10)
 
-                    istart(nfound) = i
-                end if
-            end if
+            do while (is_ascii_whitespace(self%value(i:i)) .and. i <= n)
+                i = i + 1
+            end do
+
+            ! stepped one character too far; current position i is either
+            ! a non-whitespace character, or one element past the end of the string
+            i = i - 1
+
+            ! at this point we have either reached a non-whitespace character
+            ! of the end of the string;
+
+            ! Exit loop if we reached the end of the string
+            if (i == n) exit
+
+            ! If we haven't reached the end of the string, we found a
+            ! valid substring
+            nfound = nfound + 1
+            call alloc_minsize (istart, nfound, 10)
+            call alloc_minsize (iend, nfound, 10)
+
+            istart(nfound) = i
+
+            do while (.not. is_ascii_whitespace(self%value(i:i)) .and. i <= n)
+                i = i + 1
+            end do
+
+            ! stepped one character too far, current i is either whitespace
+            ! or one element past the end of the string
+            i = i - 1
+
+            iend(nfound) = i
+
+            ! start at the beginning to loop through the next sequence of
+            ! whitespace, unless we reached the end of the string
+            if (i == n) exit
         end do
     end if
 
