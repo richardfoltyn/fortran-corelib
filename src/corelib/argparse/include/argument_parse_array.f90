@@ -10,8 +10,11 @@ integer :: i
 nullify (ptr, ptr_stored)
 
 if (self%is_present) then
-    if (self%action == ARGPARSE_ACTION_STORE) then
-        do i = 1, self%nargs
+    select case (self%action)
+    case (ARGPARSE_ACTION_STORE_CONST)
+        ptr_stored => self%const
+    case default
+        do i = 1, self%get_cmd_nargs()
             call self%passed_values(i)%parse (val(i), status)
             if (status /= STATUS_OK) then
                 if (present(msg)) &
@@ -19,12 +22,8 @@ if (self%is_present) then
                 goto 100
             end if
         end do
-
         return
-
-    else if (self%action == ARGPARSE_ACTION_STORE_CONST) then
-        ptr_stored => self%const
-    end if
+    end select
 else if (allocated (self%default)) then
     ptr_stored => self%default
 end if

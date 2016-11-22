@@ -1,3 +1,13 @@
+! gfortran up to v5.x incorrectly processes procedure calls if the actual argument
+! is a temporary array of user-derived type, and the dummy argument is
+! polymorphic; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60322
+#if __GFORTRAN__ && (__GNUC__  < 6)
+#define _POLYMORPHIC_ARRAY(t) type (t)
+#else
+#define _POLYMORPHIC_ARRAY(t) class (t)
+#endif
+
+
 module corelib_argparse_parser
 
     use iso_fortran_env
@@ -15,6 +25,8 @@ module corelib_argparse_parser
     integer, parameter :: CMD_BUFFER_SIZE = 1024
     ! buffer for printing error messages to stderr
     integer, parameter :: MSG_LENGTH = 100
+    ! seperator used to split a list of arguments into individual tokens
+    character (1), parameter :: LIST_SEP = ','
 
     type, public :: argparser
         private
@@ -40,6 +52,9 @@ module corelib_argparse_parser
         procedure, pass :: init_char => argparser_init_char
         generic, public :: init => init_str, init_char
 
+        procedure, public, pass :: reset => argparser_reset
+        procedure, pass :: reset_args => argparser_reset_args
+
         procedure, pass :: argparser_get_array_str
         procedure, pass :: argparser_get_scalar_str
         procedure, pass :: argparser_get_array_char
@@ -49,11 +64,12 @@ module corelib_argparse_parser
             argparser_get_array_char, &
             argparser_get_scalar_char
 
-        procedure, public, pass :: parse => argparser_parse
+        procedure, pass :: argparser_parse_array
+        procedure, pass :: argparser_parse_cmd
+        generic, public :: parse => argparser_parse_array, argparser_parse_cmd
 
         procedure, pass :: append => argparser_append
         procedure, pass :: find_arg => argparser_find_arg
-        procedure, pass :: has_arg => argparser_has_arg
         procedure, pass :: parse_long => argparser_parse_long
         procedure, pass :: parse_abbrev => argparser_parse_abbrev
         procedure, pass :: collect_values => argparser_collect_values
@@ -62,6 +78,21 @@ module corelib_argparse_parser
         procedure, pass :: argparser_check_input_str
         procedure, pass :: argparser_check_input_char
         generic :: check_input => argparser_check_input_str, argparser_check_input_char
+
+        procedure, pass :: argparser_is_present_str
+        procedure, pass :: argparser_is_present_char
+        generic, public :: is_present => argparser_is_present_str, &
+            argparser_is_present_char
+
+        procedure, pass :: argparser_is_defined_str
+        procedure, pass :: argparser_is_defined_char
+        generic, public :: is_defined => argparser_is_defined_str, &
+            argparser_is_defined_char
+
+        procedure, pass :: argparser_get_nargs_str
+        procedure, pass :: argparser_get_nargs_char
+        generic, public :: get_nargs => argparser_get_nargs_str, &
+            argparser_get_nargs_char
     end type
 
     interface len
@@ -79,6 +110,8 @@ pure subroutine argparser_init_str (self, description)
     class (argparser), intent(in out) :: self
     class (str), intent(in), optional :: description
 
+    call self%reset ()
+
     if (present(description)) self%description = description
 end subroutine
 
@@ -87,6 +120,15 @@ pure subroutine argparser_init_char (self, description)
     character (len=*), intent(in) :: description
 
     call self%init (str(description))
+end subroutine
+
+pure subroutine argparser_reset (self)
+    class (argparser), intent(in out) :: self
+
+    if (allocated(self%args)) deallocate(self%args)
+
+    self%description = ""
+    self%status = ARGPARSE_STATUS_INIT
 end subroutine
 
 ! ------------------------------------------------------------------------------
@@ -331,7 +373,7 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status,
     end if
 
     ! check whether argument with this name is already defined
-    if (self%has_arg (name)) then
+    if (self%is_defined (name)) then
         msg = "Argument '" // name // "' already defined"
         return
     end if
@@ -343,7 +385,7 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status,
         end if
 
         ! check whether abbreviation of this name already exists
-        if (self%has_arg (abbrev, is_abbrev=.true.)) then
+        if (self%is_defined (abbrev, is_abbrev=.true.)) then
             msg = "Argument with abbreviation '" // abbrev // "' already defined"
         end if
     end if
@@ -397,6 +439,8 @@ subroutine validate_action (action, status)
     case (ARGPARSE_ACTION_STORE_FALSE)
         return
     case (ARGPARSE_ACTION_STORE_CONST)
+        return
+    case (ARGPARSE_ACTION_APPEND)
         return
     case default
         status = STATUS_INVALID_INPUT
@@ -561,9 +605,9 @@ function argparser_find_arg (self, name, is_abbrev) result(ptr_arg)
 end function
 
 ! ------------------------------------------------------------------------------
-! HAS_ARG method
+! IS_DEFINED method
 
-function argparser_has_arg (self, identifier, is_abbrev) result (res)
+function argparser_is_defined_str (self, identifier, is_abbrev) result (res)
     class (argparser), intent(in) :: self
     type (str), intent(in) :: identifier
     logical, intent(in), optional :: is_abbrev
@@ -577,17 +621,128 @@ function argparser_has_arg (self, identifier, is_abbrev) result (res)
     res = associated (ptr_arg)
 end function
 
+function argparser_is_defined_char (self, identifier, is_abbrev) result(res)
+    class (argparser), intent(in) :: self
+    character (*), intent(in) :: identifier
+    logical, intent(in), optional :: is_abbrev
+    logical :: res
+
+    res = self%is_defined (str(identifier), is_abbrev)
+end function
+
+! ------------------------------------------------------------------------------
+! GET_NARGS method
+
+subroutine argparser_get_nargs_str (self, identifier, nargs, is_abbrev, status)
+    class (argparser), intent(in) :: self
+    type (str), intent(in) :: identifier
+    integer, intent(out) :: nargs
+    logical, intent(in), optional :: is_abbrev
+    integer, intent(out), optional :: status
+
+    integer :: lstatus
+    type (argument), pointer :: ptr_arg
+
+    nargs = 0
+
+    nullify (ptr_arg)
+    ptr_arg => self%find_arg (identifier, is_abbrev)
+
+    if (associated(ptr_arg)) then
+        lstatus = STATUS_OK
+        nargs = ptr_arg%get_cmd_nargs ()
+    else
+        lstatus = STATUS_INVALID_INPUT
+    end if
+
+    if (present(status)) status = lstatus
+end subroutine
+
+
+subroutine argparser_get_nargs_char (self, identifier, nargs, is_abbrev, status)
+    class (argparser), intent(in) :: self
+    character (*), intent(in) :: identifier
+    integer, intent(out) :: nargs
+    logical, intent(in), optional :: is_abbrev
+    integer, intent(out), optional :: status
+
+    call self%get_nargs (str(identifier), nargs, is_abbrev, status)
+end subroutine
+
+! ------------------------------------------------------------------------------
+! IS_PRESENT method
+
+subroutine argparser_is_present_str (self, identifier, is_present, is_abbrev, status)
+    class (argparser), intent(in) :: self
+    type (str), intent(in) :: identifier
+    logical, intent(out) :: is_present
+    logical, intent(in), optional :: is_abbrev
+    integer, intent(out), optional :: status
+
+    type (argument), pointer :: ptr_arg
+    integer :: lstatus
+
+    is_present = .false.
+
+    nullify (ptr_arg)
+    ptr_arg => self%find_arg (identifier, is_abbrev)
+
+    if (associated(ptr_arg)) then
+        lstatus = STATUS_OK
+        is_present = ptr_arg%is_present
+    else
+        lstatus = STATUS_INVALID_INPUT
+    end if
+
+    if (present(status)) status = lstatus
+end subroutine
+
+
+subroutine argparser_is_present_char (self, identifier, is_present, is_abbrev, status)
+    class (argparser), intent(in) :: self
+    character (*), intent(in) :: identifier
+    logical, intent(out) :: is_present
+    logical, intent(in), optional :: is_abbrev
+    integer, intent(out), optional :: status
+
+    call self%is_present (str(identifier), is_present, is_abbrev, status)
+end subroutine
+
+! ------------------------------------------------------------------------------
+! RESET_ARGS method
+subroutine argparser_reset_args (self)
+    class (argparser), intent(in out) :: self
+
+    ! deallocated automatically on subroutine exit
+    class (iterator), allocatable :: iter
+    class (*), pointer :: ptr_item
+    class (argument), pointer :: ptr_arg
+
+    nullify (ptr_arg, ptr_item)
+
+    ! get list iterator
+    call self%args%get_iter (iter)
+
+    do while (iter%has_next())
+        ptr_item => iter%item()
+        call dynamic_cast (ptr_item, ptr_arg)
+
+        call ptr_arg%reset ()
+    end do
+
+end subroutine
+
 ! ------------------------------------------------------------------------------
 ! PARSE method
 
-subroutine argparser_parse (self, status)
+subroutine argparser_parse_array (self, cmd_args, status)
     class (argparser), intent(in out) :: self
+    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
     integer, intent(out), optional :: status
 
     integer :: i, cmd_nargs
     integer :: lstatus
     character (100) :: msg
-    character (CMD_BUFFER_SIZE) :: buf
     type (str) :: cmd_arg, str_tmp
 
     lstatus = STATUS_INVALID_STATE
@@ -598,20 +753,18 @@ subroutine argparser_parse (self, status)
         goto 100
     end if
 
-    ! count does not include the command name
-    cmd_nargs = command_argument_count()
-    if (cmd_nargs == 0) then
-        msg = "No command line arguments specified"
-        goto 100
-    end if
+    ! undo changes to arguments applied by any previous calls to set() if
+    ! parse() has been called repeatedly
+    call self%reset_args ()
+
+    cmd_nargs = size(cmd_args)
 
     ! argparser state seems to be valid for parsing
     lstatus = STATUS_OK
 
     i = 1
     do while (i <= cmd_nargs)
-        call get_command_argument (i, buf)
-        cmd_arg = trim(buf)
+        cmd_arg = cmd_args(i)
 
         ! find associated argument object, either using the long name or the
         ! abbreviation
@@ -643,6 +796,28 @@ subroutine argparser_parse (self, status)
 
 end subroutine
 
+
+subroutine argparser_parse_cmd (self, status)
+    class (argparser), intent(in out) :: self
+    integer, intent(out), optional :: status
+
+    character (CMD_BUFFER_SIZE) :: buf
+    type (str), dimension(:), allocatable :: cmd_args
+    integer :: cmd_nargs, i
+
+    ! count does not include the command name
+    cmd_nargs = command_argument_count ()
+
+    allocate (cmd_args (cmd_nargs))
+    do i = 1, cmd_nargs
+        buf = ""
+        call get_command_argument (i, buf)
+        cmd_args(i) = trim(buf)
+    end do
+
+    call self%parse (cmd_args, status)
+end subroutine
+
 subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status, msg)
     class (argparser), intent(in out) :: self
     integer, intent(in out) :: offset
@@ -652,7 +827,7 @@ subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status, msg)
     character (*), intent(out) :: msg
 
     type (str) :: cmd_name, str_tmp
-    type (str), dimension(:), allocatable :: cmd_values
+    type (str), dimension(:), allocatable :: cmd_values, work
     class (argument), pointer :: ptr_arg
 
     integer :: j
@@ -691,6 +866,15 @@ subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status, msg)
     ! store command line arguments in argument object
     if (allocated (cmd_values)) then
         ! at this point we know that nargs = 1 for this argument
+        if (ptr_arg%action == ARGPARSE_ACTION_APPEND) then
+            ! if in append mode, attempt to split potential list of arguments
+            ! into separate values
+            call move_alloc (cmd_values, work)
+            ! split work into tokens, store in cmd_values
+            call work(1)%split (cmd_values, sep=LIST_SEP, drop_empty=.true.)
+            deallocate (work)
+        end if
+
         call ptr_arg%set (cmd_values)
     else
         ! collect the number of requested arguments from the following commands
@@ -722,7 +906,7 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status, msg
     character (*), intent(out) :: msg
 
     type (str) :: cmd_name
-    type (str), dimension(:), allocatable :: cmd_values
+    type (str), dimension(:), allocatable :: cmd_values, work
     class (argument), pointer :: ptr_arg
 
     integer :: j
@@ -758,6 +942,16 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status, msg
             call self%collect_values (offset+1, cmd_nargs, ptr_arg, &
                 cmd_values, status, msg)
             if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
+
+            ! Tokenize individual values if ACTION_APPEND
+            if (ptr_arg%action == ARGPARSE_ACTION_APPEND) then
+                ! if in append mode, attempt to split potential list of arguments
+                ! into separate values
+                call move_alloc (cmd_values, work)
+                ! split work into tokens, store in cmd_values
+                call work(1)%split (cmd_values, sep=LIST_SEP, drop_empty=.true.)
+                deallocate (work)
+            end if
 
             ! store command line arguments in argument object
             call ptr_arg%set (cmd_values)

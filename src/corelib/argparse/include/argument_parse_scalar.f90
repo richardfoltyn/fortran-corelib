@@ -8,7 +8,10 @@ class (*), pointer :: ptr_stored
 nullify (ptr, ptr_stored)
 
 if (self%is_present) then
-    if (self%action == ARGPARSE_ACTION_STORE) then
+    select case (self%action)
+    case (ARGPARSE_ACTION_STORE_CONST)
+        ptr_stored => self%const(1)
+    case default
         call self%passed_values(1)%parse (val, status)
 
         if (status /= STATUS_OK) then
@@ -18,10 +21,7 @@ if (self%is_present) then
         end if
 
         return
-
-    else if (self%action == ARGPARSE_ACTION_STORE_CONST) then
-        ptr_stored => self%const(1)
-    end if
+    end select
 else if (allocated (self%default)) then
     ptr_stored => self%default(1)
 end if

@@ -6,6 +6,7 @@ module corelib_argparse_constants
     integer, parameter :: ARGPARSE_ACTION_STORE_TRUE = 1
     integer, parameter :: ARGPARSE_ACTION_STORE_FALSE = 2
     integer, parameter :: ARGPARSE_ACTION_STORE_CONST = 4
+    integer, parameter :: ARGPARSE_ACTION_APPEND = 8
 
     integer, parameter :: ARGPARSE_STATUS_OK = 0
     ! in intial state, no arguments added

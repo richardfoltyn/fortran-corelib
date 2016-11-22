@@ -22,9 +22,9 @@ module corelib_argparse_argument
         type (str), public :: name, abbrev
         class (*), dimension(:), allocatable :: default
         class (*), dimension(:), allocatable :: const
-        integer :: action = ARGPARSE_ACTION_STORE
+        integer, public :: action = ARGPARSE_ACTION_STORE
         logical :: required = .false.
-        logical :: is_present = .false.
+        logical, public :: is_present = .false.
         integer, public :: nargs = 1
         type (str), dimension(:), allocatable :: passed_values
         type (str) :: help
@@ -33,6 +33,8 @@ module corelib_argparse_argument
         procedure, pass :: init_scalar => argument_init_scalar
         procedure, pass :: init_scalar_default => argument_init_scalar_default
         generic, public :: init => init_array, init_scalar, init_scalar_default
+
+        procedure, public, pass :: reset => argument_reset
 
         procedure, pass :: set_scalar => argument_set_scalar
         procedure, pass :: set_array => argument_set_array
@@ -84,6 +86,8 @@ module corelib_argparse_argument
         generic :: parse_check_input => argument_parse_check_input_scalar, &
             argument_parse_check_input_array
 
+        procedure, pass :: get_cmd_nargs => argument_get_cmd_nargs
+
     end type
 
     interface dynamic_cast
@@ -128,20 +132,20 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     if (present(required)) lrequired = required
 
     ! Input validation: check before modifying argument object
-    if (present(default) .and. present(nargs)) then
-        if (size(default) /= nargs) then
-            msg = "default array size must be identical to nargs"
+    if (present(nargs)) then
+        ! if action is APPEND we do not allow to specify number of nargs.
+        ! In this case nargs must be 1, as argument::set() is assumed to be
+        ! called for each instance of argument encountered.
+        if (laction == ARGPARSE_ACTION_APPEND) then
+            msg = "Must not specify nargs with ACTION_APPEND"
             goto 100
-        end if
-    end if
-
-    ! if not required and action needs an argument, check that default value
-    ! is specified
-    if (laction /= ARGPARSE_ACTION_STORE_TRUE .and. &
-        laction /= ARGPARSE_ACTION_STORE_FALSE) then
-        if (.not. lrequired .and. .not. present(default)) then
-            msg = "Default value needs to be specified for optional arguments"
-            goto 100
+        else if (present(default)) then
+            ! Consistency of nargs and length of default array: assert these are
+            ! of same length only if action is not APPEND
+            if (size(default) /= nargs) then
+                msg = "default array size must be identical to nargs"
+                goto 100
+            end if
         end if
     end if
 
@@ -150,13 +154,6 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
         if (.not. present(const)) then
             msg = "Action STORE_CONST required const argument to be specified"
             goto 100
-        end if
-
-        if (present(default) .and. present(const)) then
-            if (size(default) /= size(const)) then
-                msg = "default and const arguments must be of equal size"
-                goto 100
-            end if
         end if
     end if
 
@@ -178,6 +175,10 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
         ! no arguments expected when requested to store const
         lnargs = 0
         call self%store_const (const)
+        call self%store_default (default)
+    case (ARGPARSE_ACTION_APPEND)
+        ! this should be guaranteed by input checking above
+        lnargs = 1
         call self%store_default (default)
     case default
         call self%store_default (default)
@@ -289,6 +290,17 @@ subroutine argument_init_scalar (self, name, abbrev, action, required, nargs, &
 end subroutine
 
 ! ------------------------------------------------------------------------------
+! RESET method
+
+! RESET reverses changed made by set()
+pure subroutine argument_reset (self)
+    class (argument), intent(in out) :: self
+
+    if (allocated (self%passed_values)) deallocate (self%passed_values)
+    self%is_present = .false.
+end subroutine
+
+! ------------------------------------------------------------------------------
 ! Routines to store const and default values
 
 subroutine argument_store_const_array (self, val)
@@ -355,9 +367,33 @@ subroutine argument_set_array (self, val)
     class (argument), intent(in out) :: self
     type (str), intent(in), dimension(:), optional :: val
 
+    type (str), dimension(:), allocatable :: work
+    integer :: n, m
+
     if (present(val)) then
-        if (allocated(self%passed_values)) deallocate (self%passed_values)
-        allocate (self%passed_values(size(val)), source=val)
+
+        n = size(val)
+
+        select case (self%action)
+        ! if requested to append repeated appearances of argument on command
+        ! line, allocate or reallocate passed_values array as required
+        case (ARGPARSE_ACTION_APPEND)
+            if (.not. allocated(self%passed_values)) then
+                allocate (self%passed_values(n), source=val)
+            else
+                ! need to reallocate new array that is large enough to hold
+                ! existing data as well as val
+                m = size(self%passed_values)
+                allocate (work(m+n))
+                work(1:m) = self%passed_values
+                work(m+1:m+n) = val
+                call move_alloc (work, self%passed_values)
+            end if
+        ! in all other cases, discard any previous values and store only val
+        case default
+            if (allocated(self%passed_values)) deallocate (self%passed_values)
+            allocate (self%passed_values(size(val)), source=val)
+        end select
     end if
 
     ! Argument was present in command line invocation
@@ -499,16 +535,15 @@ subroutine argument_parse_array_str (self, val, status, msg)
     nullify (ptr_stored, ptr)
 
     if (self%is_present) then
-        if (self%action == ARGPARSE_ACTION_STORE) then
-            do i = 1, self%nargs
+        select case (self%action)
+        case (ARGPARSE_ACTION_STORE_CONST)
+            ptr_stored => self%const
+        case default
+            do i = 1, self%get_cmd_nargs()
                 call self%passed_values(i)%parse (val(i), status)
             end do
-
             return
-
-        else if (self%action == ARGPARSE_ACTION_STORE_CONST) then
-            ptr_stored => self%const
-        end if
+        end select
     else if (allocated (self%default)) then
         ptr_stored => self%default
     end if
@@ -549,16 +584,15 @@ subroutine argument_parse_array_char (self, val, status, msg)
     nullify (ptr_stored, ptr)
 
     if (self%is_present) then
-        if (self%action == ARGPARSE_ACTION_STORE) then
-            do i = 1, self%nargs
+        select case (self%action)
+        case (ARGPARSE_ACTION_STORE_CONST)
+            ptr_stored => self%const
+        case default
+            do i = 1, self%get_cmd_nargs()
                 call self%passed_values(i)%parse (val(i), status)
             end do
-
             return
-
-        else if (self%action == ARGPARSE_ACTION_STORE_CONST) then
-            ptr_stored => self%const
-        end if
+        end select
     else if (allocated (self%default)) then
         ptr_stored => self%default
     end if
@@ -632,14 +666,13 @@ subroutine argument_parse_scalar_str (self, val, status, msg)
     class (*), pointer :: ptr_stored
 
     if (self%is_present) then
-
-        if (self%action == ARGPARSE_ACTION_STORE) then
+        select case (self%action)
+        case (ARGPARSE_ACTION_STORE_CONST)
+            ptr_stored => self%const(1)
+        case default
             val = self%passed_values(1)
             return
-        else if (self%action == ARGPARSE_ACTION_STORE_CONST) then
-            ! need to interpret stored const in terms of output data type
-            ptr_stored => self%const(1)
-        end if
+        end select
     else if (allocated (self%default)) then
         ptr_stored => self%default(1)
     end if
@@ -675,14 +708,13 @@ subroutine argument_parse_scalar_char (self, val, status, msg)
     class (*), pointer :: ptr_stored
 
     if (self%is_present) then
-
-        if (self%action == ARGPARSE_ACTION_STORE) then
+        select case (self%action)
+        case (ARGPARSE_ACTION_STORE_CONST)
+            ptr_stored => self%const(1)
+        case default
             val = self%passed_values(1)
             return
-        else if (self%action == ARGPARSE_ACTION_STORE_CONST) then
-            ! need to interpret stored const in terms of output data type
-            ptr_stored => self%const(1)
-        end if
+        end select
     else if (allocated (self%default)) then
         ptr_stored => self%default(1)
     end if
@@ -724,7 +756,7 @@ pure subroutine argument_parse_check_input_scalar (self, val, status, msg)
             return
         end if
     else if (self%action == ARGPARSE_ACTION_STORE) then
-        if (self%nargs > 1) then
+        if (self%get_cmd_nargs() > 1) then
             status = STATUS_INVALID_INPUT
             if (present(msg)) &
                 msg = "Array size insufficient to store command line arguments"
@@ -748,7 +780,7 @@ pure subroutine argument_parse_check_input_array (self, val, status, msg)
             return
         end if
     else if (self%action == ARGPARSE_ACTION_STORE) then
-        if (size(val) < self%nargs) then
+        if (size(val) < self%get_cmd_nargs()) then
             status = STATUS_INVALID_INPUT
             if (present(msg)) &
                 msg = "Array size insufficient to store command line arguments"
@@ -757,6 +789,26 @@ pure subroutine argument_parse_check_input_array (self, val, status, msg)
     end if
 end subroutine
 
+! ! ------------------------------------------------------------------------------
+! ! GET_IS_PRESENT method
+!
+! pure function get_is_present (self) result(res)
+!     class (argument), intent(in) :: self
+!     logical :: res
+!
+!     res = self%is_present
+! end function
+!
+! ------------------------------------------------------------------------------
+! GET_CMD_NARGS method
+
+pure function argument_get_cmd_nargs (self) result(res)
+    class (argument), intent(in) :: self
+    integer :: res
+
+    res = 0
+    if (allocated (self%passed_values)) res = size(self%passed_values)
+end function
 
 ! ------------------------------------------------------------------------------
 ! Casts
