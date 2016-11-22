@@ -1,8 +1,9 @@
 # src/tests/CMakeLists.txt
 # Build file for unit tests
 
-set(TEST_DIRS strings)
+set(TEST_DIRS argparse strings)
 set(TEST_SOURCE_FILES_strings strings/test_str.f90)
+set(TEST_SOURCE_FILES_argparse argparse/test_argparse.f90)
 
 foreach (dir IN LISTS TEST_DIRS)
 
