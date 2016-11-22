@@ -748,10 +748,10 @@ end function
 ! *****************************************************************************
 ! SPLIT method
 
-pure subroutine split_str (self, sep, str_list, drop_empty, status)
+pure subroutine split_str (self, str_list, sep, drop_empty, status)
     class (str), intent(in) :: self
-    class (str), intent(in), optional :: sep
     type (str), intent(in out), dimension(:), allocatable :: str_list
+    class (str), intent(in), optional :: sep
     logical, intent(in), optional :: drop_empty
     integer, intent(out), optional :: status
 
@@ -780,8 +780,10 @@ pure subroutine split_str (self, sep, str_list, drop_empty, status)
     ! only item.
     if (self == '') then
         if (ldrop_emtpy) then
+            if (allocated(str_list)) deallocate(str_list)
             allocate (str_list(0))
         else
+            if (allocated(str_list)) deallocate(str_list)
             allocate (str_list(1))
             str_list(1) = ''
         end if
@@ -842,9 +844,11 @@ pure subroutine split_str (self, sep, str_list, drop_empty, status)
     else
         ! handle default case when all contiguous white space is merged
         ! to form a separator
+        is = 1
         do while (is <= n)
 
-            do while (is_ascii_whitespace(self%value(is:is)) .and. is <= n)
+            do while (is <= n)
+                if (.not. is_ascii_whitespace(self%value(is:is))) exit
                 is = is + 1
             end do
 
@@ -855,7 +859,8 @@ pure subroutine split_str (self, sep, str_list, drop_empty, status)
             ! at this point we have reached a non-whitespace character;
             ! locate end of valid substring
             ie = is
-            do while (.not. is_ascii_whitespace(self%value(ie:ie)) .and. ie <= n)
+            do while (ie <= n)
+                if (is_ascii_whitespace(self%value(ie:ie))) exit
                 ie = ie + 1
             end do
 
@@ -890,13 +895,15 @@ pure subroutine split_str (self, sep, str_list, drop_empty, status)
         ie = iend(i)
         str_list(i) = self%value(is:ie)
     end do
+    
+    lstatus = STATUS_OK
 
 100 continue
     if (present(status)) status = lstatus
 
 contains
 
-    pure subroutine add_substring (istart, iend, ifound, ie, is)
+    pure subroutine add_substring (istart, iend, ifound, is, ie)
         integer, intent(in out), dimension(:), allocatable :: istart, iend
         integer, intent(in) :: ifound, ie, is
 
@@ -911,15 +918,15 @@ end subroutine
 
 pure subroutine split_char (self, sep, str_list, drop_empty, status)
     class (str), intent(in) :: self
-    character (*), intent(in) :: sep
     type (str), intent(in out), dimension(:), allocatable :: str_list
+    character (*), intent(in) :: sep
     logical, intent(in), optional :: drop_empty
     integer, intent(out), optional :: status
 
     type (str) :: lsep
 
     lsep = sep
-    call self%split (lsep, str_list, drop_empty, status)
+    call self%split (str_list, lsep, drop_empty, status)
 end subroutine
 
 ! IS_ASCII_WHITESPACE returns true if the first character in s
