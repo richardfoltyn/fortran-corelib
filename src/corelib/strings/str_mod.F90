@@ -895,7 +895,7 @@ pure subroutine split_str (self, str_list, sep, drop_empty, status)
         ie = iend(i)
         str_list(i) = self%value(is:ie)
     end do
-    
+
     lstatus = STATUS_OK
 
 100 continue
@@ -916,7 +916,7 @@ contains
     end subroutine
 end subroutine
 
-pure subroutine split_char (self, sep, str_list, drop_empty, status)
+pure subroutine split_char (self, str_list, sep, drop_empty, status)
     class (str), intent(in) :: self
     type (str), intent(in out), dimension(:), allocatable :: str_list
     character (*), intent(in) :: sep
