@@ -6,7 +6,7 @@ set(SOURCE_FILES
     argparse.f90
     argument.F90
     constants.f90
-    parser.f90
+    parser.F90
 )
 
 include_directories(${${PROJECT_NAME}_MODDIR})
