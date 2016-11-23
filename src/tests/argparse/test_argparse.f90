@@ -44,11 +44,12 @@ subroutine test_append (tests)
     call parser%init ("argparse append test")
     call parser%add_argument ("name", "n", action=ARGPARSE_ACTION_APPEND, status=status)
 
+    ! --------------------------------------------------------------------------
+    ! long syntax, single argument
     allocate (cmd(1))
     cmd(1) = "--name=foo"
 
     call parser%parse (cmd, status)
-    deallocate (cmd)
 
     call parser%is_present ("name", is_present)
     call tc%assert_true (is_present, &
@@ -61,13 +62,15 @@ subroutine test_append (tests)
     nvals = parser%get_nvals ("name")
     call tc%assert_true (nvals == 1, &
         "ACTION_APPEND: corrent # of arguments reported, nargs=1")
+        
+    deallocate (cmd)
 
+    ! --------------------------------------------------------------------------
     ! test with multiple arguments
     allocate(cmd(1))
     cmd(1) = "--name=foo,bar"
 
     call parser%parse (cmd, status)
-    deallocate (cmd)
 
     call parser%is_present ("name", is_present)
     call tc%assert_true (is_present, &
@@ -81,6 +84,74 @@ subroutine test_append (tests)
     call parser%get ("name", val_list)
     call tc%assert_true (val_list(1) == "foo" .and. val_list(2) == "bar", &
         "ACTION_APPEND: correct argument value, nargs=2")
+        
+    deallocate (cmd, val_list)
+
+    ! --------------------------------------------------------------------------
+    ! test short argument syntax -- single instance
+    allocate (cmd(2))
+    cmd(:) = [str("-n"),  str("foo")]
+
+    call parser%parse (cmd, status)
+
+    call parser%is_present ("name", is_present)
+    call tc%assert_true (is_present, &
+        "abbrev. syntax: argument present, nargs=1")
+
+    nvals = parser%get_nvals ("name")
+    call tc%assert_true (nvals == 1, &
+        "abbrev. syntax: corrent # of arguments reported, nargs=1")
+
+    allocate (val_list(nvals))
+    call parser%get ("name", val_list)
+    call tc%assert_true (val_list(1) == "foo", &
+        "abbrev. syntax: correct argument value, nargs=1")
+        
+    deallocate (cmd, val_list)
+
+    ! --------------------------------------------------------------------------
+    ! test short syntax -- multiple instances
+    allocate (cmd(4))
+    cmd(:) = [str("-n"), str("foo"), str("-n"), str("bar")]
+
+    call parser%parse (cmd, status)
+
+    call parser%is_present ("name", is_present)
+    call tc%assert_true (is_present, &
+        "abbrev. syntax: argument present, nargs=2")
+
+    nvals = parser%get_nvals ("name")
+    call tc%assert_true (nvals == 2, &
+        "abbrev. syntax: corrent # of arguments reported, nargs=2")
+
+    allocate (val_list(nvals))
+    call parser%get ("name", val_list)
+    call tc%assert_true (all(val_list == ["foo", "bar"]), &
+        "abbrev. syntax: correct argument value, nargs=2")
+        
+    deallocate (cmd, val_list)
+
+    ! --------------------------------------------------------------------------
+    ! test short syntax -- single instances, no tokenization of value list
+    allocate (cmd(2))
+    cmd(:) = [str("-n"), str("foo,bar")]
+
+    call parser%parse (cmd, status)
+
+    call parser%is_present ("name", is_present)
+    call tc%assert_true (is_present, &
+        "abbrev. syntax: argument present (value list, nargs=1)")
+
+    nvals = parser%get_nvals ("name")
+    call tc%assert_true (nvals == 1, &
+        "abbrev. syntax: corrent # of arguments (value list, nargs=1)")
+
+    allocate (val_list(nvals))
+    call parser%get ("name", val_list)
+    call tc%assert_true (all(val_list == ["foo,bar"]), &
+        "abbrev. syntax: correct argument value (value list, nargs=1)")
+        
+    deallocate (cmd, val_list)
 
 
 end subroutine
