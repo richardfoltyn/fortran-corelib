@@ -734,7 +734,7 @@ subroutine argparser_parse_array (self, cmd_args, status)
     integer :: i, cmd_nargs
     integer :: lstatus
     character (100) :: msg
-    type (str) :: cmd_arg, str_tmp
+    type (str) :: cmd_arg
 
     lstatus = STATUS_INVALID_STATE
     msg = ""
@@ -760,15 +760,11 @@ subroutine argparser_parse_array (self, cmd_args, status)
         ! find associated argument object, either using the long name or the
         ! abbreviation
         if (cmd_arg%startswith ('--')) then
-            ! pass argument name and (possible) =value to "long" parser
-            str_tmp = cmd_arg%substring (3, -1)
-            call self%parse_long (i, str_tmp, cmd_nargs, lstatus, msg)
+            call self%parse_long (cmd_args, i, lstatus, msg)
             if (lstatus /= STATUS_OK) goto 100
 
         else if (cmd_arg%startswith ('-')) then
-
-            str_tmp = cmd_arg%substring (2, -1)
-            call self%parse_abbrev (i, str_tmp, cmd_nargs, lstatus, msg)
+            call self%parse_abbrev (cmd_args, i, lstatus, msg)
             if (lstatus /= STATUS_OK) goto 100
 
         end if
@@ -809,34 +805,49 @@ subroutine argparser_parse_cmd (self, status)
     call self%parse (cmd_args, status)
 end subroutine
 
-subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status, msg)
+subroutine argparser_parse_long (self, cmd_args, offset, status, msg)
     class (argparser), intent(in out) :: self
+    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
     integer, intent(in out) :: offset
-    type (str), intent(in) :: cmd_arg
-    integer, intent(in) :: cmd_nargs
     integer, intent(out) :: status
     character (*), intent(out) :: msg
 
-    type (str) :: cmd_name, str_tmp
-    type (str), dimension(:), allocatable :: cmd_values, work
+    type (str) :: cmd_name, str_value, cmd_arg
+    type (str), dimension(:), allocatable :: cmd_values
     class (argument), pointer :: ptr_arg
 
-    integer :: j
+    integer :: j, cmd_nargs
 
     status = STATUS_OK
+    cmd_nargs = size(cmd_args)
+
+    ! remove leading -- from long syntax
+    cmd_arg = cmd_args(offset)%substring (3, -1)
 
     ! check whether there is an = and separate token in that case
     j = index (cmd_arg, "=")
     if (j > 0) then
         cmd_name = cmd_arg%substring (j-1)
-        str_tmp = cmd_arg%substring (j+1, -1)
-        allocate (cmd_values(1), source=str_tmp)
     else
         cmd_name = cmd_arg
     end if
 
     ! find corresponding argument object
     ptr_arg => self%find_arg (cmd_name, is_abbrev=.false.)
+
+    ! if argument value was passed within the same command line argument,
+    ! extract it from substring after the '='
+    if (j > 0) then
+        ! select substring following the '='
+        str_value = cmd_arg%substring (j + 1, -1)
+        ! if ACTION_APPEND is specified and the --name=value format was used,
+        ! try to tokenze 'value' into components using list separator
+        if (ptr_arg%action == ARGPARSE_ACTION_APPEND) then
+            call str_value%split (cmd_values, LIST_SEP, drop_empty=.false.)
+        else
+            allocate (cmd_values(1), source=str_value)
+        end if
+    end if
 
     ! Check that the argument name given on command line corresponds to
     ! defined argument
@@ -856,20 +867,10 @@ subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status, msg)
 
     ! store command line arguments in argument object
     if (allocated (cmd_values)) then
-        ! at this point we know that nargs = 1 for this argument
-        if (ptr_arg%action == ARGPARSE_ACTION_APPEND) then
-            ! if in append mode, attempt to split potential list of arguments
-            ! into separate values
-            call move_alloc (cmd_values, work)
-            ! split work into tokens, store in cmd_values
-            call work(1)%split (cmd_values, sep=LIST_SEP, drop_empty=.true.)
-            deallocate (work)
-        end if
-
         call ptr_arg%set (cmd_values)
     else
         ! collect the number of requested arguments from the following commands
-        call self%collect_values (offset+1, cmd_nargs, ptr_arg, cmd_values, &
+        call self%collect_values (cmd_args, offset+1, ptr_arg, cmd_values, &
             status, msg)
         if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
 
@@ -888,21 +889,24 @@ subroutine argparser_parse_long (self, offset, cmd_arg, cmd_nargs, status, msg)
 100 continue
 end subroutine
 
-subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status, msg)
+subroutine argparser_parse_abbrev (self, cmd_args, offset, status, msg)
     class (argparser), intent(in out) :: self
+    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
     integer, intent(in out) :: offset
-    type (str), intent(in) :: cmd_arg
-    integer, intent(in) :: cmd_nargs
     integer, intent(out) :: status
     character (*), intent(out) :: msg
 
-    type (str) :: cmd_name
-    type (str), dimension(:), allocatable :: cmd_values, work
+    type (str) :: cmd_name, cmd_arg
+    type (str), dimension(:), allocatable :: cmd_values
     class (argument), pointer :: ptr_arg
 
-    integer :: j
+    integer :: j, cmd_nargs
 
     status = STATUS_OK
+    cmd_nargs = size(cmd_args)
+
+    ! remove leading - from argument (list)
+    cmd_arg = cmd_args(offset)%substring (2, -1)
 
     ! loop through all characters; note that argument values can
     ! only be specified for the very last argument, ie
@@ -930,19 +934,9 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status, msg
             call ptr_arg%set ()
         else if (ptr_arg%nargs > 0) then
             ! need to collect argument values
-            call self%collect_values (offset+1, cmd_nargs, ptr_arg, &
+            call self%collect_values (cmd_args, offset+1, ptr_arg, &
                 cmd_values, status, msg)
             if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
-
-            ! Tokenize individual values if ACTION_APPEND
-            if (ptr_arg%action == ARGPARSE_ACTION_APPEND) then
-                ! if in append mode, attempt to split potential list of arguments
-                ! into separate values
-                call move_alloc (cmd_values, work)
-                ! split work into tokens, store in cmd_values
-                call work(1)%split (cmd_values, sep=LIST_SEP, drop_empty=.true.)
-                deallocate (work)
-            end if
 
             ! store command line arguments in argument object
             call ptr_arg%set (cmd_values)
@@ -960,22 +954,23 @@ subroutine argparser_parse_abbrev (self, offset, cmd_arg, cmd_nargs, status, msg
 100 continue
 end subroutine
 
-subroutine argparser_collect_values (self, offset, cmd_nargs, ptr_arg, &
+subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
         cmd_values, status, msg)
 
     class (argparser), intent(in out) :: self
-    integer, intent(in) :: offset, cmd_nargs
+    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    integer, intent(in) :: offset
     class (argument), intent(in), pointer :: ptr_arg
     type (str), intent(out), dimension(:), allocatable :: cmd_values
     integer, intent(out) :: status
     character (*), intent(out) :: msg
 
-    character (CMD_BUFFER_SIZE) :: buf
-    integer :: j
+    integer :: j, cmd_nargs
 
     status = STATUS_OK
-    if (allocated(cmd_values)) deallocate (cmd_values)
+    cmd_nargs = size(cmd_args)
 
+    if (allocated(cmd_values)) deallocate (cmd_values)
     allocate (cmd_values(ptr_arg%nargs))
 
     j = 0
@@ -988,8 +983,7 @@ subroutine argparser_collect_values (self, offset, cmd_nargs, ptr_arg, &
             return
         end if
 
-        call get_command_argument (offset + j, buf)
-        cmd_values(j+1) = trim(buf)
+        cmd_values(j+1) = cmd_args(offset+j)
         j = j + 1
     end do
 
