@@ -14,7 +14,7 @@ if (self%is_present) then
     case (ARGPARSE_ACTION_STORE_CONST)
         ptr_stored => self%const
     case default
-        do i = 1, self%get_cmd_nargs()
+        do i = 1, self%get_nvals()
             call self%passed_values(i)%parse (val(i), status)
             if (status /= STATUS_OK) then
                 if (present(msg)) &

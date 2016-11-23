@@ -86,7 +86,7 @@ module corelib_argparse_argument
         generic :: parse_check_input => argument_parse_check_input_scalar, &
             argument_parse_check_input_array
 
-        procedure, pass :: get_cmd_nargs => argument_get_cmd_nargs
+        procedure, pass :: get_nvals => argument_get_nvals
 
     end type
 
@@ -539,7 +539,7 @@ subroutine argument_parse_array_str (self, val, status, msg)
         case (ARGPARSE_ACTION_STORE_CONST)
             ptr_stored => self%const
         case default
-            do i = 1, self%get_cmd_nargs()
+            do i = 1, self%get_nvals()
                 call self%passed_values(i)%parse (val(i), status)
             end do
             return
@@ -588,7 +588,7 @@ subroutine argument_parse_array_char (self, val, status, msg)
         case (ARGPARSE_ACTION_STORE_CONST)
             ptr_stored => self%const
         case default
-            do i = 1, self%get_cmd_nargs()
+            do i = 1, self%get_nvals()
                 call self%passed_values(i)%parse (val(i), status)
             end do
             return
@@ -756,7 +756,7 @@ pure subroutine argument_parse_check_input_scalar (self, val, status, msg)
             return
         end if
     else if (self%action == ARGPARSE_ACTION_STORE) then
-        if (self%get_cmd_nargs() > 1) then
+        if (self%get_nvals() > 1) then
             status = STATUS_INVALID_INPUT
             if (present(msg)) &
                 msg = "Array size insufficient to store command line arguments"
@@ -780,7 +780,7 @@ pure subroutine argument_parse_check_input_array (self, val, status, msg)
             return
         end if
     else if (self%action == ARGPARSE_ACTION_STORE) then
-        if (size(val) < self%get_cmd_nargs()) then
+        if (size(val) < self%get_nvals()) then
             status = STATUS_INVALID_INPUT
             if (present(msg)) &
                 msg = "Array size insufficient to store command line arguments"
@@ -800,9 +800,9 @@ end subroutine
 ! end function
 !
 ! ------------------------------------------------------------------------------
-! GET_CMD_NARGS method
+! GET_NVALS method
 
-pure function argument_get_cmd_nargs (self) result(res)
+pure function argument_get_nvals (self) result(res)
     class (argument), intent(in) :: self
     integer :: res
 

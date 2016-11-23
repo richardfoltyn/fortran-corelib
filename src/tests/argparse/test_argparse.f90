@@ -35,7 +35,7 @@ subroutine test_append (tests)
     type (str) :: name, val
     ! emulated command line arguments
     type (str), dimension(:), allocatable :: cmd, val_list
-    integer :: nargs
+    integer :: nvals
     logical :: is_present
 
 
@@ -58,8 +58,8 @@ subroutine test_append (tests)
     call tc%assert_true (val == "foo", &
         "ACTION_APPEND: correct argument value, nargs=1")
 
-    call parser%get_nargs ("name", nargs)
-    call tc%assert_true (nargs == 1, &
+    nvals = parser%get_nvals ("name")
+    call tc%assert_true (nvals == 1, &
         "ACTION_APPEND: corrent # of arguments reported, nargs=1")
 
     ! test with multiple arguments
@@ -73,11 +73,11 @@ subroutine test_append (tests)
     call tc%assert_true (is_present, &
         "ACTION_APPEND: argument present, nargs=2")
 
-    call parser%get_nargs ("name", nargs)
-    call tc%assert_true (nargs == 2, &
+    nvals = parser%get_nvals ("name")
+    call tc%assert_true (nvals == 2, &
         "ACTION_APPEND: corrent # of arguments reported, nargs=2")
 
-    allocate (val_list(nargs))
+    allocate (val_list(nvals))
     call parser%get ("name", val_list)
     call tc%assert_true (val_list(1) == "foo" .and. val_list(2) == "bar", &
         "ACTION_APPEND: correct argument value, nargs=2")

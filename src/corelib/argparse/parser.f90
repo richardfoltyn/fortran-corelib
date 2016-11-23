@@ -89,10 +89,10 @@ module corelib_argparse_parser
         generic, public :: is_defined => argparser_is_defined_str, &
             argparser_is_defined_char
 
-        procedure, pass :: argparser_get_nargs_str
-        procedure, pass :: argparser_get_nargs_char
-        generic, public :: get_nargs => argparser_get_nargs_str, &
-            argparser_get_nargs_char
+        procedure, pass :: argparser_get_nvals_str
+        procedure, pass :: argparser_get_nvals_char
+        generic, public :: get_nvals => argparser_get_nvals_str, &
+            argparser_get_nvals_char
     end type
 
     interface len
@@ -631,43 +631,34 @@ function argparser_is_defined_char (self, identifier, is_abbrev) result(res)
 end function
 
 ! ------------------------------------------------------------------------------
-! GET_NARGS method
+! GET_NVALS method
 
-subroutine argparser_get_nargs_str (self, identifier, nargs, is_abbrev, status)
+function argparser_get_nvals_str (self, identifier, is_abbrev) result(res)
     class (argparser), intent(in) :: self
     type (str), intent(in) :: identifier
-    integer, intent(out) :: nargs
     logical, intent(in), optional :: is_abbrev
-    integer, intent(out), optional :: status
+    integer :: res
 
-    integer :: lstatus
     type (argument), pointer :: ptr_arg
 
-    nargs = 0
+    ! if argument name not found, return -1
+    res = -1
 
     nullify (ptr_arg)
     ptr_arg => self%find_arg (identifier, is_abbrev)
 
-    if (associated(ptr_arg)) then
-        lstatus = STATUS_OK
-        nargs = ptr_arg%get_cmd_nargs ()
-    else
-        lstatus = STATUS_INVALID_INPUT
-    end if
+    if (associated(ptr_arg)) res = ptr_arg%get_nvals ()
 
-    if (present(status)) status = lstatus
-end subroutine
+end function
 
-
-subroutine argparser_get_nargs_char (self, identifier, nargs, is_abbrev, status)
+function argparser_get_nvals_char (self, identifier, is_abbrev) result(res)
     class (argparser), intent(in) :: self
     character (*), intent(in) :: identifier
-    integer, intent(out) :: nargs
     logical, intent(in), optional :: is_abbrev
-    integer, intent(out), optional :: status
+    integer :: res
 
-    call self%get_nargs (str(identifier), nargs, is_abbrev, status)
-end subroutine
+    res = self%get_nvals (str(identifier), is_abbrev)
+end function
 
 ! ------------------------------------------------------------------------------
 ! IS_PRESENT method
