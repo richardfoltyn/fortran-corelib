@@ -62,7 +62,7 @@ subroutine test_append (tests)
     nvals = parser%get_nvals ("name")
     call tc%assert_true (nvals == 1, &
         "ACTION_APPEND: corrent # of arguments reported, nargs=1")
-        
+
     deallocate (cmd)
 
     ! --------------------------------------------------------------------------
@@ -84,13 +84,13 @@ subroutine test_append (tests)
     call parser%get ("name", val_list)
     call tc%assert_true (val_list(1) == "foo" .and. val_list(2) == "bar", &
         "ACTION_APPEND: correct argument value, nargs=2")
-        
+
     deallocate (cmd, val_list)
 
     ! --------------------------------------------------------------------------
     ! test short argument syntax -- single instance
     allocate (cmd(2))
-    cmd(:) = [str("-n"),  str("foo")]
+    cmd(1) = "-n"; cmd(2) = "foo"
 
     call parser%parse (cmd, status)
 
@@ -106,13 +106,13 @@ subroutine test_append (tests)
     call parser%get ("name", val_list)
     call tc%assert_true (val_list(1) == "foo", &
         "abbrev. syntax: correct argument value, nargs=1")
-        
+
     deallocate (cmd, val_list)
 
     ! --------------------------------------------------------------------------
     ! test short syntax -- multiple instances
     allocate (cmd(4))
-    cmd(:) = [str("-n"), str("foo"), str("-n"), str("bar")]
+    cmd(1) = "-n"; cmd(2) = "foo"; cmd(3) = "-n"; cmd(4) = "bar"
 
     call parser%parse (cmd, status)
 
@@ -128,13 +128,13 @@ subroutine test_append (tests)
     call parser%get ("name", val_list)
     call tc%assert_true (all(val_list == ["foo", "bar"]), &
         "abbrev. syntax: correct argument value, nargs=2")
-        
+
     deallocate (cmd, val_list)
 
     ! --------------------------------------------------------------------------
     ! test short syntax -- single instances, no tokenization of value list
     allocate (cmd(2))
-    cmd(:) = [str("-n"), str("foo,bar")]
+    cmd(1) = "-n"; cmd(2) = "foo,bar"
 
     call parser%parse (cmd, status)
 
@@ -150,7 +150,7 @@ subroutine test_append (tests)
     call parser%get ("name", val_list)
     call tc%assert_true (all(val_list == ["foo,bar"]), &
         "abbrev. syntax: correct argument value (value list, nargs=1)")
-        
+
     deallocate (cmd, val_list)
 
 
