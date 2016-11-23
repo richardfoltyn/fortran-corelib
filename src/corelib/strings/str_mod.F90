@@ -65,6 +65,8 @@ module corelib_string_str_mod
         procedure, pass :: split_char
         generic, public :: split => split_str, split_char
 
+        procedure, pass :: trim => str_trim
+
         procedure, pass :: count => str_count
 
         ! Parsers for other data types
@@ -141,11 +143,15 @@ module corelib_string_str_mod
         module procedure index_str_str, index_char_str, index_str_char
     end interface
 
+    interface trim
+        module procedure trim_str
+    end interface
+
     interface dynamic_cast
         module procedure cast_any_to_str, cast_any_to_str_array
     end interface
 
-    public :: str, str_array, len, len_trim, repeat, index
+    public :: str, str_array, len, len_trim, repeat, index, trim
     public :: operator (+), operator (//), operator (/=), operator (==), operator (*)
     public :: assignment (=)
     public :: dynamic_cast
@@ -1033,6 +1039,23 @@ elemental function index_char_str (char, s1, back, kind) result(res)
     else
         res = index (char, "", back)
     end if
+end function
+
+! *****************************************************************************
+! TRIM method
+elemental subroutine str_trim (self)
+    class (str), intent(in out) :: self
+
+    if (_VALID(self)) self = trim(self%value)
+end subroutine
+
+! TRIM_STR is an overload for trim() with argument of type str.
+pure function trim_str (self) result(res)
+    class (str), intent(in) :: self
+    class (str), allocatable :: res
+
+    allocate (res, source=self)
+    call res%trim ()
 end function
 
 ! *****************************************************************************
