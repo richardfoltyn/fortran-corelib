@@ -36,7 +36,6 @@ subroutine test_append (tests)
     ! emulated command line arguments
     type (str), dimension(:), allocatable :: cmd, val_list
     integer :: nvals
-    logical :: is_present
 
 
     tc => tests%add_test("argparse ACTION_APPEND")
@@ -51,8 +50,7 @@ subroutine test_append (tests)
 
     call parser%parse (cmd, status)
 
-    call parser%is_present ("name", is_present)
-    call tc%assert_true (is_present, &
+    call tc%assert_true (parser%is_present ("name"), &
         "ACTION_APPEND: argument present, nargs=1")
 
     call parser%get ("name", val)
@@ -72,8 +70,7 @@ subroutine test_append (tests)
 
     call parser%parse (cmd, status)
 
-    call parser%is_present ("name", is_present)
-    call tc%assert_true (is_present, &
+    call tc%assert_true (parser%is_present ("name"), &
         "ACTION_APPEND: argument present, nargs=2")
 
     nvals = parser%get_nvals ("name")
@@ -94,8 +91,7 @@ subroutine test_append (tests)
 
     call parser%parse (cmd, status)
 
-    call parser%is_present ("name", is_present)
-    call tc%assert_true (is_present, &
+    call tc%assert_true (parser%is_present ("name"), &
         "abbrev. syntax: argument present, nargs=1")
 
     nvals = parser%get_nvals ("name")
@@ -116,8 +112,7 @@ subroutine test_append (tests)
 
     call parser%parse (cmd, status)
 
-    call parser%is_present ("name", is_present)
-    call tc%assert_true (is_present, &
+    call tc%assert_true (parser%is_present ("name"), &
         "abbrev. syntax: argument present, nargs=2")
 
     nvals = parser%get_nvals ("name")
@@ -138,8 +133,7 @@ subroutine test_append (tests)
 
     call parser%parse (cmd, status)
 
-    call parser%is_present ("name", is_present)
-    call tc%assert_true (is_present, &
+    call tc%assert_true (parser%is_present ("name"), &
         "abbrev. syntax: argument present (value list, nargs=1)")
 
     nvals = parser%get_nvals ("name")

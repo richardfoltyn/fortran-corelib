@@ -105,14 +105,14 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
         help, status, default, const)
 
     class (argument), intent(in out) :: self
-    type (str), intent(in) :: name
-    type (str), intent(in), optional :: abbrev
+    class (str), intent(in) :: name
+    class (str), intent(in), optional :: abbrev
     integer, intent(in), optional :: action
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
     class (*), intent(in), dimension(:), optional :: const
     class (*), intent(in), dimension(:), optional :: default
-    type (str), intent(in), optional :: help
+    class (str), intent(in), optional :: help
     integer, intent(out), optional :: status
 
     integer :: lstatus, laction, lnargs
@@ -203,8 +203,8 @@ end subroutine
 subroutine argument_init_scalar_default (self, name, abbrev, action, required, nargs, &
         help, status, default)
     class (argument), intent(in out) :: self
-    type (str), intent(in) :: name
-    type (str), intent(in), optional :: abbrev
+    class (str), intent(in) :: name
+    class (str), intent(in), optional :: abbrev
     integer, intent(in), optional :: action
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
@@ -253,12 +253,12 @@ end subroutine
 subroutine argument_init_scalar (self, name, abbrev, action, required, nargs, &
         help, status, default, const)
     class (argument), intent(in out) :: self
-    type (str), intent(in) :: name
-    type (str), intent(in), optional :: abbrev
+    class (str), intent(in) :: name
+    class (str), intent(in), optional :: abbrev
     integer, intent(in), optional :: action
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
-    type (str), intent(in), optional :: help
+    class (str), intent(in), optional :: help
     integer, intent(out), optional :: status
     class (*), intent(in) :: default
     class (*), intent(in) :: const
@@ -406,76 +406,66 @@ end subroutine
 subroutine argument_parse_array (self, val, status, msg)
     class (argument), intent(in) :: self
     class (*), intent(out), dimension(:), target :: val
-    integer, intent(out), optional :: status
-    character (*), intent(out), optional :: msg
+    integer, intent(out) :: status
+    class (str), intent(in out) :: msg
 
-    integer :: lstatus
-
-    lstatus = STATUS_OK
+    status = STATUS_OK
 
     call self%parse_check_input (val, status, msg)
-    if (status /= STATUS_OK) goto 100
+    if (status /= STATUS_OK) return
 
     select type (val)
     type is (integer(int32))
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     type is (integer(int64))
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     type is (real(real32))
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     type is (real(real64))
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     type is (logical)
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     type is (character (*))
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     class is (str)
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     class default
-        lstatus = STATUS_INVALID_INPUT
-        if (present(msg)) msg = "Unsupported argument type"
+        status = STATUS_INVALID_INPUT
+        msg = "Unsupported argument type"
     end select
-
-100 continue
-    if (present(status)) status = lstatus
 
 end subroutine
 
 subroutine argument_parse_scalar (self, val, status, msg)
     class (argument), intent(in) :: self
     class (*), intent(out), target :: val
-    integer, intent(out), optional :: status
-    character (*), intent(out), optional :: msg
+    integer, intent(out) :: status
+    class (str), intent(in out) :: msg
 
-    integer :: lstatus
-
-    lstatus = STATUS_OK
+    status = STATUS_OK
 
     call self%parse_check_input (val, status, msg)
-    if (status /= STATUS_OK) goto 100
+    if (status /= STATUS_OK) return
 
     select type (val)
     type is (integer(int32))
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     type is (integer(int64))
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     type is (real(real32))
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     type is (real(real64))
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     type is (logical)
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     type is (character (*))
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     class is (str)
-        call self%parse_impl (val, lstatus, msg)
+        call self%parse_impl (val, status, msg)
     class default
-        lstatus = STATUS_INVALID_INPUT
-        if (present(msg)) msg = "Unsupported argument type"
+        status = STATUS_INVALID_INPUT
+        msg = "Unsupported argument type"
     end select
-
-100 continue
-    if (present(status)) status = lstatus
 
 end subroutine
 
@@ -527,12 +517,13 @@ subroutine argument_parse_array_str (self, val, status, msg)
 
     class (argument), intent(in), target :: self
     integer, intent(out) :: status
-    character (*) , intent(out), optional :: msg
+    class (str), intent(in out) :: msg
     class (*), dimension(:), pointer :: ptr_stored
 
     integer :: i
 
     nullify (ptr_stored, ptr)
+    status = STATUS_OK
 
     if (self%is_present) then
         select case (self%action)
@@ -541,29 +532,38 @@ subroutine argument_parse_array_str (self, val, status, msg)
         case default
             do i = 1, self%get_nvals()
                 call self%passed_values(i)%parse (val(i), status)
+
+                if (status /= STATUS_OK) then
+                    status = STATUS_INVALID_STATE
+                    msg = "Could not convert str to desired type"
+                    return
+                end if
             end do
+
             return
         end select
     else if (allocated (self%default)) then
         ptr_stored => self%default
     end if
 
-    if (associated (ptr_stored)) then
-        call dynamic_cast (ptr_stored, ptr, status)
-        if (status == STATUS_OK) then
-            val = ptr
-        else
-            select type (ptr_stored)
-            type is (character (*))
-                val = ptr_stored
-            class default
-                if (present(msg)) &
-                    msg = "Argument type incompatible with stored default value"
-            end select
-        end if
-    else
+    if (.not. associated(ptr_stored)) then
         status = STATUS_INVALID_STATE
-        if (present(msg)) msg = "Argument not present and no default value provided"
+        msg = "Argument not present and no default value provided"
+        return
+    end if
+
+    call dynamic_cast (ptr_stored, ptr, status)
+    if (status == STATUS_OK) then
+        val = ptr
+    else
+        select type (ptr_stored)
+        type is (character (*))
+            val = ptr_stored
+            status = STATUS_OK
+        class default
+            status = STATUS_INVALID_STATE
+            msg = "Argument type incompatible with stored default value"
+        end select
     end if
 
 end subroutine
@@ -576,12 +576,13 @@ subroutine argument_parse_array_char (self, val, status, msg)
 
     class (argument), intent(in), target :: self
     integer, intent(out) :: status
-    character (*) , intent(out), optional :: msg
+    class (str), intent(in out) :: msg
     class (*), dimension(:), pointer :: ptr_stored
 
     integer :: i
 
     nullify (ptr_stored, ptr)
+    status = STATUS_OK
 
     if (self%is_present) then
         select case (self%action)
@@ -590,29 +591,37 @@ subroutine argument_parse_array_char (self, val, status, msg)
         case default
             do i = 1, self%get_nvals()
                 call self%passed_values(i)%parse (val(i), status)
+                if (status /= STATUS_OK) then
+                    status = STATUS_INVALID_STATE
+                    msg = "Could not convert str to desired type"
+                    return
+                end if
             end do
+
             return
         end select
     else if (allocated (self%default)) then
         ptr_stored => self%default
     end if
 
-    if (associated(ptr_stored)) then
-        call dynamic_cast (ptr_stored, ptr, status)
-        if (status == STATUS_OK) then
-            val = ptr
-        else
-            select type (ptr_stored)
-            class is (str)
-                val = ptr_stored
-            class default
-                if (present(msg)) &
-                    msg = "Argument type incompatible with stored value"
-            end select
-        end if
-    else
+    if (.not. associated(ptr_stored)) then
         status = STATUS_INVALID_STATE
-        if (present(msg)) msg = "Argument not present and no default value provided"
+        msg = "Argument not present and no default value provided"
+        return
+    end if
+
+    call dynamic_cast (ptr_stored, ptr, status)
+    if (status == STATUS_OK) then
+        val = ptr
+    else
+        select type (ptr_stored)
+        class is (str)
+            val = ptr_stored
+            status = STATUS_OK
+        class default
+            status = STATUS_INVALID_STATE
+            msg = "Argument type incompatible with stored value"
+        end select
     end if
 
 end subroutine
@@ -662,8 +671,11 @@ subroutine argument_parse_scalar_str (self, val, status, msg)
 
     class (argument), intent(in), target :: self
     integer, intent(out) :: status
-    character (*), intent(out), optional :: msg
+    class (str), intent(in out) :: msg
     class (*), pointer :: ptr_stored
+
+    nullify (ptr_stored)
+    status = STATUS_OK
 
     if (self%is_present) then
         select case (self%action)
@@ -675,6 +687,12 @@ subroutine argument_parse_scalar_str (self, val, status, msg)
         end select
     else if (allocated (self%default)) then
         ptr_stored => self%default(1)
+    end if
+
+    if (.not. associated(ptr_stored)) then
+        status = STATUS_INVALID_STATE
+        msg = "Argument not present and no default value provided"
+        return
     end if
 
     ! at this point we need to retrieve and convert the value stored in either
@@ -688,9 +706,10 @@ subroutine argument_parse_scalar_str (self, val, status, msg)
         select type (ptr_stored)
         type is (character (*))
             val = ptr_stored
+            status = STATUS_OK
         class default
-            if (present(msg)) &
-                msg = "Argument type incompatible with stored default value"
+            status = STATUS_INVALID_STATE
+            msg = "Argument type incompatible with stored default value"
         end select
     end if
 
@@ -704,8 +723,11 @@ subroutine argument_parse_scalar_char (self, val, status, msg)
 
     class (argument), intent(in), target :: self
     integer, intent(out) :: status
-    character (*), intent(out), optional :: msg
+    class (str), intent(in out), optional :: msg
     class (*), pointer :: ptr_stored
+
+    nullify (ptr_stored)
+    status = STATUS_OK
 
     if (self%is_present) then
         select case (self%action)
@@ -719,6 +741,12 @@ subroutine argument_parse_scalar_char (self, val, status, msg)
         ptr_stored => self%default(1)
     end if
 
+    if (.not. associated(ptr_stored)) then
+        status = STATUS_INVALID_STATE
+        msg = "Argument not present and no default value provided"
+        return
+    end if
+
     ! at this point we need to retrieve and convert the value stored in either
     ! const or default
     call dynamic_cast (ptr_stored, ptr, status)
@@ -730,9 +758,10 @@ subroutine argument_parse_scalar_char (self, val, status, msg)
         select type (ptr_stored)
         class is (str)
             val = ptr_stored
+            status = STATUS_OK
         class default
-            if (present(msg)) &
-                msg = "Argument type incompatible with stored value"
+            status = STATUS_INVALID_STATE
+            msg = "Argument type incompatible with stored value"
         end select
     end if
 
@@ -745,7 +774,7 @@ pure subroutine argument_parse_check_input_scalar (self, val, status, msg)
     class (argument), intent(in) :: self
     class (*), intent(in) :: val
     integer, intent(out) :: status
-    character (*), intent(out), optional :: msg
+    class (str), intent(in out), optional :: msg
 
     status = STATUS_OK
 
@@ -769,7 +798,7 @@ pure subroutine argument_parse_check_input_array (self, val, status, msg)
     class (argument), intent(in) :: self
     class (*), intent(in), dimension(:) :: val
     integer, intent(out) :: status
-    character (*), intent(out), optional :: msg
+    class (str), intent(in out), optional :: msg
 
     status = STATUS_OK
 
@@ -807,7 +836,16 @@ pure function argument_get_nvals (self) result(res)
     integer :: res
 
     res = 0
-    if (allocated (self%passed_values)) res = size(self%passed_values)
+    if (self%is_present) then
+        select case (self%action)
+        case (ARGPARSE_ACTION_STORE_CONST)
+            res = size(self%const)
+        case default
+            if (allocated (self%passed_values)) res = size(self%passed_values)
+        end select
+    else
+        if (allocated (self%default)) res = size(self%default)
+    end if
 end function
 
 ! ------------------------------------------------------------------------------

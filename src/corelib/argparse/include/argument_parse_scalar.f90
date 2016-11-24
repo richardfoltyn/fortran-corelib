@@ -2,10 +2,11 @@
 
 class (argument), intent(in), target :: self
 integer, intent(out) :: status
-character (*), intent(out), optional :: msg
+class (str), intent(in out) :: msg
 class (*), pointer :: ptr_stored
 
 nullify (ptr, ptr_stored)
+status = STATUS_OK
 
 if (self%is_present) then
     select case (self%action)
@@ -15,9 +16,9 @@ if (self%is_present) then
         call self%passed_values(1)%parse (val, status)
 
         if (status /= STATUS_OK) then
-            if (present(msg)) &
-                msg = "Could not convert command line argument to requested type"
-            goto 100
+            status = STATUS_INVALID_STATE
+            msg = "Could not convert command line argument to requested type"
+            return
         end if
 
         return
@@ -26,17 +27,17 @@ else if (allocated (self%default)) then
     ptr_stored => self%default(1)
 end if
 
+if (.not. associated(ptr_stored)) then
+    status = STATUS_INVALID_STATE
+    msg = "Argument not present and no default value provided"
+    return
+end if
+
 ! at this point we need to retrieve and convert the value stored in either
 ! const or default
-if (associated (ptr_stored)) then
-    call dynamic_cast (ptr_stored, ptr, status)
-    if (status == STATUS_OK) then
-        val = ptr
-    else
-        if (present(msg)) msg = "Argument type incompatible with stored value"
-    end if
+call dynamic_cast (ptr_stored, ptr, status)
+if (status == STATUS_OK) then
+    val = ptr
 else
-    status = STATUS_INVALID_STATE
-    if (present(msg)) msg = "Argument not present and no default value provided"
+    msg = "Argument type incompatible with stored value"
 end if
-100 continue
