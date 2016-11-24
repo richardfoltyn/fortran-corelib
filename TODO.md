@@ -10,8 +10,15 @@
 -   Predefined `--help` and `-h` switches
 -   Printing of help text
 
+
+## collections ##
+-   Fix bug with recursive finalizer in gfortran
+
+
 ## strings ##
 
--   Create unit tests for count() method
--   Unit tests from trim() method / generic
+-   Create unit tests for `count()` method
+-   Implement `upper()` method
+-   Add unit tests for `lower()` and `upper()`
+-   Unit tests from `trim()` method / generic
 -   Implement other intrinsic functions such as adjustl(), adjustr()
