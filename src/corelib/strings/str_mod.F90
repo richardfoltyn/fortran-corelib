@@ -69,6 +69,9 @@ module corelib_string_str_mod
 
         procedure, pass :: count => str_count
 
+        procedure, pass :: lower => str_lower
+        ! procedure, pass :: upper => str_upper
+
         ! Parsers for other data types
         procedure, pass :: parse_int32
         procedure, pass :: parse_int64
@@ -991,6 +994,33 @@ pure subroutine repeat_impl (s, n, res)
     res = repeat(s%to_char(), n)
 
 end subroutine
+
+! ******************************************************************************
+! LOWER method
+
+elemental function str_lower (self) result(res)
+    class (str), intent(in) :: self
+    type (str) :: res
+
+    integer :: i, j, lb, ub, offset
+
+    if (.not. _VALID(self)) return
+
+    lb = iachar ("A")
+    ub = iachar ("Z")
+    offset = iachar ("a")
+
+    res = self
+
+    do i = 1, len(self)
+        j = iachar (self%value(i:i))
+        if (j >= lb .and. j <= ub) then
+            res%value(i:i) = achar (offset + j - lb)
+        end if
+    end do
+
+end function
+
 
 ! ******************************************************************************
 ! INDEX routine
