@@ -6,17 +6,17 @@ module corelib_io_dir
     implicit none
     private
 
-    interface dir_exists
-        module procedure dir_exists_str, dir_exists_char
+    interface is_dir
+        module procedure is_dir_str, is_dir_char
     end interface
 
-    public :: dir_exists
+    public :: is_dir
 
 contains
 
 ! ------------------------------------------------------------------------------
 ! DIR_EXISTS functions
-function dir_exists_str (path) result(res)
+function is_dir_str (path) result(res)
     class (str), intent(in) :: path
     logical :: res
 
@@ -59,14 +59,14 @@ function dir_exists_str (path) result(res)
 
 end function
 
-function dir_exists_char (path) result(res)
+function is_dir_char (path) result(res)
     character (*), intent(in) :: path
     logical :: res
 
     type (str) :: str_path
 
     str_path = path
-    res = dir_exists (str_path)
+    res = is_dir (str_path)
 end function
 
 end module
