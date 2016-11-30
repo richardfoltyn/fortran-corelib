@@ -17,12 +17,85 @@ subroutine test_all()
 
     call tests%set_label ("corelib_argparse unit tests")
 
+    ! test reading integer arguments
+    call test_integer (tests)
+
     ! run individual test cases
     call test_append (tests)
 
     ! print test statistics
     call tests%print ()
 
+end subroutine
+
+
+subroutine test_integer (tests)
+    class (test_suite) :: tests
+    class (test_case), pointer :: tc
+
+    type (argparser) :: parser
+    integer :: status
+
+    ! emulated command line arguments
+    type (str), dimension(:), allocatable :: cmd, val_list
+    logical :: is_present
+    integer (int32), parameter :: input1_32 = 123, input2_32 = -123, input3_32 = huge(1_int32)
+    integer (int64), parameter :: input1_64 = 123, input2_64 = -123, input3_64 = huge(1_int64)
+    integer (int32) :: val32
+    integer (int64) :: val64
+    integer :: nvals
+
+    tc => tests%add_test("argparse integer tests")
+
+    ! ===== Scalar 32bit integer =====
+    call parser%init ("argparse integer tests")
+    call parser%add_argument ("name", default=input1_32, status=status)
+
+    allocate (cmd(1))
+    cmd(1) = "--name=" // str(input2_32)
+
+    call parser%parse (cmd, status)
+    is_present = parser%is_present ("name")
+    call parser%get ("name", val32, status=status)
+    call tc%assert_true (is_present .and. val32 == input2_32 .and. status == STATUS_OK, &
+        "Scalar 32bit integer argument, argument present")
+    deallocate (cmd)
+
+    ! test with no argument present
+    allocate (cmd(0))
+
+    call parser%parse (cmd, status)
+    is_present = parser%is_present ("name")
+    call parser%get ("name", val32, status=status)
+    call tc%assert_true ((.not. is_present) .and. val32 == input1_32 .and. status == STATUS_OK, &
+        "Scalar 32bit integer argument, argument NOT present")
+
+    deallocate (cmd)
+
+    ! ===== Scalar 64bit integer =====
+    call parser%init ("argparse integer tests")
+    call parser%add_argument ("name", default=input1_64, status=status)
+
+    allocate (cmd(1))
+    cmd(1) = "--name=" // str(input2_64)
+
+    call parser%parse (cmd, status)
+    is_present = parser%is_present ("name")
+    call parser%get ("name", val64, status=status)
+    call tc%assert_true (is_present .and. val64 == input2_64 .and. status == STATUS_OK, &
+        "Scalar 64bit integer argument, argument present")
+    deallocate (cmd)
+
+    ! test with no argument present
+    allocate (cmd(0))
+
+    call parser%parse (cmd, status)
+    is_present = parser%is_present ("name")
+    call parser%get ("name", val64, status=status)
+    call tc%assert_true ((.not. is_present) .and. val64 == input1_64 .and. status == STATUS_OK, &
+        "Scalar 64bit integer argument, argument NOT present")
+    deallocate (cmd)
+    
 end subroutine
 
 subroutine test_append (tests)
