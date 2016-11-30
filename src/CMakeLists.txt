@@ -22,6 +22,13 @@ else()
     option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 endif()
 
+# If enabled, pass -assume std_mod_proc_name to ifort such that module
+# names will use _MP_ as module name / procedure name separator.
+# Off by default, this causes major pain since most third-party libraries
+# are compiled without this option.
+option(IFORT_STD_MOD_PROC_NAME
+    "Assume standard-compliant name mangling for module procedures" OFF
+)
 option(BUILD_TESTS "Build unit tests" ON)
 option(BUILD_EXAMPLES "Build example code" ON)
 
@@ -83,8 +90,14 @@ elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
     if (WIN32)
         set(_FFLAGS "/warn:all /standard-semantics /stand:f08")
         set(_FFLAGS_DEBUG "/check:all")
+        if (NOT IFORT_STD_MOD_PROC_NAME)
+            set(_FFLAGS "${_FFLAGS} /assume:nostd_mod_proc_name")
+        endif ()
     else ()
         set(_FFLAGS "-warn all -standard-semantics -std08")
+        if (NOT IFORT_STD_MOD_PROC_NAME)
+            set(_FFLAGS "${_FFLAGS} -assume nostd_mod_proc_name")
+        endif ()
         set(_FFLAGS_DEBUG "-check all")
     endif (WIN32)
 endif ()
