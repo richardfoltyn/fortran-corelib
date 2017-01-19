@@ -159,7 +159,7 @@ subroutine argparser_add_argument_array_str (self, name, abbrev, action, &
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action
+    integer (ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
@@ -192,7 +192,7 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action
+    integer (ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
@@ -225,7 +225,7 @@ subroutine argparser_add_argument_scalar_str (self, name, abbrev, action, &
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action
+    integer (ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
@@ -256,7 +256,7 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action
+    integer (ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
@@ -291,7 +291,7 @@ subroutine argparser_add_argument_scalar_char (self, name, abbrev, action, &
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action
+    integer (ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
@@ -328,7 +328,7 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action
+    integer (ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
@@ -364,7 +364,8 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status,
     class (argparser), intent(in) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action, nargs
+    integer (ENUM_KIND), intent(in), optional :: action
+    integer, intent(in), optional :: nargs
     integer, intent(out) :: status
     character (*), intent(out) :: msg
 
@@ -414,7 +415,8 @@ subroutine argparser_check_input_char (self, name, abbrev, action, nargs, status
     class (argparser), intent(in) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action, nargs
+    integer (ENUM_KIND), intent(in), optional :: action
+    integer, intent(in), optional :: nargs
     integer, intent(out) :: status
     character (*), intent(out) :: msg
 
@@ -430,7 +432,7 @@ subroutine argparser_check_input_char (self, name, abbrev, action, nargs, status
 end subroutine
 
 subroutine validate_action (action, status)
-    integer, intent(in), optional :: action
+    integer (ENUM_KIND), intent(in), optional :: action
     integer, intent(out) :: status
 
     status = STATUS_OK

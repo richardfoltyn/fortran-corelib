@@ -1,5 +1,6 @@
 module corelib_io_dir
 
+    use iso_fortran_env, only: real64
     use corelib_io_path
     use corelib_strings
 

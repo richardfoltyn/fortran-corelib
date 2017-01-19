@@ -22,7 +22,7 @@ module corelib_argparse_argument
         type (str), public :: name, abbrev
         class (*), dimension(:), allocatable :: default
         class (*), dimension(:), allocatable :: const
-        integer, public :: action = ARGPARSE_ACTION_STORE
+        integer (ENUM_KIND), public :: action = ARGPARSE_ACTION_STORE
         logical :: required = .false.
         logical, public :: is_present = .false.
         integer, public :: nargs = 1
@@ -107,13 +107,13 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     class (argument), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action
+    integer (ENUM_KIND), intent(in), optional :: action
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
     class (*), intent(in), dimension(:), optional :: const
     class (*), intent(in), dimension(:), optional :: default
     class (str), intent(in), optional :: help
-    integer, intent(out), optional :: status
+    integer (ENUM_KIND), intent(out), optional :: status
 
     integer :: lstatus, laction, lnargs
     logical :: lrequired
@@ -205,11 +205,11 @@ subroutine argument_init_scalar_default (self, name, abbrev, action, required, n
     class (argument), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action
+    integer (ENUM_KIND), intent(in), optional :: action
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
     type (str), intent(in), optional :: help
-    integer, intent(out), optional :: status
+    integer (ENUM_KIND), intent(out), optional :: status
     class (*), intent(in) :: default
 
     class (*), dimension(:), allocatable :: work1
@@ -255,11 +255,11 @@ subroutine argument_init_scalar (self, name, abbrev, action, required, nargs, &
     class (argument), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer, intent(in), optional :: action
+    integer (ENUM_KIND), intent(in), optional :: action
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
     class (str), intent(in), optional :: help
-    integer, intent(out), optional :: status
+    integer (ENUM_KIND), intent(out), optional :: status
     class (*), intent(in) :: default
     class (*), intent(in) :: const
 
@@ -406,7 +406,7 @@ end subroutine
 subroutine argument_parse_array (self, val, status, msg)
     class (argument), intent(in) :: self
     class (*), intent(out), dimension(:), target :: val
-    integer, intent(out) :: status
+    integer (ENUM_KIND), intent(out) :: status
     class (str), intent(in out) :: msg
 
     status = STATUS_OK
@@ -439,7 +439,7 @@ end subroutine
 subroutine argument_parse_scalar (self, val, status, msg)
     class (argument), intent(in) :: self
     class (*), intent(out), target :: val
-    integer, intent(out) :: status
+    integer  (ENUM_KIND), intent(out) :: status
     class (str), intent(in out) :: msg
 
     status = STATUS_OK
@@ -516,7 +516,7 @@ subroutine argument_parse_array_str (self, val, status, msg)
     _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
 
     class (argument), intent(in), target :: self
-    integer, intent(out) :: status
+    integer (ENUM_KIND), intent(out) :: status
     class (str), intent(in out) :: msg
     class (*), dimension(:), pointer :: ptr_stored
 
@@ -575,7 +575,7 @@ subroutine argument_parse_array_char (self, val, status, msg)
     character (len(val)), dimension(:), pointer :: ptr
 
     class (argument), intent(in), target :: self
-    integer, intent(out) :: status
+    integer (ENUM_KIND), intent(out) :: status
     class (str), intent(in out) :: msg
     class (*), dimension(:), pointer :: ptr_stored
 
@@ -670,7 +670,7 @@ subroutine argument_parse_scalar_str (self, val, status, msg)
     class (str), pointer :: ptr
 
     class (argument), intent(in), target :: self
-    integer, intent(out) :: status
+    integer (ENUM_KIND), intent(out) :: status
     class (str), intent(in out) :: msg
     class (*), pointer :: ptr_stored
 
@@ -722,7 +722,7 @@ subroutine argument_parse_scalar_char (self, val, status, msg)
     character (len(val)), pointer :: ptr
 
     class (argument), intent(in), target :: self
-    integer, intent(out) :: status
+    integer (ENUM_KIND), intent(out) :: status
     class (str), intent(in out), optional :: msg
     class (*), pointer :: ptr_stored
 
@@ -773,7 +773,7 @@ end subroutine
 pure subroutine argument_parse_check_input_scalar (self, val, status, msg)
     class (argument), intent(in) :: self
     class (*), intent(in) :: val
-    integer, intent(out) :: status
+    integer (ENUM_KIND), intent(out) :: status
     class (str), intent(in out), optional :: msg
 
     status = STATUS_OK
@@ -797,7 +797,7 @@ end subroutine
 pure subroutine argument_parse_check_input_array (self, val, status, msg)
     class (argument), intent(in) :: self
     class (*), intent(in), dimension(:) :: val
-    integer, intent(out) :: status
+    integer (ENUM_KIND), intent(out) :: status
     class (str), intent(in out), optional :: msg
 
     status = STATUS_OK

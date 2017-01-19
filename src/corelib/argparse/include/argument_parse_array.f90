@@ -1,7 +1,7 @@
 ! Implementation for PARSE method (array return types)
 
 class (argument), intent(in), target :: self
-integer, intent(out) :: status
+integer (ENUM_KIND), intent(out) :: status
 class (str), intent(in out) :: msg
 class (*), dimension(:), pointer :: ptr_stored
 

@@ -3,6 +3,7 @@ program test_strings
     use iso_fortran_env
     use corelib_strings
     use corelib_testing
+    use corelib_common
 
     implicit none
 
@@ -495,16 +496,16 @@ subroutine test_split (tests)
     class (test_case), pointer :: tc
 
     type (str) :: s1, s2, s3, s4, sep
-    integer :: status, i
+    integer (ENUM_KIND) :: status
     type (str), dimension(:), allocatable :: ilist, olist
-    logical :: res
+    
     tc => tests%add_test ("String split() method")
 
     s1 = "foo"
     s2 = "bar"
     s3 = "baz"
 
-    ! non-pathological string: verify that split() is the inverse 
+    ! non-pathological string: verify that split() is the inverse
     ! operation of join()
     allocate (ilist(3), source=[s1, s2, s3])
     ! ilist = [s1, s2, s3]
@@ -515,30 +516,30 @@ subroutine test_split (tests)
     call tc%assert_true (all(ilist == olist), &
         "str::split(), non-empty sep, non-empty str")
     deallocate (ilist)
-    
+
     ! string that will generate empty substrings
     allocate (ilist(5), source=[str(''), s1, s2, s3, str('')])
     sep = ","
     s4 = sep%join (ilist)
-    
+
     call s4%split (olist, sep, status=status)
     call tc%assert_true (all(ilist == olist), &
         "str::split(), non-empty sep, non-empty str, empty substrings")
     deallocate (ilist)
-    
-    ! Pathological cases: 
+
+    ! Pathological cases:
     ! Split empty string, non-empty separator
     s4 = ''
     call s4%split (olist, sep, status=status)
     call tc%assert_true (size(olist) == 1 .and. olist(1) == '', &
         "str::split(), empty str")
-        
+
     ! Split empty string, non-empty separator, drop empty substrings
     s4 = ''
     call s4%split (olist, sep, drop_empty=.true., status=status)
     call tc%assert_true (size(olist) == 0, &
         "str::split(drop_empty=.true.), empty str")
-        
+
     ! Empty separator
     deallocate (olist)
     allocate (ilist(3), source=[s1, s2, s3])
@@ -680,7 +681,7 @@ subroutine test_parse (tests)
     real (real64) :: r3, r4
     logical :: l1, l2
 
-    integer :: status
+    integer (ENUM_KIND):: status
 
     tc => tests%add_test ("String parse() method")
 

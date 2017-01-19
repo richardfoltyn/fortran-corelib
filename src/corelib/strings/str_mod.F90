@@ -762,9 +762,10 @@ pure subroutine split_str (self, str_list, sep, drop_empty, status)
     type (str), intent(in out), dimension(:), allocatable :: str_list
     class (str), intent(in), optional :: sep
     logical, intent(in), optional :: drop_empty
-    integer, intent(out), optional :: status
+    integer (ENUM_KIND), intent(out), optional :: status
 
-    integer :: i, nsep, n, m, lstatus, nfound, is, ie, iend_last_sep
+    integer :: i, nsep, n, m, nfound, is, ie, iend_last_sep
+    integer (ENUM_KIND) :: lstatus
     integer, dimension(:), allocatable :: istart, iend
     logical :: ldrop_emtpy
 
@@ -930,7 +931,7 @@ pure subroutine split_char (self, str_list, sep, drop_empty, status)
     type (str), intent(in out), dimension(:), allocatable :: str_list
     character (*), intent(in) :: sep
     logical, intent(in), optional :: drop_empty
-    integer, intent(out), optional :: status
+    integer (ENUM_KIND), intent(out), optional :: status
 
     type (str) :: lsep
 
@@ -1114,7 +1115,7 @@ end subroutine
 subroutine parse_str(self, val, status)
     class (str), intent(in) :: self
     class (str), intent(out) :: val
-    integer, intent(out), optional :: status
+    integer (ENUM_KIND), intent(out), optional :: status
 
     if (present(status)) status = STATUS_OK
 
@@ -1128,7 +1129,7 @@ end subroutine
 subroutine parse_char(self, val, status)
     class (str), intent(in) :: self
     character (*), intent(out) :: val
-    integer, intent(out), optional :: status
+    integer (ENUM_KIND), intent(out), optional :: status
 
     if (present(status)) status = STATUS_OK
 
@@ -1149,9 +1150,9 @@ end subroutine
 subroutine cast_any_to_str (tgt, ptr, status)
     class (*), intent(in), target :: tgt
     class (str), intent(out), pointer :: ptr
-    integer, intent(out), optional :: status
+    integer (ENUM_KIND), intent(out), optional :: status
 
-    integer :: lstatus
+    integer (ENUM_KIND) :: lstatus
 
     lstatus = STATUS_UNSUPPORTED_OPERATION
 
@@ -1167,9 +1168,9 @@ end subroutine
 subroutine cast_any_to_str_array (tgt, ptr, status)
     class (*), intent(in), dimension(:), target :: tgt
     _POLYMORPHIC_ARRAY (str), intent(out), dimension(:), pointer :: ptr
-    integer, intent(out), optional :: status
+    integer (ENUM_KIND), intent(out), optional :: status
 
-    integer :: lstatus
+    integer (ENUM_KIND) :: lstatus
 
     lstatus = STATUS_UNSUPPORTED_OPERATION
 

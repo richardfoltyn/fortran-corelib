@@ -1,9 +1,9 @@
 class (str), intent(in) :: self
-integer, optional :: status
+integer (ENUM_KIND), optional :: status
 
 intent(out) :: val, status
 
-integer :: lstatus
+integer (ENUM_KIND) :: lstatus
 lstatus = STATUS_INVALID_INPUT
 
 if (allocated(self%value)) then

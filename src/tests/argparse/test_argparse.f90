@@ -4,6 +4,7 @@ program test_strings
     use corelib_argparse
     use corelib_testing
     use corelib_strings
+    use corelib_common
 
     implicit none
 
@@ -34,7 +35,7 @@ subroutine test_integer (tests)
     class (test_case), pointer :: tc
 
     type (argparser) :: parser
-    integer :: status
+    integer (ENUM_KIND) :: status
 
     ! emulated command line arguments
     type (str), dimension(:), allocatable :: cmd, val_list
@@ -95,7 +96,7 @@ subroutine test_integer (tests)
     call tc%assert_true ((.not. is_present) .and. val64 == input1_64 .and. status == STATUS_OK, &
         "Scalar 64bit integer argument, argument NOT present")
     deallocate (cmd)
-    
+
 end subroutine
 
 subroutine test_append (tests)
@@ -103,7 +104,7 @@ subroutine test_append (tests)
     class (test_case), pointer :: tc
 
     type (argparser) :: parser
-    integer :: status
+    integer (ENUM_KIND) :: status
 
     type (str) :: name, val
     ! emulated command line arguments

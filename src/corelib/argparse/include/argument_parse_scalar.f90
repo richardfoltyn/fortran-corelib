@@ -1,7 +1,7 @@
 ! Method implementation for PARSE method (return type independent part)
 
 class (argument), intent(in), target :: self
-integer, intent(out) :: status
+integer (ENUM_KIND), intent(out) :: status
 class (str), intent(in out) :: msg
 class (*), pointer :: ptr_stored
 
