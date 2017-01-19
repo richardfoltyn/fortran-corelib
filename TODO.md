@@ -3,6 +3,7 @@
 ## argparse ##
 
 -   When parsing, verify that all required arguments are present
+-   Allow for empty value list when `ACTION_APPEND` requested
 -   Action `ACTION_COUNT` that collects the number of times an argument was
     specified
 -   Collect remaining arguments that do not match any defined argument
