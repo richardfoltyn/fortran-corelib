@@ -15,9 +15,8 @@ module corelib_io_path
     private
 
     interface join_path
-        module procedure join_path_array, &
+        module procedure join_path_array_str, &
             join_path2_str, join_path3_str, join_path4_str, &
-            join_path2_char, join_path3_char, join_path4_char, &
             join_path2_char_str, join_path3_char_str, join_path4_char_str
     end interface
 
@@ -28,7 +27,7 @@ contains
 ! ------------------------------------------------------------------------------
 ! JOIN_PATH functions
 
-pure subroutine join_path_array (str_list, res)
+pure subroutine join_path_impl (str_list, res)
     _POLYMORPHIC_ARRAY (str), dimension(:), intent(in) :: str_list
     type (str), intent(in out) :: res
 
@@ -62,32 +61,39 @@ pure subroutine join_path_array (str_list, res)
     end if
 end subroutine
 
-pure subroutine join_path2_str (p1, p2, res)
+pure function join_path_array_str (str_list) result(res)
+    _POLYMORPHIC_ARRAY (str), dimension(:), intent(in) :: str_list
+    type (str) :: res
+
+    call join_path_impl (str_list, res)
+end function
+
+pure function join_path2_str (p1, p2) result(res)
     class (str), intent(in) :: p1, p2
-    class (str), intent(in out) :: res
+    type (str) :: res
     type (str), dimension(2) :: str_list
 
     str_list(1) = p1
     str_list(2) = p2
 
-    call join_path_array (str_list, res)
-end subroutine
+    call join_path_impl (str_list, res)
+end function
 
-pure subroutine join_path3_str (p1, p2, p3, res)
+pure function join_path3_str (p1, p2, p3) result(res)
     class (str), intent(in) :: p1, p2, p3
-    class (str), intent(in out) :: res
+    type (str) :: res
     type (str), dimension(3) :: str_list
 
     str_list(1) = p1
     str_list(2) = p2
     str_list(3) = p3
 
-    call join_path_array (str_list, res)
-end subroutine
+    call join_path_impl (str_list, res)
+end function
 
-pure subroutine join_path4_str (p1, p2, p3, p4, res)
+pure function join_path4_str (p1, p2, p3, p4) result(res)
     class (str), intent(in) :: p1, p2, p3, p4
-    class (str), intent(in out) :: res
+    type (str) :: res
     type (str), dimension(4) :: str_list
 
     str_list(1) = p1
@@ -95,72 +101,24 @@ pure subroutine join_path4_str (p1, p2, p3, p4, res)
     str_list(3) = p3
     str_list(4) = p4
 
-    call join_path_array (str_list, res)
-end subroutine
+    call join_path_impl (str_list, res)
+end function
 
-pure subroutine join_path2_char (p1, p2, res)
+pure function join_path2_char_str (p1, p2) result(res)
     character (*), intent(in) :: p1, p2
-    character (*), intent(out) :: res
-
-    type (str), dimension(2) :: str_list
-    type (str) :: str_res
-
-    str_list(1) = p1
-    str_list(2) = p2
-
-    call join_path_array (str_list, str_res)
-    ! convert back to char
-    res = str_res
-end subroutine
-
-pure subroutine join_path3_char (p1, p2, p3, res)
-    character (*), intent(in) :: p1, p2, p3
-    character (*), intent(out) :: res
-
-    type (str), dimension(3) :: str_list
-    type (str) :: str_res
-
-    str_list(1) = p1
-    str_list(2) = p2
-    str_list(3) = p3
-
-    call join_path_array (str_list, str_res)
-    ! convert back to char
-    res = str_res
-end subroutine
-
-pure subroutine join_path4_char (p1, p2, p3, p4, res)
-    character (*), intent(in) :: p1, p2, p3, p4
-    character (*), intent(out) :: res
-
-    type (str), dimension(4) :: str_list
-    type (str) :: str_res
-
-    str_list(1) = p1
-    str_list(2) = p2
-    str_list(3) = p3
-    str_list(4) = p4
-
-    call join_path_array (str_list, str_res)
-    ! convert back to char
-    res = str_res
-end subroutine
-
-pure subroutine join_path2_char_str (p1, p2, res)
-    character (*), intent(in) :: p1, p2
-    class (str), intent(in out) :: res
+    type (str) :: res
 
     type (str), dimension(2) :: str_list
 
     str_list(1) = p1
     str_list(2) = p2
 
-    call join_path_array (str_list, res)
-end subroutine
+    call join_path_impl (str_list, res)
+end function
 
-pure subroutine join_path3_char_str (p1, p2, p3, res)
+pure function join_path3_char_str (p1, p2, p3) result(res)
     character (*), intent(in) :: p1, p2, p3
-    class (str), intent(in out) :: res
+    type (str) :: res
 
     type (str), dimension(3) :: str_list
 
@@ -168,12 +126,12 @@ pure subroutine join_path3_char_str (p1, p2, p3, res)
     str_list(2) = p2
     str_list(3) = p3
 
-    call join_path_array (str_list, res)
-end subroutine
+    call join_path_impl (str_list, res)
+end function
 
-pure subroutine join_path4_char_str (p1, p2, p3, p4, res)
+pure function join_path4_char_str (p1, p2, p3, p4) result(res)
     character (*), intent(in) :: p1, p2, p3, p4
-    class (str), intent(in out) :: res
+    type (str) :: res
 
     type (str), dimension(4) :: str_list
 
@@ -182,7 +140,7 @@ pure subroutine join_path4_char_str (p1, p2, p3, p4, res)
     str_list(3) = p3
     str_list(4) = p4
 
-    call join_path_array (str_list, res)
-end subroutine
+    call join_path_impl (str_list, res)
+end function
 
 end module

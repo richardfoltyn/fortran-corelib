@@ -36,7 +36,7 @@ function is_dir_str (path) result(res)
         call random_number (rnd)
         ! create random 10-character sequence
         filename = "__" // str(int(rnd * (10.d0 ** RND_LEN))) // ".tmp"
-        call join_path (path, filename, ftmp)
+        ftmp = join_path (path, filename)
 
         inquire (file=ftmp%to_char(), exist=file_exists)
 
