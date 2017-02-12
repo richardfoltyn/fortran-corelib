@@ -13,10 +13,12 @@ module corelib_argparse_constants
 
     integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_OK = 0
     ! in intial state, no arguments added
-    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_INIT = - 1
-    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_EMPTY_CMDLINE = - 2
-    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_PARSE_ERROR = - 4
-    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_PARSED = - 2 ** 3
-    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_INSUFFICIENT_ARGS = - 2 ** 11
+    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_INIT = ishft(1, 0)
+    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_EMPTY_CMDLINE = ishft(1, 1)
+    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_PARSE_ERROR = ishft(1, 2)
+    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_PARSED = ishft(1, 3)
+    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_INSUFFICIENT_ARGS = ishft(1, 4)
+    integer (ENUM_KIND), public, parameter :: ARGPARSE_STATUS_UNKNOWN_ARG = ishft(1, 5)
+
 
 end module

@@ -854,6 +854,12 @@ subroutine argparser_parse_long (self, cmd_args, offset, status, msg)
     ! find corresponding argument object
     ptr_arg => self%find_arg (cmd_name, is_abbrev=.false.)
 
+    if (.not. associated(ptr_arg)) then
+        status = ARGPARSE_STATUS_UNKNOWN_ARG
+        msg = "Unknown argument name: " // cmd_name
+        goto 100
+    end if
+
     ! if argument value was passed within the same command line argument,
     ! extract it from substring after the '='
     if (j > 0) then
@@ -866,14 +872,6 @@ subroutine argparser_parse_long (self, cmd_args, offset, status, msg)
         else
             allocate (cmd_values(1), source=str_value)
         end if
-    end if
-
-    ! Check that the argument name given on command line corresponds to
-    ! defined argument
-    if (.not. associated (ptr_arg)) then
-        status = STATUS_INVALID_INPUT
-        msg = "Unknown argument name: " // cmd_name
-        goto 100
     end if
 
     ! collect required number of argument values
@@ -937,7 +935,7 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status, msg)
         ! Check that the argument name given on command line corresponds to
         ! defined argument
         if (.not. associated (ptr_arg)) then
-            status = STATUS_INVALID_INPUT
+            status = ARGPARSE_STATUS_UNKNOWN_ARG
             msg = "Unknown argument name: " // cmd_name
             goto 100
         end if
