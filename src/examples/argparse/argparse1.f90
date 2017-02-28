@@ -40,13 +40,13 @@ program argparse1
     print *, "Argument 'flag2': ", flag2
 
     call parser%get ("flag3", flag3)
-    print '(*(l1,:,","))', flag3
+    print '(tr1, a, *(l1,:,","))', "Argument 'flag3': ",  flag3
 
     call parser%get ("opt", opt)
     print *, "Argument 'opt': ", opt%to_char()
 
     call parser%get ("opt", opt_char)
-    print *, "Argument 'opt', char type:", opt_char
+    print *, "Argument 'opt', char type: ", opt_char
 
     call parser%get ("const", const)
     print *, "Argument 'const': ", const
