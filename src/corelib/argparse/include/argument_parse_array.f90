@@ -1,14 +1,14 @@
 ! Implementation for PARSE method (array return types)
 
 class (argument), intent(in), target :: self
-integer (ENUM_KIND), intent(out) :: status
-class (str), intent(in out) :: msg
+type (status_t), intent(out) :: status
 class (*), dimension(:), pointer :: ptr_stored
 
 integer :: i
 
 nullify (ptr, ptr_stored)
-status = STATUS_OK
+call status%clear ()
+status = CL_STATUS_OK
 
 if (self%is_present) then
     select case (self%action)
@@ -17,9 +17,9 @@ if (self%is_present) then
     case default
         do i = 1, self%get_nvals()
             call self%passed_values(i)%parse (val(i), status)
-            if (status /= STATUS_OK) then
-                status = STATUS_INVALID_STATE
-                msg = "Could not convert command line argument to requested type"
+            if (status /= CL_STATUS_OK) then
+                status = CL_STATUS_INVALID_STATE
+                status%msg = "Could not convert command line argument to requested type"
                 return
             end if
         end do
@@ -30,14 +30,14 @@ else if (allocated (self%default)) then
 end if
 
 if (.not. associated(ptr_stored)) then
-    status = STATUS_INVALID_STATE
-    msg = "Argument not present and no default value provided"
+    status = CL_STATUS_INVALID_STATE
+    status%msg = "Argument not present and no default value provided"
     return
 end if
 
 call dynamic_cast (self%default, ptr, status)
-if (status == STATUS_OK) then
+if (status == CL_STATUS_OK) then
     val = ptr
 else
-    msg = "Argument type incompatible with stored value"
+    status%msg = "Argument type incompatible with stored value"
 end if

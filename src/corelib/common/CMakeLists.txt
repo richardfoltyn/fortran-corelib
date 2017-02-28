@@ -3,10 +3,11 @@
 get_filename_component(COMPONENT_NAME "${CMAKE_CURRENT_SOURCE_DIR}" NAME)
 
 set(SOURCE_FILES
+    kinds.f90
     alloc_mod.f90
-    casts.f90
     common.f90
     constants.f90
+    base_types.F90
 )
 
 include_directories(${${PROJECT_NAME}_MODDIR})

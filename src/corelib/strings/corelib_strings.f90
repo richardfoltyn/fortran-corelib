@@ -1,6 +1,7 @@
 module corelib_strings
 
-    use corelib_string_str_mod
+    use corelib_common_constants
+    use corelib_common_base
     implicit none
 
 end module

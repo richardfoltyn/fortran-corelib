@@ -3,8 +3,6 @@ program test_strings
     use iso_fortran_env
     use corelib_argparse
     use corelib_testing
-    use corelib_strings
-    use corelib_common
 
     implicit none
 
@@ -35,7 +33,7 @@ subroutine test_integer (tests)
     class (test_case), pointer :: tc
 
     type (argparser) :: parser
-    integer (ENUM_KIND) :: status
+    type (status_t) :: status
 
     ! emulated command line arguments
     type (str), dimension(:), allocatable :: cmd, val_list
@@ -58,7 +56,7 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val32, status=status)
-    call tc%assert_true (is_present .and. val32 == input2_32 .and. status == STATUS_OK, &
+    call tc%assert_true (is_present .and. val32 == input2_32 .and. status == CL_STATUS_OK, &
         "Scalar 32bit integer argument, argument present")
     deallocate (cmd)
 
@@ -68,7 +66,7 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val32, status=status)
-    call tc%assert_true ((.not. is_present) .and. val32 == input1_32 .and. status == STATUS_OK, &
+    call tc%assert_true ((.not. is_present) .and. val32 == input1_32 .and. status == CL_STATUS_OK, &
         "Scalar 32bit integer argument, argument NOT present")
 
     deallocate (cmd)
@@ -83,7 +81,7 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val64, status=status)
-    call tc%assert_true (is_present .and. val64 == input2_64 .and. status == STATUS_OK, &
+    call tc%assert_true (is_present .and. val64 == input2_64 .and. status == CL_STATUS_OK, &
         "Scalar 64bit integer argument, argument present")
     deallocate (cmd)
 
@@ -93,7 +91,7 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val64, status=status)
-    call tc%assert_true ((.not. is_present) .and. val64 == input1_64 .and. status == STATUS_OK, &
+    call tc%assert_true ((.not. is_present) .and. val64 == input1_64 .and. status == CL_STATUS_OK, &
         "Scalar 64bit integer argument, argument NOT present")
     deallocate (cmd)
 
@@ -104,7 +102,7 @@ subroutine test_append (tests)
     class (test_case), pointer :: tc
 
     type (argparser) :: parser
-    integer (ENUM_KIND) :: status
+    type (status_t) :: status
 
     type (str) :: name, val
     ! emulated command line arguments

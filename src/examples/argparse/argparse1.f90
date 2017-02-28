@@ -1,15 +1,16 @@
 program argparse1
 
     use corelib_argparse
-    use corelib_strings
 
     implicit none
 
     type (argparser) :: parser
-    integer :: status
+    type (status_t) :: status
 
     type (str) :: name, opt
+    character (20) :: opt_char
     logical :: flag1, flag2
+    logical, dimension(2) :: flag3
     integer :: const
 
     call parser%init ("argparse example 1")
@@ -18,6 +19,8 @@ program argparse1
         status=status)
     call parser%add_argument ("flag2", action=ARGPARSE_ACTION_STORE_FALSE, &
         status=status)
+    call parser%add_argument ("flag3", action=ARGPARSE_ACTION_STORE_CONST, &
+        const=[.true.,.false.], default=[.false., .false.], status=status)
     call parser%add_argument ("opt", "o", default="Default opt", status=status)
     call parser%add_argument ("const", "c", action=ARGPARSE_ACTION_STORE_CONST, &
         const=123, default=0, status=status)
@@ -36,8 +39,14 @@ program argparse1
     call parser%get ("flag2", flag2)
     print *, "Argument 'flag2': ", flag2
 
+    call parser%get ("flag3", flag3)
+    print '(*(l1,:,","))', flag3
+
     call parser%get ("opt", opt)
     print *, "Argument 'opt': ", opt%to_char()
+
+    call parser%get ("opt", opt_char)
+    print *, "Argument 'opt', char type:", opt_char
 
     call parser%get ("const", const)
     print *, "Argument 'const': ", const

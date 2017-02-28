@@ -13,21 +13,38 @@
 #endif
 
 
-module corelib_string_str_mod
+module corelib_common_base
 
-    use iso_fortran_env
-    use corelib_common
-    use corelib_common_str_base
-
+    use, intrinsic :: iso_fortran_env
+    use corelib_common_constants
+    use corelib_common_alloc
     implicit none
     private
 
+    public :: assignment (=)
+    public :: operator(+), iand, ior
+    public :: operator(==), operator(/=)
+    public :: operator(.in.), operator(.notin.)
+    public :: operator(//)
+    public :: operator (*)
+
+    public :: status_t
+    public :: char, size
+    public :: str, str_array, len, len_trim, repeat, index, trim
+    public :: dynamic_cast
+
+
+    !---------------------------------------------------------------------------
+    ! STR constants
     integer, parameter :: ASCII_TAB = 9
     ! 10, 11, and 12 are additional white space characters
     integer, parameter :: ASCII_CR = 13
     integer, parameter :: ASCII_SPACE = 32
 
     character (*), parameter :: EMPTY_VALUE = ""
+
+    ! --------------------------------------------------------------------------
+    ! STR type and associated routines
 
     type :: str
         private
@@ -103,9 +120,9 @@ module corelib_string_str_mod
         module procedure assign_str_char, assign_char_str, assign_str_str
     end interface
 
-    interface assignment (=)
-        module procedure assign_base_str, assign_str_base
-    end interface
+    ! interface assignment (=)
+    !     module procedure assign_base_str, assign_str_base
+    ! end interface
 
     ! concatenation // with character as lhs operand
     interface operator (//)
@@ -159,12 +176,286 @@ module corelib_string_str_mod
         module procedure cast_any_to_str, cast_any_to_str_array
     end interface
 
-    public :: str, str_array, len, len_trim, repeat, index, trim
-    public :: operator (+), operator (//), operator (/=), operator (==), operator (*)
-    public :: assignment (=)
-    public :: dynamic_cast
+    !---------------------------------------------------------------------------
+    ! STATUS_T type
+
+    integer, public, parameter :: CL_MAX_STATUS_CODES = bit_size (CL_STATUS_OK)
+
+    type :: status_t
+        private
+        integer (CL_ENUM_KIND) :: code = CL_STATUS_UNDEFINED
+        type (str), public :: msg
+    contains
+        procedure, public, pass :: clear => status_clear
+        procedure, public, pass :: init => status_init
+        procedure, public, pass :: decode => status_decode
+    end type
+
+    interface operator(+)
+        module procedure add_int_status, add_status_int
+    end interface
+
+    interface ior
+        module procedure add_int_status, add_status_int
+    end interface
+
+    interface iand
+        module procedure iand_int_status, iand_status_int
+    end interface
+
+    interface assignment (=)
+        module procedure assign_int_status, assign_status_int
+    end interface
+
+    ! interface assignment (=)
+    !     module procedure assign_status_status
+    ! end interface
+
+    interface operator (==)
+        module procedure equal_status_status, equal_status_int, equal_int_status
+    end interface
+
+    interface operator (/=)
+        module procedure nequal_status_status, nequal_status_int, nequal_int_status
+    end interface
+
+    interface operator (.in.)
+        module procedure operator_in_int_status
+    end interface
+
+    interface operator (.notin.)
+        module procedure operator_notin_int_status
+    end interface
+
+    interface char
+        module procedure status_to_char
+    end interface
+
+    interface size
+        module procedure status_size
+    end interface
+
+    !---------------------------------------------------------------------------
+    ! Dynamic cast generic
+
+    interface dynamic_cast
+        module procedure cast_any_to_int32, cast_any_to_array_int32, &
+            cast_any_to_int64, cast_any_to_array_int64, &
+            cast_any_to_real32, cast_any_to_array_real32, &
+            cast_any_to_real64, cast_any_to_array_real64, &
+            cast_any_to_logical, cast_any_to_array_logical, &
+            cast_any_to_char, cast_any_to_array_char
+    end interface
 
 contains
+
+! ------------------------------------------------------------------------------
+! STATUS_T METHODS
+
+pure subroutine status_clear (self)
+    class (status_t), intent(in out) :: self
+
+    ! do not deallocate space used for message so we don't necessarily have to
+    ! reallocate if new message is assined
+    self%msg = ""
+    self = CL_STATUS_UNDEFINED
+end subroutine
+
+pure subroutine status_init (self, code, msg)
+    class (status_t), intent(in out) :: self
+    integer (CL_ENUM_KIND), intent(in), optional :: code
+    character (*), intent(in), optional :: msg
+
+    if (.not. present(msg)) then
+        self%msg = ""
+    else
+        self%msg = msg
+    end if
+
+    if (present(code)) then
+        self = code
+    else
+        self = CL_STATUS_UNDEFINED
+    end if
+end subroutine
+
+pure subroutine status_decode (self, x, n)
+    !*  DECODE disaggregates a composize status code into its
+    !   components and turns their base-2 exponents.
+    class (status_t), intent(in) :: self
+        !!  Status container object.
+    integer, dimension(:), intent(out) :: x
+        !!  Array to store individual status codes. The lowest-exponent codes
+        !!  up to the maximum given by size(array) are returned.
+    integer, intent(out) :: n
+        !!  Number of individual status codes present in composize status.
+        !!  (n <= size(array)).
+
+    integer :: i
+    integer (CL_ENUM_KIND) :: pattern
+
+    ! Since status codes are integers >= 0, initialize to something invalid.
+    x = -1
+    n = 0
+
+    if ((size(x) >= 1) .and. (self /= CL_STATUS_UNDEFINED)) then
+        do i = 1, min(size(x), CL_MAX_STATUS_CODES)
+            pattern = ishft(1, i-1)
+            if (iand(self, pattern) == pattern) then
+                n = n + 1
+                x(n) = i-1
+            end if
+        end do
+    end if
+end subroutine
+
+pure function status_size (self) result(res)
+    class (status_t), intent(in) :: self
+    integer :: res
+
+    integer :: i
+    integer (CL_ENUM_KIND) :: pattern
+    res = 0
+    do i = CL_MAX_STATUS_CODES, 1, -1
+        pattern = ishft(1, i-1)
+        if (iand(self%code, pattern) == pattern) then
+            res = i
+            return
+        end if
+    end do
+end function
+
+pure function status_to_char (self) result(res)
+    class (status_t), intent(in) :: self
+    character (:), allocatable :: res
+
+    integer, dimension(CL_MAX_STATUS_CODES) :: b2status
+    integer :: nstatus, n
+    character (:), allocatable :: buf
+
+    call self%decode (b2status, nstatus)
+
+    ! compute char length including separators and parenthesis
+    n = CL_MAX_STATUS_CODES * 4 + 2
+    allocate (character (n) :: buf)
+
+    write (buf, '("(", *(i0, :, ", "))') b2status(1:nstatus)
+    n = len_trim (buf)
+    buf(n+1:n+1) = ')'
+    n = n+1
+    allocate (character (n) :: res)
+    res(1:n) = buf(1:n)
+
+    deallocate (buf)
+end function
+
+! ------------------------------------------------------------------------------
+! Operator overloads
+
+elemental function add_status_int (lhs, rhs) result(res)
+    class (status_t), intent(in) :: lhs
+    integer (CL_ENUM_KIND), intent(in) :: rhs
+    type (status_t) :: res
+    res%code = ior(lhs%code, rhs)
+end function
+
+elemental function add_int_status (lhs, rhs) result(res)
+    integer (CL_ENUM_KIND), intent(in) :: lhs
+    class (status_t), intent(in) :: rhs
+    type (status_t) :: res
+    res%code = ior(lhs, rhs%code)
+end function
+
+elemental function iand_status_int (lhs, rhs) result(res)
+    class (status_t), intent(in) :: lhs
+    integer (CL_ENUM_KIND), intent(in) :: rhs
+    type (status_t) :: res
+    res%code = iand(lhs%code, rhs)
+end function
+
+elemental function iand_int_status (lhs, rhs) result(res)
+    integer (CL_ENUM_KIND), intent(in) :: lhs
+    class (status_t), intent(in) :: rhs
+    type (status_t) :: res
+    res%code = iand(lhs, rhs%code)
+end function
+
+elemental subroutine assign_int_status (lhs, rhs)
+    integer (CL_ENUM_KIND), intent(out) :: lhs
+    class (status_t), intent(in) :: rhs
+    lhs = rhs%code
+end subroutine
+
+elemental subroutine assign_status_int (lhs, rhs)
+    type (status_t), intent(out) :: lhs
+    integer (CL_ENUM_KIND), intent(in) :: rhs
+    lhs%code = rhs
+end subroutine
+
+! pure subroutine assign_status_status (lhs, rhs)
+!     type (status_t), intent(out) :: lhs
+!     type (status_t), intent(in) :: rhs
+!
+!     lhs%msg = rhs%msg
+!     lhs%code = rhs%code
+! end subroutine
+
+elemental function equal_status_status (lhs, rhs) result(res)
+    class (status_t), intent(in) :: lhs, rhs
+    logical :: res
+    res = (lhs%code == rhs%code)
+end function
+
+elemental function equal_status_int (lhs, rhs) result(res)
+    class (status_t), intent(in) :: lhs
+    integer (CL_ENUM_KIND), intent(in) :: rhs
+    logical :: res
+    res = (lhs%code == rhs)
+end function
+
+elemental function equal_int_status (lhs, rhs) result(res)
+    integer (CL_ENUM_KIND), intent(in) :: lhs
+    class (status_t), intent(in) :: rhs
+    logical :: res
+    res = (lhs == rhs%code)
+end function
+
+elemental function nequal_status_status (lhs, rhs) result(res)
+    class (status_t), intent(in) :: lhs, rhs
+    logical :: res
+    res = .not. (lhs == rhs)
+end function
+
+elemental function nequal_status_int (lhs, rhs) result(res)
+    class (status_t), intent(in) :: lhs
+    integer (CL_ENUM_KIND), intent(in) :: rhs
+    logical :: res
+    res = .not. (lhs == rhs)
+end function
+
+elemental function nequal_int_status (lhs, rhs) result(res)
+    integer (CL_ENUM_KIND), intent(in) :: lhs
+    class (status_t), intent(in) :: rhs
+    logical :: res
+    res = .not. (lhs == rhs)
+end function
+
+elemental function operator_in_int_status (lhs, rhs) result(res)
+    integer (CL_ENUM_KIND), intent(in) :: lhs
+    class (status_t), intent(in) :: rhs
+    logical :: res
+    res = (iand(lhs, rhs%code) == lhs)
+end function
+
+elemental function operator_notin_int_status (lhs, rhs) result(res)
+    integer (CL_ENUM_KIND), intent(in) :: lhs
+    class (status_t), intent(in) :: rhs
+    logical :: res
+    res = .not. (lhs .in. rhs)
+end function
+
+!-------------------------------------------------------------------------------
+! STR METHODS AND ROUTINES
 
 ! *****************************************************************************
 ! Initialization
@@ -429,30 +720,30 @@ elemental subroutine assign_char_str (lhs, rhs)
     end if
 end subroutine
 
-elemental subroutine assign_str_base (lhs, rhs)
-    class (str), intent(out) :: lhs
-    class (str_base), intent(in) :: rhs
-
-    integer :: n_rhs
-    n_rhs = len(rhs)
-    if (allocated(lhs%value)) deallocate(lhs%value)
-
-    if (n_rhs > 0) then
-        allocate (character (n_rhs) :: lhs%value)
-        lhs%value = rhs
-    end if
-end subroutine
-
-elemental subroutine assign_base_str (lhs, rhs)
-    class (str_base), intent(out) :: lhs
-    class (str), intent(in) :: rhs
-
-    if (_VALID(rhs)) then
-        lhs = rhs%value
-    else
-        lhs = EMPTY_VALUE
-    end if
-end subroutine
+! elemental subroutine assign_str_base (lhs, rhs)
+!     class (str), intent(out) :: lhs
+!     class (str_base), intent(in) :: rhs
+!
+!     integer :: n_rhs
+!     n_rhs = len(rhs)
+!     if (allocated(lhs%value)) deallocate(lhs%value)
+!
+!     if (n_rhs > 0) then
+!         allocate (character (n_rhs) :: lhs%value)
+!         lhs%value = rhs
+!     end if
+! end subroutine
+!
+! elemental subroutine assign_base_str (lhs, rhs)
+!     class (str_base), intent(out) :: lhs
+!     class (str), intent(in) :: rhs
+!
+!     if (_VALID(rhs)) then
+!         lhs = rhs%value
+!     else
+!         lhs = EMPTY_VALUE
+!     end if
+! end subroutine
 
 ! *****************************************************************************
 ! EQUALITY operator
@@ -1260,5 +1551,217 @@ pure subroutine alloc_char (self, value)
     self%value = value
 
 end subroutine
+
+!-------------------------------------------------------------------------------
+! Dynamic casts for built-in types
+
+
+pure subroutine cast_status_init (status)
+    type (status_t), intent(out), optional :: status
+    if (present(status)) then
+        call status%clear ()
+        status = CL_STATUS_OK
+    end if
+end subroutine
+
+pure subroutine cast_status_error (status, type_name)
+    type (status_t), intent(out), optional :: status
+    character (*), intent(in) :: type_name
+
+    if (present(status)) then
+        status = CL_STATUS_TYPE_ERROR
+        status%msg = "Unsupported cast to " // type_name
+    end if
+end subroutine
+
+subroutine cast_any_to_int32 (tgt, ptr, status)
+    integer, parameter :: INTSIZE = int32
+    class (*), intent(in), target :: tgt
+    integer (INTSIZE), intent(out), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (integer(INTSIZE))
+        ptr => tgt
+    class default
+        call cast_status_error (status, "int32")
+    end select
+end subroutine
+
+subroutine cast_any_to_array_int32 (tgt, ptr, status)
+    integer, parameter :: INTSIZE = int32
+    class (*), intent(in), dimension(:), target :: tgt
+    integer (INTSIZE), intent(out), dimension(:), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (integer(INTSIZE))
+        ptr => tgt
+    class default
+        call cast_status_error (status, "int32(:)")
+    end select
+end subroutine
+
+subroutine cast_any_to_int64 (tgt, ptr, status)
+    integer, parameter :: INTSIZE = int64
+    class (*), intent(in), target :: tgt
+    integer (INTSIZE), intent(out), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (integer(INTSIZE))
+        ptr => tgt
+    class default
+        call cast_status_error (status, "int64")
+    end select
+end subroutine
+
+subroutine cast_any_to_array_int64 (tgt, ptr, status)
+    integer, parameter :: INTSIZE = int64
+    class (*), intent(in), dimension(:), target :: tgt
+    integer (INTSIZE), intent(out), dimension(:), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (integer(INTSIZE))
+        ptr => tgt
+    class default
+        call cast_status_error (status, "int64(:)")
+    end select
+end subroutine
+
+subroutine cast_any_to_real32 (tgt, ptr, status)
+    integer, parameter :: PREC = real32
+    class (*), intent(in), target :: tgt
+    real (PREC), intent(out), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (real(PREC))
+        ptr => tgt
+    class default
+        call cast_status_error (status, "real32")
+    end select
+end subroutine
+
+subroutine cast_any_to_array_real32 (tgt, ptr, status)
+    integer, parameter :: PREC = real32
+    class (*), intent(in), dimension(:), target :: tgt
+    real (PREC), intent(out), dimension(:), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (real(PREC))
+        ptr => tgt
+    class default
+        call cast_status_error (status, "real32(:)")
+    end select
+end subroutine
+
+subroutine cast_any_to_real64 (tgt, ptr, status)
+    integer, parameter :: PREC = real64
+    class (*), intent(in), target :: tgt
+    real (PREC), intent(out), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (real(PREC))
+        ptr => tgt
+    class default
+        call cast_status_error (status, "real64")
+    end select
+end subroutine
+
+subroutine cast_any_to_array_real64 (tgt, ptr, status)
+    integer, parameter :: PREC = real64
+    class (*), intent(in), dimension(:), target :: tgt
+    real (PREC), intent(out), dimension(:), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (real(PREC))
+        ptr => tgt
+    class default
+        call cast_status_error (status, "real64(:)")
+    end select
+end subroutine
+
+
+subroutine cast_any_to_logical (tgt, ptr, status)
+    class (*), intent(in), target :: tgt
+    logical, intent(out), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (logical)
+        ptr => tgt
+    class default
+        call cast_status_error (status, "logical")
+    end select
+end subroutine
+
+subroutine cast_any_to_array_logical (tgt, ptr, status)
+    class (*), intent(in), dimension(:), target :: tgt
+    logical, intent(out), dimension(:), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (logical)
+        ptr => tgt
+    class default
+        call cast_status_error (status, "logical(:)")
+    end select
+end subroutine
+
+subroutine cast_any_to_char (tgt, ptr, status)
+    class (*), intent(in), target :: tgt
+    character (*), intent(out), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (character (*))
+        ptr => tgt
+    class default
+        call cast_status_error (status, "character")
+    end select
+end subroutine
+
+subroutine cast_any_to_array_char (tgt, ptr, status)
+    class (*), intent(in), dimension(:), target :: tgt
+    character (*), intent(out), dimension(:), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call cast_status_init (status)
+
+    select type (tgt)
+    type is (character (*))
+        ptr => tgt
+    class default
+        call cast_status_error (status, "character(:)")
+    end select
+end subroutine
+
 
 end module

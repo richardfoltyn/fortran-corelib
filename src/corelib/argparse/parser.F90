@@ -21,6 +21,16 @@ module corelib_argparse_parser
     implicit none
     private
 
+    ! Status codes for internal use
+    ! in intial state, no arguments added
+    integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_INIT = 0
+    integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_EMPTY_CMDLINE = ishft(1, 1)
+    integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_PARSE_ERROR = ishft(1, 2)
+    integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_PARSED = ishft(1, 3)
+
+    ! only status code that needs to be communicated to client code
+    public :: ARGPARSE_STATUS_PARSE_ERROR
+
     ! buffer size used to read in command line arguments
     integer, parameter :: CMD_BUFFER_SIZE = 1024
     ! buffer for printing error messages to stderr
@@ -59,14 +69,10 @@ module corelib_argparse_parser
         procedure, pass :: argparser_get_scalar_str
         procedure, pass :: argparser_get_array_char
         procedure, pass :: argparser_get_scalar_char
-        procedure, pass :: argparser_get_array_char_str
-        procedure, pass :: argparser_get_scalar_char_str
         generic, public :: get => argparser_get_array_str, &
             argparser_get_scalar_str, &
             argparser_get_array_char, &
-            argparser_get_scalar_char, &
-            argparser_get_array_char_str, &
-            argparser_get_scalar_char_str
+            argparser_get_scalar_char
 
         procedure, pass :: argparser_parse_array
         procedure, pass :: argparser_parse_cmd
@@ -159,31 +165,27 @@ subroutine argparser_add_argument_array_str (self, name, abbrev, action, &
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer (ENUM_KIND), intent(in), optional :: action
+    integer (CL_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
-    integer, intent(out), optional :: status
+    type (status_t), intent(out), optional :: status
     class (*), intent(in), dimension(:), optional :: default
     class (*), intent(in), dimension(:), optional :: const
 
     type (argument) :: arg
-    integer :: lstatus
-    character (MSG_LENGTH) :: msg
+    type (status_t) :: lstatus
 
-    msg = ""
-
-    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
-    if (lstatus /= STATUS_OK) goto 100
+    call self%check_input (name, abbrev, action, nargs, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
 
     call arg%init (name, abbrev, action, required, nargs, &
         help, lstatus, default, const)
 
-    if (lstatus == STATUS_OK) call self%append (arg)
+    if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
-    call print_error (msg)
 end subroutine
 
 subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action, &
@@ -192,31 +194,25 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer (ENUM_KIND), intent(in), optional :: action
+    integer (CL_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
-    integer, intent(out), optional :: status
+    type (status_t), intent(out), optional :: status
     class (*), intent(in) :: default
 
     type (argument) :: arg
-    integer :: lstatus
-    character (MSG_LENGTH) :: msg
+    type (status_t) :: lstatus
 
-    msg = ""
-
-    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
-    if (lstatus /= STATUS_OK) goto 100
+    call self%check_input (name, abbrev, action, nargs, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
 
     call arg%init (name, abbrev, action, required, nargs, help, lstatus, default)
 
-    if (lstatus == STATUS_OK) then
-        call self%append (arg)
-    end if
+    if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
-    call print_error (msg)
 end subroutine
 
 subroutine argparser_add_argument_scalar_str (self, name, abbrev, action, &
@@ -225,29 +221,25 @@ subroutine argparser_add_argument_scalar_str (self, name, abbrev, action, &
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer (ENUM_KIND), intent(in), optional :: action
+    integer (CL_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
-    integer, intent(out), optional :: status
+    type (status_t), intent(out), optional :: status
     class (*), intent(in) :: default, const
 
     type (argument) :: arg
-    integer :: lstatus
-    character (MSG_LENGTH) :: msg
+    type (status_t) :: lstatus
 
-    msg = ""
-
-    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
-    if (lstatus /= STATUS_OK) goto 100
+    call self%check_input (name, abbrev, action, nargs, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
 
     call arg%init (name, abbrev, action, required, nargs, help, lstatus, default, const)
 
-    if (lstatus == STATUS_OK) call self%append (arg)
+    if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
-    call print_error (msg)
 end subroutine
 
 subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, action, &
@@ -256,33 +248,29 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer (ENUM_KIND), intent(in), optional :: action
+    integer (CL_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
-    integer, intent(out), optional :: status
+    type (status_t), intent(out), optional :: status
     class (*), intent(in) :: default
 
     type (str) :: lhelp, labbrev, lname
     type (argument) :: arg
-    integer :: lstatus
-    character (MSG_LENGTH) :: msg
+    type (status_t) :: lstatus
 
-    msg = ""
-
-    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
-    if (lstatus /= STATUS_OK) goto 100
+    call self%check_input (name, abbrev, action, nargs, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
 
     lname = name
     if (present(help)) lhelp = str(help)
     if (present(abbrev)) labbrev = str(abbrev)
 
     call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, default)
-    if (lstatus == STATUS_OK) call self%append (arg)
+    if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
-    call print_error (msg)
 end subroutine
 
 subroutine argparser_add_argument_scalar_char (self, name, abbrev, action, &
@@ -291,22 +279,19 @@ subroutine argparser_add_argument_scalar_char (self, name, abbrev, action, &
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer (ENUM_KIND), intent(in), optional :: action
+    integer (CL_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
-    integer, intent(out), optional :: status
+    type (status_t), intent(out), optional :: status
     class (*), intent(in) :: default, const
 
     type (str) :: lhelp, labbrev, lname
     type (argument) :: arg
-    integer :: lstatus
-    character (MSG_LENGTH) :: msg
+    type (status_t) :: lstatus
 
-    msg = ""
-
-    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
-    if (lstatus /= STATUS_OK) goto 100
+    call self%check_input (name, abbrev, action, nargs, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
 
     lname = name
     if (present(help)) lhelp = str(help)
@@ -315,11 +300,10 @@ subroutine argparser_add_argument_scalar_char (self, name, abbrev, action, &
     call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
         default, const)
 
-    if (lstatus == STATUS_OK) call self%append (arg)
+    if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
-    call print_error (msg)
 end subroutine
 
 subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
@@ -328,23 +312,20 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer (ENUM_KIND), intent(in), optional :: action
+    integer (CL_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
-    integer, intent(out), optional :: status
+    type (status_t), intent(out), optional :: status
     class (*), intent(in), dimension(:), optional :: const
     class (*), intent(in), dimension(:), optional :: default
 
     type (str) :: lhelp, labbrev, lname
     type (argument) :: arg
-    integer :: lstatus
-    character (MSG_LENGTH) :: msg
+    type (status_t) :: lstatus
 
-    msg = ""
-
-    call self%check_input (name, abbrev, action, nargs, lstatus, msg)
-    if (lstatus /= STATUS_OK) goto 100
+    call self%check_input (name, abbrev, action, nargs, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
 
     lname = name
     if (present(help)) lhelp = str(help)
@@ -353,89 +334,89 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
     call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
         default, const)
 
-    if (lstatus == STATUS_OK) call self%append (arg)
+    if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
-    call print_error (msg)
 end subroutine
 
-subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status, msg)
+!-------------------------------------------------------------------------------
+! Input validation
+
+subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status)
     class (argparser), intent(in) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer (ENUM_KIND), intent(in), optional :: action
+    integer (CL_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
-    integer, intent(out) :: status
-    character (*), intent(out) :: msg
+    type (status_t), intent(out) :: status
 
     ! by default return invalid input status
-    status = STATUS_INVALID_INPUT
+    call status%init (CL_STATUS_VALUE_ERROR)
 
     if (len_trim(name) == 0) then
-        msg = "Invalid argument: name"
+        status%msg = "Invalid argument: name"
         return
     end if
 
     ! check whether argument with this name is already defined
     if (self%is_defined (name)) then
-        msg = "Argument '" // name // "' already defined"
+        status%msg = "Argument '" // name // "' already defined"
         return
     end if
 
     if (present(abbrev)) then
         if (len_trim(abbrev) == 0) then
-            msg = "Invalid argument: abbrev"
+            status%msg = "Invalid argument: abbrev"
             return
         end if
 
         ! check whether abbreviation of this name already exists
         if (self%is_defined (abbrev, is_abbrev=.true.)) then
-            msg = "Argument with abbreviation '" // abbrev // "' already defined"
+            status%msg = "Argument with abbreviation '" // abbrev // "' already defined"
         end if
     end if
 
     call validate_action (action, status)
-    if (status /= STATUS_OK) then
-        msg = "Invalid argument: action"
+    if (status /= CL_STATUS_OK) then
+        status%msg = "Invalid argument: action"
         return
     end if
 
     if (present(nargs)) then
         if (nargs < 0) then
-            msg = "Invalid argument: nargs"
+            status%msg = "Invalid argument: nargs"
             return
         end if
     end if
 
-    status = STATUS_OK
+    call status%init (CL_STATUS_OK)
 end subroutine
 
-subroutine argparser_check_input_char (self, name, abbrev, action, nargs, status, msg)
+subroutine argparser_check_input_char (self, name, abbrev, action, nargs, status)
     class (argparser), intent(in) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer (ENUM_KIND), intent(in), optional :: action
+    integer (CL_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
-    integer, intent(out) :: status
-    character (*), intent(out) :: msg
+    type (status_t), intent(out) :: status
 
     type (str) :: labbrev, lname
     lname = name
     if (present (abbrev)) then
         labbrev = abbrev
-        call self%check_input (lname, labbrev, action, nargs, status, msg)
+        call self%check_input (lname, labbrev, action, nargs, status)
     else
         call self%check_input (lname, action=action, nargs=nargs, &
-            status=status, msg=msg)
+            status=status)
     end if
 end subroutine
 
 subroutine validate_action (action, status)
-    integer (ENUM_KIND), intent(in), optional :: action
-    integer, intent(out) :: status
+    integer (CL_ENUM_KIND), intent(in), optional :: action
+    type (status_t), intent(out) :: status
 
-    status = STATUS_OK
+    call status%init (CL_STATUS_OK)
     if (.not. present(action)) return
     select case (action)
     case (ARGPARSE_ACTION_STORE)
@@ -449,8 +430,7 @@ subroutine validate_action (action, status)
     case (ARGPARSE_ACTION_APPEND)
         return
     case default
-        status = STATUS_INVALID_INPUT
-        return
+        status = CL_STATUS_VALUE_ERROR
     end select
 end subroutine
 
@@ -468,141 +448,103 @@ end subroutine
 ! ------------------------------------------------------------------------------
 ! GET methods
 
-subroutine argparser_get_array_str (self, name, val, status, msg)
+subroutine argparser_get_array_str (self, name, val, status)
     class (argparser), intent(in out) :: self
     type (str), intent(in) :: name
     class (*), intent(in out), dimension(:) :: val
-    integer, intent(out), optional :: status
-    class (str), intent(in out), optional :: msg
+    type (status_t), intent(out), optional :: status
 
     class (argument), pointer :: ptr_arg
-    type (str) :: lmsg
-    integer :: lstatus
+    type (status_t) :: lstatus
 
-    lmsg = ""
+    call lstatus%init (CL_STATUS_OK)
 
-    call argparser_get_check_input (self, name, ptr_arg, lstatus, lmsg)
-    if (lstatus /= STATUS_OK) goto 100
+    call argparser_get_check_state (self, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
+
+    call self%find_arg (name, ptr_arg, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
 
     ! at this point ptr_arg points to the argument identified by name.
     ! Retrieve stored argument value
-    call ptr_arg%parse (val, lstatus, lmsg)
+    call ptr_arg%parse (val, lstatus)
 
 100 continue
     if (present(status)) status = lstatus
-    if (present(msg)) msg = lmsg
 end subroutine
 
-subroutine argparser_get_scalar_str (self, name, val, status, msg)
+subroutine argparser_get_scalar_str (self, name, val, status)
     class (argparser), intent(in out) :: self
     type (str), intent(in) :: name
     class (*), intent(in out) :: val
-    integer, intent(out), optional :: status
-    class (str), intent(in out), optional :: msg
+    type (status_t), intent(out), optional :: status
 
     class (argument), pointer :: ptr_arg
-    integer :: lstatus
-    type (str) :: lmsg
+    type (status_t) :: lstatus
 
-    lmsg = ""
+    call lstatus%init (CL_STATUS_OK)
 
-    call argparser_get_check_input (self, name, ptr_arg, lstatus, lmsg)
-    if (lstatus /= STATUS_OK) goto 100
+    call argparser_get_check_state (self, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
+
+    call self%find_arg (name, ptr_arg, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
 
     ! at this point ptr_arg points to the argument identified by name.
     ! Retrieve stored argument value
-    call ptr_arg%parse (val, lstatus, lmsg)
+    call ptr_arg%parse (val, lstatus)
 
 100 continue
     if (present(status)) status = lstatus
-    if (present(msg)) msg = lmsg
 end subroutine
 
-subroutine argparser_get_array_char (self, name, val, status, msg)
+subroutine argparser_get_array_char (self, name, val, status)
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     class (*), intent(out), dimension(:) :: val
-    integer, intent(out), optional :: status
-    character (*), intent(out) :: msg
+    type (status_t), intent(out), optional :: status
 
-    type (str) :: lmsg
-
-    call self%get (str(name), val, status, lmsg)
-    msg = lmsg
+    call self%get (str(name), val, status)
 end subroutine
 
-subroutine argparser_get_array_char_str (self, name, val, status, msg)
-    class (argparser), intent(in out) :: self
-    character (*), intent(in) :: name
-    class (*), intent(out), dimension(:) :: val
-    integer, intent(out), optional :: status
-    class (str), intent(in out), optional :: msg
-
-    call self%get (str(name), val, status, msg)
-end subroutine
-
-subroutine argparser_get_scalar_char (self, name, val, status, msg)
+subroutine argparser_get_scalar_char (self, name, val, status)
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     class (*), intent(out) :: val
-    integer, intent(out), optional :: status
-    character (*), intent(out) :: msg
+    type (status_t), intent(out), optional :: status
 
-    type (str) :: lmsg
-
-    call self%get (str(name), val, status, lmsg)
-    msg = lmsg
+    call self%get (str(name), val, status)
 end subroutine
 
-subroutine argparser_get_scalar_char_str (self, name, val, status, msg)
-    class (argparser), intent(in out) :: self
-    character (*), intent(in) :: name
-    class (*), intent(out) :: val
-    integer, intent(out), optional :: status
-    class (str), intent(in out), optional :: msg
-
-    call self%get (str(name), val, status, msg)
-end subroutine
-
-subroutine argparser_get_check_input (self, name, ptr_arg, status, msg)
+subroutine argparser_get_check_state (self, status)
     class (argparser), intent(in) :: self
-    class (str), intent(in) :: name
-    class (argument), intent(out), pointer :: ptr_arg
-    integer, intent(out) :: status
-    class (str), intent(in out) :: msg
+    type (status_t), intent(out) :: status
 
-    status = STATUS_OK
+    call status%init (CL_STATUS_OK)
 
     if (len(self) == 0) then
-        status = STATUS_INVALID_STATE
-        msg = "No arguments have been specified"
+        status = CL_STATUS_INVALID_STATE
+        status%msg = "No arguments defined"
         return
     else if (self%status == ARGPARSE_STATUS_PARSE_ERROR) then
-        status = ARGPARSE_STATUS_PARSE_ERROR
-        msg = "Cannot retrieve argument due to previous parsing error"
+        status = CL_STATUS_INVALID_STATE
+        status%msg = "Cannot retrieve argument due to previous parsing error"
         return
     else if (self%status /= ARGPARSE_STATUS_PARSED) then
-        status = STATUS_UNKNOWN
-        msg = "Unknown error encountered"
-        return
-    end if
-
-    ptr_arg => self%find_arg (name)
-
-    if (.not. associated(ptr_arg)) then
-        status = STATUS_INVALID_INPUT
-        msg = "Unknown argument: " // name
+        status = CL_STATUS_UNKNOWN
+        status%msg = "Unknown error encountered"
         return
     end if
 end subroutine
 
 ! ------------------------------------------------------------------------------
 ! FIND_ARG method
-function argparser_find_arg (self, name, is_abbrev) result(ptr_arg)
+subroutine argparser_find_arg (self, name, ptr_arg, status, is_abbrev)
     class (argparser), intent(in) :: self
     class (str), intent(in) :: name
+    class (argument), intent(out), pointer :: ptr_arg
+    type (status_t), intent(out), optional :: status
     logical, intent(in), optional :: is_abbrev
-    class (argument), pointer :: ptr_arg
 
     ! deallocated automatically on subroutine exit
     class (iterator), allocatable :: iter
@@ -615,7 +557,13 @@ function argparser_find_arg (self, name, is_abbrev) result(ptr_arg)
 
     nullify (ptr_arg)
 
-    if (len(self) == 0) return
+    if (len(self) == 0) then
+        if (present(status)) then
+            status = CL_STATUS_INVALID_STATE
+            status%msg = "No arguments defined"
+        end if
+        return
+    end if
 
     ! try to locate name in list of arguments
     ! get list iterator
@@ -623,6 +571,8 @@ function argparser_find_arg (self, name, is_abbrev) result(ptr_arg)
 
     do while (iter%has_next())
         ptr_item => iter%item()
+        ! cannot have invalid cast as linked list can contain only argument
+        ! objects
         call dynamic_cast (ptr_item, ptr_arg)
 
         if (lis_abbrev) then
@@ -633,7 +583,15 @@ function argparser_find_arg (self, name, is_abbrev) result(ptr_arg)
         nullify (ptr_arg)
     end do
 
-end function
+    if (present(status)) then
+        call status%init (CL_STATUS_OK)
+        if (.not. associated (ptr_arg)) then
+            status = CL_STATUS_VALUE_ERROR
+            status%msg = "Unknown argment: " // name
+        end if
+    end if
+
+end subroutine
 
 ! ------------------------------------------------------------------------------
 ! IS_DEFINED method
@@ -644,10 +602,10 @@ function argparser_is_defined_str (self, identifier, is_abbrev) result (res)
     logical, intent(in), optional :: is_abbrev
     logical :: res
 
-    type (argument), pointer :: ptr_arg
+    class (argument), pointer :: ptr_arg
 
     nullify (ptr_arg)
-    ptr_arg => self%find_arg (identifier, is_abbrev)
+    call self%find_arg (identifier, ptr_arg, is_abbrev=is_abbrev)
 
     res = associated (ptr_arg)
 end function
@@ -670,13 +628,13 @@ function argparser_get_nvals_str (self, identifier, is_abbrev) result(res)
     logical, intent(in), optional :: is_abbrev
     integer :: res
 
-    type (argument), pointer :: ptr_arg
+    class (argument), pointer :: ptr_arg
 
     ! if argument name not found, return -1
     res = -1
 
     nullify (ptr_arg)
-    ptr_arg => self%find_arg (identifier, is_abbrev)
+    call self%find_arg (identifier, ptr_arg, is_abbrev=is_abbrev)
 
     if (associated(ptr_arg)) res = ptr_arg%get_nvals ()
 
@@ -700,12 +658,12 @@ function argparser_is_present_str (self, identifier, is_abbrev) result(res)
     logical, intent(in), optional :: is_abbrev
     logical :: res
 
-    type (argument), pointer :: ptr_arg
+    class (argument), pointer :: ptr_arg
 
     res = .false.
 
     nullify (ptr_arg)
-    ptr_arg => self%find_arg (identifier, is_abbrev)
+    call self%find_arg (identifier, ptr_arg, is_abbrev=is_abbrev)
 
     if (associated(ptr_arg)) res = ptr_arg%is_present
 end function
@@ -747,20 +705,20 @@ end subroutine
 ! ------------------------------------------------------------------------------
 ! PARSE method
 
-subroutine argparser_parse_array (self, cmd_args, status, msg)
+subroutine argparser_parse_array (self, cmd_args, status)
     class (argparser), intent(in out) :: self
     _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
-    integer, intent(out), optional :: status
-    class (str), intent(in out), optional :: msg
+    type (status_t), intent(out), optional :: status
 
     integer :: i, cmd_nargs
-    integer :: lstatus
-    type (str) :: cmd_arg, lmsg
+    type (status_t) :: lstatus
+    type (str) :: cmd_arg
 
-    lstatus = STATUS_INVALID_STATE
+    call lstatus%init (CL_STATUS_OK)
 
     if (len(self) == 0) then
-        lmsg = "Need to add arguments before parsing"
+        status = CL_STATUS_INVALID_STATE
+        status%msg = "Need to define arguments before parsing"
         goto 100
     end if
 
@@ -770,9 +728,6 @@ subroutine argparser_parse_array (self, cmd_args, status, msg)
 
     cmd_nargs = size(cmd_args)
 
-    ! argparser state seems to be valid for parsing
-    lstatus = STATUS_OK
-
     i = 1
     do while (i <= cmd_nargs)
         cmd_arg = cmd_args(i)
@@ -780,11 +735,11 @@ subroutine argparser_parse_array (self, cmd_args, status, msg)
         ! find associated argument object, either using the long name or the
         ! abbreviation
         if (cmd_arg%startswith ('--')) then
-            call self%parse_long (cmd_args, i, lstatus, lmsg)
-            if (lstatus /= STATUS_OK) goto 100
+            call self%parse_long (cmd_args, i, lstatus)
+            if (lstatus /= CL_STATUS_OK) goto 100
         else if (cmd_arg%startswith ('-')) then
-            call self%parse_abbrev (cmd_args, i, lstatus, lmsg)
-            if (lstatus /= STATUS_OK) goto 100
+            call self%parse_abbrev (cmd_args, i, lstatus)
+            if (lstatus /= CL_STATUS_OK) goto 100
         end if
 
         ! NB: i is incremented in parse_long / parse_abbrev routines
@@ -796,16 +751,14 @@ subroutine argparser_parse_array (self, cmd_args, status, msg)
 
 100 continue
     if (present(status)) status = lstatus
-    if (present(msg)) msg = lmsg
-    if (lstatus /= STATUS_OK) self%status = ARGPARSE_STATUS_PARSE_ERROR
+    if (lstatus /= CL_STATUS_OK) self%status = ARGPARSE_STATUS_PARSE_ERROR
 
 end subroutine
 
 
-subroutine argparser_parse_cmd (self, status, msg)
+subroutine argparser_parse_cmd (self, status)
     class (argparser), intent(in out) :: self
-    integer, intent(out), optional :: status
-    class (str), intent(in out), optional :: msg
+    type (status_t), intent(out), optional :: status
 
     character (CMD_BUFFER_SIZE) :: buf
     type (str), dimension(:), allocatable :: cmd_args
@@ -821,15 +774,14 @@ subroutine argparser_parse_cmd (self, status, msg)
         cmd_args(i) = trim(buf)
     end do
 
-    call self%parse (cmd_args, status=status, msg=msg)
+    call self%parse (cmd_args, status=status)
 end subroutine
 
-subroutine argparser_parse_long (self, cmd_args, offset, status, msg)
+subroutine argparser_parse_long (self, cmd_args, offset, status)
     class (argparser), intent(in out) :: self
     _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
     integer, intent(in out) :: offset
-    integer, intent(out) :: status
-    class (str), intent(in out) :: msg
+    type (status_t), intent(out) :: status
 
     type (str) :: cmd_name, str_value, cmd_arg
     type (str), dimension(:), allocatable :: cmd_values
@@ -837,7 +789,7 @@ subroutine argparser_parse_long (self, cmd_args, offset, status, msg)
 
     integer :: j, cmd_nargs
 
-    status = STATUS_OK
+    call status%init (CL_STATUS_OK)
     cmd_nargs = size(cmd_args)
 
     ! remove leading -- from long syntax
@@ -852,13 +804,8 @@ subroutine argparser_parse_long (self, cmd_args, offset, status, msg)
     end if
 
     ! find corresponding argument object
-    ptr_arg => self%find_arg (cmd_name, is_abbrev=.false.)
-
-    if (.not. associated(ptr_arg)) then
-        status = ARGPARSE_STATUS_UNKNOWN_ARG
-        msg = "Unknown argument name: " // cmd_name
-        goto 100
-    end if
+    call self%find_arg (cmd_name, ptr_arg, status, is_abbrev=.false.)
+    if (status /= CL_STATUS_OK) goto 100
 
     ! if argument value was passed within the same command line argument,
     ! extract it from substring after the '='
@@ -877,7 +824,7 @@ subroutine argparser_parse_long (self, cmd_args, offset, status, msg)
     ! collect required number of argument values
     if (allocated (cmd_values) .and. ptr_arg%nargs /= 1) then
         status = ARGPARSE_STATUS_PARSE_ERROR
-        msg = "Argument '" // ptr_arg%name // &
+        status%msg = "Argument '" // ptr_arg%name // &
             "': received one argument value, expected " // str(ptr_arg%nargs)
         goto 100
     end if
@@ -887,9 +834,8 @@ subroutine argparser_parse_long (self, cmd_args, offset, status, msg)
         call ptr_arg%set (cmd_values)
     else
         ! collect the number of requested arguments from the following commands
-        call self%collect_values (cmd_args, offset+1, ptr_arg, cmd_values, &
-            status, msg)
-        if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
+        call self%collect_values (cmd_args, offset+1, ptr_arg, cmd_values, status)
+        if (status /= CL_STATUS_OK) goto 100
 
         ! store command line arguments in argument object
         call ptr_arg%set (cmd_values)
@@ -906,12 +852,11 @@ subroutine argparser_parse_long (self, cmd_args, offset, status, msg)
 100 continue
 end subroutine
 
-subroutine argparser_parse_abbrev (self, cmd_args, offset, status, msg)
+subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
     class (argparser), intent(in out) :: self
     _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
     integer, intent(in out) :: offset
-    integer, intent(out) :: status
-    class (str), intent(in out) :: msg
+    type (status_t), intent(out) :: status
 
     type (str) :: cmd_name, cmd_arg
     type (str), dimension(:), allocatable :: cmd_values
@@ -919,7 +864,7 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status, msg)
 
     integer :: j, cmd_nargs
 
-    status = STATUS_OK
+    call status%init (CL_STATUS_OK)
     cmd_nargs = size(cmd_args)
 
     ! remove leading - from argument (list)
@@ -930,21 +875,14 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status, msg)
     ! -xyz foo bar will assign arguments foo, bar as values to z
     do j = 1, len(cmd_arg)
         cmd_name = cmd_arg%substring (j, j)
-        ptr_arg => self%find_arg (cmd_name, is_abbrev=.true.)
-
-        ! Check that the argument name given on command line corresponds to
-        ! defined argument
-        if (.not. associated (ptr_arg)) then
-            status = ARGPARSE_STATUS_UNKNOWN_ARG
-            msg = "Unknown argument name: " // cmd_name
-            goto 100
-        end if
+        call self%find_arg (cmd_name, ptr_arg, status, is_abbrev=.true.)
+        if (status /= CL_STATUS_OK) goto 100
 
         if (ptr_arg%nargs > 0 .and. j < len(cmd_arg)) then
             ! cannot satisfy any positive number of values for abbrev.
             ! arguments that are not the last character
-            status = ARGPARSE_STATUS_INSUFFICIENT_ARGS
-            msg = "Argument '" // ptr_arg%name  // "': expected " // &
+            status = CL_STATUS_INVALID_STATE
+            status%msg = "Argument '" // ptr_arg%name  // "': expected " // &
                 str(ptr_arg%nargs) // " arguments, found 0"
             goto 100
         else if (ptr_arg%nargs == 0) then
@@ -952,8 +890,8 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status, msg)
         else if (ptr_arg%nargs > 0) then
             ! need to collect argument values
             call self%collect_values (cmd_args, offset+1, ptr_arg, &
-                cmd_values, status, msg)
-            if (status == ARGPARSE_STATUS_INSUFFICIENT_ARGS) goto 100
+                cmd_values, status)
+            if (status /= CL_STATUS_OK) goto 100
 
             ! store command line arguments in argument object
             call ptr_arg%set (cmd_values)
@@ -972,19 +910,18 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status, msg)
 end subroutine
 
 subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
-        cmd_values, status, msg)
+        cmd_values, status)
 
     class (argparser), intent(in out) :: self
     _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
     integer, intent(in) :: offset
     class (argument), intent(in), pointer :: ptr_arg
     type (str), intent(out), dimension(:), allocatable :: cmd_values
-    integer, intent(out) :: status
-    class (str), intent(in out) :: msg
+    type (status_t), intent(out) :: status
 
     integer :: j, cmd_nargs
 
-    status = STATUS_OK
+    call status%init (CL_STATUS_OK)
     cmd_nargs = size(cmd_args)
 
     if (allocated(cmd_values)) deallocate (cmd_values)
@@ -994,8 +931,8 @@ subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
     do while (j < ptr_arg%nargs)
         ! check that the number of command line arguments is not too low
         if (offset + j > cmd_nargs) then
-            status = ARGPARSE_STATUS_INSUFFICIENT_ARGS
-            msg = "Argument '" // ptr_arg%name  // "': expected " // &
+            status = CL_STATUS_INVALID_STATE
+            status%msg = "Argument '" // ptr_arg%name  // "': expected " // &
                 str(ptr_arg%nargs) // " arguments, found " // str(j-1)
             return
         end if
@@ -1004,20 +941,6 @@ subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
         j = j + 1
     end do
 
-end subroutine
-
-! ------------------------------------------------------------------------------
-! Helper routines
-
-subroutine print_error (msg, unit)
-    character (*), intent(in) :: msg
-    integer, intent(in), optional :: unit
-
-    integer :: lunit
-    lunit = ERROR_UNIT
-    if (present(unit)) lunit = unit
-
-    if (len_trim(msg) > 0) write (lunit, fmt=*) trim(msg)
 end subroutine
 
 end module
