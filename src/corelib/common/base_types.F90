@@ -31,6 +31,7 @@ module corelib_common_base
     public :: status_t
     public :: char, size
     public :: str, str_array, len, len_trim, repeat, index, trim
+    public :: is_alnum, is_alpha, is_digit
     public :: dynamic_cast
 
 
@@ -40,6 +41,15 @@ module corelib_common_base
     ! 10, 11, and 12 are additional white space characters
     integer, parameter :: ASCII_CR = 13
     integer, parameter :: ASCII_SPACE = 32
+
+    integer, parameter :: ASCII_LOWER_A = iachar('a')
+    integer, parameter :: ASCII_LOWER_Z = iachar('z')
+
+    integer, parameter :: ASCII_UPPER_A = iachar('A')
+    integer, parameter :: ASCII_UPPER_Z = iachar('Z')
+
+    integer, parameter :: ASCII_0 = iachar('0')
+    integer, parameter :: ASCII_9 = iachar('9')
 
     character (*), parameter :: EMPTY_VALUE = ""
 
@@ -73,6 +83,10 @@ module corelib_common_base
         procedure, pass :: substring_from_to_int32
         generic, public :: substring => substring_to_int64, &
             substring_from_to_int64, substring_to_int32, substring_from_to_int32
+
+        procedure, public, pass :: is_alnum => is_alnum_str
+        procedure, public, pass :: is_digit => is_digit_str
+        procedure, public, pass :: is_alpha => is_alpha_str
 
         ! string generators
         procedure, pass :: join_str
@@ -170,6 +184,18 @@ module corelib_common_base
 
     interface trim
         module procedure trim_str
+    end interface
+
+    interface is_alnum
+        module procedure is_alnum_str, is_alnum_char
+    end interface
+
+    interface is_digit
+        module procedure is_digit_str, is_digit_char
+    end interface
+
+    interface is_alpha
+        module procedure is_alpha_str, is_alpha_char
     end interface
 
     interface dynamic_cast
@@ -688,6 +714,87 @@ elemental function endswith_str(self, suffix) result(res)
         res = endswith_char(self, suffix%value)
     end if
 
+end function
+
+!-------------------------------------------------------------------------------
+! IS_ALNUM method
+
+elemental function is_alnum_str (self) result(res)
+    class (str), intent(in) :: self
+    logical :: res
+
+    res = .false.
+    if (_VALID(self)) res = is_alnum (self%value)
+end function
+
+elemental function is_alnum_char (c) result(res)
+    character (*), intent(in) :: c
+    logical :: res
+
+    integer :: i, n, ia
+    logical :: is_alph, is_dig
+
+    n = len(c)
+    res = (n > 0)
+    do i = 1, n
+        is_alph = is_alpha (c(i:i))
+        is_dig = is_digit (c(i:i))
+        if (.not. is_alph .and. .not. is_dig) then
+            res = .false.
+        end if
+    end do
+end function
+
+elemental function is_digit_str (self) result(res)
+    class (str), intent(in) :: self
+    logical :: res
+
+    res = .false.
+    if (_VALID(self)) res = is_digit (self%value)
+end function
+
+elemental function is_digit_char (c) result(res)
+    character (*), intent(in) :: c
+    logical :: res
+    integer :: i, n, ia
+
+    n = len(c)
+    res = (n > 0)
+    do i = 1, n
+        ia = iachar(c(i:i))
+        if (ia < ASCII_0 .or. ASCII_9 < ia) then
+            res = .false.
+            return
+        end if
+    end do
+end function
+
+elemental function is_alpha_str (self) result(res)
+    class (str), intent(in) :: self
+    logical :: res
+
+    res = .false.
+    if (_VALID(self)) res = is_alpha (self%value)
+end function
+
+elemental function is_alpha_char (c) result(res)
+    character (*), intent(in) :: c
+    logical :: res
+
+    integer :: i, n, ia
+    logical :: not_lower, not_upper
+
+    n = len(c)
+    res = (n > 0)
+    do i = 1, n
+        ia = iachar(c(i:i))
+        not_lower = ia < ASCII_LOWER_A .or. ASCII_LOWER_Z < ia
+        not_upper = ia < ASCII_UPPER_A .or. ASCII_UPPER_Z < ia
+        if (not_lower .and. not_upper) then
+            res = .false.
+            return
+        end if
+    end do
 end function
 
 ! *****************************************************************************
@@ -1480,16 +1587,13 @@ subroutine cast_any_to_str (tgt, ptr, status)
     class (str), intent(out), pointer :: ptr
     type (status_t), intent(out), optional :: status
 
-    if (present(status)) call status%init (CL_STATUS_OK)
+    call cast_status_init (status)
 
     select type (tgt)
     class is (str)
         ptr => tgt
     class default
-        if (present(status)) then
-            status = CL_STATUS_TYPE_ERROR
-            status%msg = "Unsupported cast to type(str)"
-        end if
+        call cast_status_error (status, "type(str)")
     end select
 end subroutine
 
@@ -1498,16 +1602,13 @@ subroutine cast_any_to_str_array (tgt, ptr, status)
     _POLYMORPHIC_ARRAY (str), intent(out), dimension(:), pointer :: ptr
     type (status_t), intent(out), optional :: status
 
-    if (present(status)) call status%init (CL_STATUS_OK)
+    call cast_status_init (status)
 
     select type (tgt)
     class is (str)
         ptr => tgt
     class default
-        if (present(status)) then
-            status = CL_STATUS_TYPE_ERROR
-            status%msg = "Unsupported cast to type(str)(:)"
-        end if
+        call cast_status_error (status, "type(str)(:)")
     end select
 end subroutine
 
@@ -1559,8 +1660,7 @@ end subroutine
 pure subroutine cast_status_init (status)
     type (status_t), intent(out), optional :: status
     if (present(status)) then
-        call status%clear ()
-        status = CL_STATUS_OK
+        call status%init (CL_STATUS_OK)
     end if
 end subroutine
 
