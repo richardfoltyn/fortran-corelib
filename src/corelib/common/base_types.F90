@@ -678,7 +678,7 @@ elemental function startswith_char(self, prefix) result(res)
     character (len=*), intent(in) :: prefix
     logical :: res
 
-    res = .false.
+    res = len(prefix) == 0
 
     if (_VALID(self) .and. len(self) >= len(prefix)) then
         res = self%value(1:len(prefix)) == prefix
@@ -690,7 +690,7 @@ elemental function startswith_str(self, prefix) result(res)
     class (str), intent(in) :: self, prefix
     logical :: res
 
-    res = .false.
+    res = len(prefix) == 0
     if (_VALID(self) .and. _VALID(prefix)) then
         res = startswith_char(self, prefix%value)
     end if
@@ -707,7 +707,7 @@ elemental function endswith_char (self, suffix) result(res)
 
     integer :: ifrom, ito
 
-    res = .false.
+    res = len(suffix) == 0
 
     if (_VALID(self) .and. (len(self) >= len(suffix))) then
         ifrom = len(self)-len(suffix) + 1
@@ -720,7 +720,7 @@ elemental function endswith_str(self, suffix) result(res)
     class (str), intent(in) :: self, suffix
     logical :: res
 
-    res = .false.
+    res = len(suffix) == 0
     if (_VALID(self) .and. _VALID(suffix)) then
         res = endswith_char(self, suffix%value)
     end if

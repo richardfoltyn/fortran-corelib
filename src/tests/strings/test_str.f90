@@ -609,31 +609,57 @@ subroutine test_startswith (tests)
     class (test_case), pointer :: tc
 
     type (str) :: s1, s2, s99
-
-    tc => tests%add_test ("String startswith() method")
+    logical :: res
+    
+    tc => tests%add_test ("str::startswith method")
 
     ! str argument
     s1 = CHAR_VALUE1
     s2 = CHAR_VALUE1(:len(CHAR_VALUE1)-1)
-    call tc%assert_true (s1%startswith (s2), &
-        "str::startswith(str) evaluating to true")
+    res = s1%startswith (s2)
+    call tc%assert_true (res, &
+        "str::startswith(str): regular obj and arg, obj(1:n) == arg")
 
-    call tc%assert_false (s2%startswith (s1), &
-        "str::startswith(str), longer str. argument")
+    res = s2%startswith (s1)
+    call tc%assert_false (res, &
+        "str::startswith(str): regular obj and arg, len(arg)>len(obj)")
+    
+    ! obj and arg are identical
+    res = s1%startswith (s1)
+    call tc%assert_true (res, "str::startswith(str): obj == arg")
 
     ! test char argument
-    call tc%assert_true (s1%startswith (CHAR_VALUE1(:2)), &
-        "str::startswith(character)")
+    res = s1%startswith (CHAR_VALUE1(:2))
+    call tc%assert_true (res, "str::startswith(character)")
 
-    ! test zero-length string; treat this case as .TRUE. since
+    ! === Pathological string objects and arguments ===
+    ! zero-length argument; treat this case as .TRUE. since
     ! for character char(1:0) == "" is also true
     s2 = ""
-    call tc%assert_true (s1%startswith (s2), &
-        "str::startswith(str), zero-length argument")
-
-    ! test not initialized argument
-    call tc%assert_false (s1%endswith (s99), &
-        "str::startswith(str), not initialized argument")
+    res = s1%startswith (s2)
+    call tc%assert_true (res, "str::startswith(str): zero-length arg")
+    
+    ! Zero-length argument, zero-length object
+    s1 = ""
+    res = s1%startswith (s2)
+    call tc%assert_true (res, "str::startswith(str): zero-length obj and arg")
+    
+    ! Uninitialized object, zero-length argument
+    res = s99%startswith (s1)
+    call tc%assert_true (res, "str::startswith(str): uninit. obj, zero-length arg")
+    
+    ! Uninitialized object, regular argument
+    s1 = CHAR_VALUE1
+    res = s99%startswith (s1)
+    call tc%assert_false (res, "str::startswith(str): uninit. obj, regular arg")
+    
+    ! Regular object, uninit. argument
+    res = s1%startswith (s99)
+    call tc%assert_true (res, "str::startswith(str): regular obj, uninit. arg")
+    
+    ! Uninitialized object and argument
+    res = s99%startswith (s99)
+    call tc%assert_true (res, "str::startswith(str): uninit. obj and arg")
 end subroutine
 
 subroutine test_endswith (tests)
@@ -641,31 +667,57 @@ subroutine test_endswith (tests)
     class (test_case), pointer :: tc
 
     type (str) :: s1, s2, s99
+    logical :: res
+    
+    tc => tests%add_test ("str::endswith method")
 
-    tc => tests%add_test ("String endswith() method")
-
-    ! str argument
     s1 = CHAR_VALUE1
-    s2 = CHAR_VALUE1(len(CHAR_VALUE1)-1:)
-    call tc%assert_true (s1%endswith (s2), &
-        "str::endswith(str) evaluating to true")
+    s2 = CHAR_VALUE1(2:len(CHAR_VALUE1))
+    
+    res = s1%endswith (s2)
+    call tc%assert_true (res, &
+        "str::endswith(str): regular obj and arg, obj(n:-1) == arg")
 
-    call tc%assert_false (s2%endswith (s1), &
-        "str::endswith(str), longer str. argument")
+    res = s2%endswith (s1)
+    call tc%assert_false (res, &
+        "str::endswith(str): regular obj and arg, len(arg)>len(obj)")
+    
+    ! obj and arg are identical
+    res = s1%endswith (s1)
+    call tc%assert_true (res, "str::endswith(str): obj == arg")
 
     ! test char argument
-    call tc%assert_true (s1%endswith (CHAR_VALUE1(3:)), &
-        "str::endswith(character)")
+    res = s1%endswith (CHAR_VALUE1(2:))
+    call tc%assert_true (res, "str::endswith(character)")
 
-    ! test zero-length string; treat this case as .TRUE. since
+    ! === Pathological string objects and arguments ===
+    ! zero-length argument; treat this case as .TRUE. since
     ! for character char(1:0) == "" is also true
     s2 = ""
-    call tc%assert_true (s1%endswith (s2), &
-        "str::endswith(str), zero-length argument")
-
-    ! test not initialized argument
-    call tc%assert_false (s1%endswith (s99), &
-        "str::endswith(str), not initialized argument")
+    res = s1%endswith (s2)
+    call tc%assert_true (res, "str::endswith(str): zero-length arg")
+    
+    ! Zero-length argument, zero-length object
+    s1 = ""
+    res = s1%endswith (s2)
+    call tc%assert_true (res, "str::endswith(str): zero-length obj and arg")
+    
+    ! Uninitialized object, zero-length argument
+    res = s99%endswith (s1)
+    call tc%assert_true (res, "str::endswith(str): uninit. obj, zero-length arg")
+    
+    ! Uninitialized object, regular argument
+    s1 = CHAR_VALUE1
+    res = s99%endswith (s1)
+    call tc%assert_false (res, "str::endswith(str): uninit. obj, regular arg")
+    
+    ! Regular object, uninit. argument
+    res = s1%endswith (s99)
+    call tc%assert_true (res, "str::endswith(str): regular obj, uninit. arg")
+    
+    ! Uninitialized object and argument
+    res = s99%endswith (s99)
+    call tc%assert_true (res, "str::endswith(str): uninit. obj and arg")
 end subroutine
 
 subroutine test_parse (tests)
