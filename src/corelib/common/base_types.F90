@@ -215,6 +215,8 @@ module corelib_common_base
         procedure, public, pass :: clear => status_clear
         procedure, public, pass :: init => status_init
         procedure, public, pass :: decode => status_decode
+        procedure, public, pass :: print => status_print
+        procedure, public, pass :: to_char => status_to_char
     end type
 
     interface operator(+)
@@ -375,6 +377,23 @@ pure function status_to_char (self) result(res)
     deallocate (buf)
 end function
 
+subroutine status_print (self, unit)
+    class (status_t), intent(in) :: self
+    integer, intent(in), optional :: unit
+
+    integer :: lunit
+    lunit = OUTPUT_UNIT
+    if (present(unit)) lunit = unit
+
+    write (lunit, '(tr1, "-- Status code: ", i0, " ", a)') self%code, self%to_char()
+    if (len_trim(self%msg) > 0) then
+        write (lunit, '(t5, "Message: ", a)') self%msg%to_char()
+    else
+        write (lunit, '(t5, a)') "No status message given"
+    end if
+
+end subroutine
+
 ! ------------------------------------------------------------------------------
 ! Operator overloads
 
@@ -417,14 +436,6 @@ elemental subroutine assign_status_int (lhs, rhs)
     integer (CL_ENUM_KIND), intent(in) :: rhs
     lhs%code = rhs
 end subroutine
-
-! pure subroutine assign_status_status (lhs, rhs)
-!     type (status_t), intent(out) :: lhs
-!     type (status_t), intent(in) :: rhs
-!
-!     lhs%msg = rhs%msg
-!     lhs%code = rhs%code
-! end subroutine
 
 elemental function equal_status_status (lhs, rhs) result(res)
     class (status_t), intent(in) :: lhs, rhs

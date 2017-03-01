@@ -164,6 +164,29 @@ end function
 
 ! ------------------------------------------------------------------------------
 ! Adding arguments
+!
+! API for calling argparser::add needs to handle
+!   1.  Array or scalar argument values (default and cost)
+!   2.  Optional values (default and cost)
+!   3.  Meta-data (name, abbrev, etc.) passed in as character or str.
+!
+! The corresponding routines thus have the following (simplified) signitures
+! that allow calls to argparser::add to be unambiguously mapped to routines:
+!   1.  default(:); const(:), optional
+!   2.  default; const, optional
+!   3.  no default; no const
+! This set of routines is replicated for both character and type(str) metadata.
+!
+! It is a design decision to not allow adding argument with 'const' specified
+! but missing 'default', as it is unclear what should be returned if the
+! argument is not present on the command line (Python's argparse returns None,
+! but that is not an option here.)
+!
+! Note on character-type data in default / const dummy arguments:
+! These need to be copied over into str (array) components, as otherwise
+! it is impossible to retrieve them into character types in a robust way.
+! Additionally, attempting to copy character data into character arrays
+! crashes when code was compiled with gfortran.
 
 subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
         action, nargs, required, help, status, default, const)
@@ -180,22 +203,37 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    class (*), intent(in), dimension(:) :: default
-    class (*), intent(in), dimension(:), optional :: const
+    class (*), intent(in), dimension(:), target :: default
+    class (*), intent(in), dimension(:), optional, target :: const
 
+    class (*), dimension(:), pointer :: ptr_default, ptr_const
     type (argument) :: arg
     type (status_t) :: lstatus
+
+    nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
 
-    call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
-        default, const)
+    call sanitize_argument_data_array (default, ptr_default)
+
+    if (present(const)) then
+        call sanitize_argument_data_array (const, ptr_const)
+        call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+            ptr_default, ptr_const)
+    else
+        call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+            ptr_default)
+    end if
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
+    ! Clean up memory that was potentially allocated to copy character-type
+    ! default/const data into str
+    call dealloc_argument_data_array (default, ptr_default)
+    call dealloc_argument_data_array (const, ptr_const)
 end subroutine
 
 subroutine argparser_add_argument_array_str (self, name, abbrev, &
@@ -248,25 +286,30 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
 
     type (argument) :: arg
     type (status_t) :: lstatus
-    class (*), dimension(:), allocatable :: work1, work2
+    class (*), dimension(:), pointer :: ptr_default, ptr_const
+
+    nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
 
-    allocate (work1(1), source=default)
+    call sanitize_argument_data_scalar (default, ptr_default)
 
     if (present(const)) then
-        allocate(work2(1), source=const)
+        call sanitize_argument_data_scalar (const, ptr_const)
         call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
-            work1, work2)
+            ptr_default, ptr_const)
     else
-        call arg%init (name, abbrev, action, required, nargs, help, lstatus, work1)
+        call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+            ptr_default)
     end if
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
+    if (associated(ptr_default)) deallocate (ptr_default)
+    if (associated(ptr_const)) deallocate (ptr_const)
 
 end subroutine
 
@@ -291,53 +334,31 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     type (str) :: lhelp, labbrev, lname
     type (argument) :: arg
     type (status_t) :: lstatus
-    class (*), dimension(:), pointer :: work1, work2
-    character (:), dimension(:), allocatable, target :: char1, char2
+    class (*), dimension(:), pointer :: ptr_const, ptr_default
 
-    integer :: n
-    logical :: is_char
+    nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
 
-    lname = name
-    if (present(help)) lhelp = str(help)
-    labbrev = str(UNDEFINED_ABBREV)
-    if (present(abbrev)) labbrev = str(abbrev)
-
-    select type (default)
-    type is (character (*))
-        is_char = .true.
-        n = len(default)
-        allocate (character (n) :: char1(1))
-        char1(1) = default
-        work1 => char1
-    class default
-        allocate (work1(1), source=default)
-    end select
+    call char_to_str_input (name, abbrev, help, lname, labbrev, lhelp)
+    call sanitize_argument_data_scalar (default, ptr_default)
 
     if (present(const)) then
-        allocate (work2(1), source=const)
+        call sanitize_argument_data_scalar (const, ptr_const)
         call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
-            work1, work2)
+            ptr_default, ptr_const)
     else
         call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
-            work1)
+            ptr_default)
     end if
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
-    if (.not. is_char) then
-        if (associated(work1)) deallocate(work1)
-        if (associated(work2)) deallocate(work2)
-    else
-        nullify (work1)
-        nullify (work2)
-        if (allocated(char1)) deallocate (char1)
-        if (allocated(char2)) deallocate (char2)
-    end if
+    if (associated(ptr_default)) deallocate (ptr_default)
+    if (associated(ptr_const)) deallocate (ptr_const)
 end subroutine
 
 subroutine argparser_add_argument_array_default_char (self, name, abbrev, action, &
@@ -355,28 +376,40 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    class (*), intent(in), dimension(:) :: default
-    class (*), intent(in), dimension(:), optional :: const
+    class (*), intent(in), dimension(:), target :: default
+    class (*), intent(in), dimension(:), optional, target :: const
+
+    class (*), dimension(:), pointer :: ptr_default, ptr_const
 
     type (str) :: lhelp, labbrev, lname
     type (argument) :: arg
     type (status_t) :: lstatus
 
+    nullify (ptr_default, ptr_const)
+
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
 
-    lname = name
-    if (present(help)) lhelp = str(help)
-    labbrev = str(UNDEFINED_ABBREV)
-    if (present(abbrev)) labbrev = str(abbrev)
+    call char_to_str_input (name, abbrev, help, lname, labbrev, lhelp)
+    call sanitize_argument_data_array (default, ptr_default)
 
-    call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
-        default, const)
+    if (present(const)) then
+        call sanitize_argument_data_array (const, ptr_const)
+        call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
+            ptr_default, ptr_const)
+    else
+        call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
+            ptr_default)
+    end if
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
+    ! Clean up memory that was potentially allocated to copy character-type
+    ! default/const data into str
+    call dealloc_argument_data_array (default, ptr_default)
+    call dealloc_argument_data_array (const, ptr_const)
 end subroutine
 
 subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
@@ -402,10 +435,7 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
 
-    lname = name
-    if (present(help)) lhelp = str(help)
-    labbrev = str(UNDEFINED_ABBREV)
-    if (present(abbrev)) labbrev = str(abbrev)
+    call char_to_str_input (name, abbrev, help, lname, labbrev, lhelp)
 
     call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus)
 
@@ -414,6 +444,95 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
 100 continue
     if (present(status)) status = lstatus
 end subroutine
+
+
+subroutine sanitize_argument_data_scalar (src, ptr)
+    !*  SANITIZE_ARGUMENT_DATA_SCALAR returns a pointer to a valid representation
+    !   of the data contained in src. For all types other than character,
+    !   an array of size 1 is allocated and src is copied into its first element.
+    !   On exit, ptr points to this array.
+    !
+    !   If src is of type character, a str(1) array is allocated
+    !   and the contents of src are copied into this array. On exit, ptr
+    !   points to the newly allocated str array.
+    !
+    !   NOTE: User code is responsible for cleaning ptr in case it
+    !   points to memory allocated in this routine!
+    class (*), intent(in), target :: src
+    class (*), intent(out), dimension(:), pointer :: ptr
+
+    select type (src)
+    type is (character (*))
+        allocate (ptr(1), source=str(src))
+    class default
+        allocate (ptr(1), source=src)
+    end select
+
+end subroutine
+
+subroutine sanitize_argument_data_array (src, ptr)
+    !*  SANITIZE_ARGUMENT_DATA_ARRAY returns a pointer to a valid representation
+    !   of the data contained in src. For all types other than character,
+    !   ptr simply points to src on exit.
+    !
+    !   If src is of type character, a str array is allocated
+    !   and the contents of src are copied into this array. On exit, ptr
+    !   points to the newly allocated str array.
+    !
+    !   NOTE: User code is responsible for cleaning ptr in case it
+    !   points to memory allocated in this routine!
+    class (*), intent(in), dimension(:), target :: src
+    class (*), intent(out), dimension(:), pointer :: ptr
+
+    type (str), dimension(:), pointer :: ptr_str
+    integer :: n, i
+
+    select type (src)
+    type is (character (*))
+        n = size(src)
+        allocate (ptr_str(n))
+        do i = 1, n
+            ptr_str(i) = src(i)
+        end do
+        ptr => ptr_str
+    class default
+        ptr => src
+    end select
+end subroutine
+
+subroutine dealloc_argument_data_array (src, ptr)
+    !*  DEALLOC_ARGUMENT_DATA_ARRAY conditionally deallocates the memory
+    !   pointed to by ptr if: (1) src is present; and (2) ptr is
+    !   with an object OTHER THAN src.
+    !   This routine should be used to deallocate memory allocated by
+    !   SANITIZE_ARGUMENT_DATA_ARRAY.
+    class (*), intent(in), dimension(:), optional, target :: src
+    class (*), intent(out), dimension(:), pointer :: ptr
+
+    if (present(src)) then
+        if (associated(ptr) .and. .not. associated(ptr, src))  then
+            deallocate (ptr)
+        end if
+    end if
+
+end subroutine
+
+
+subroutine char_to_str_input (cname, cabbrev, chelp, name, abbrev, help)
+    !*  CHAR_TO_STR_INPUT converts user-given character-type argument meta-data
+    !   name/abbrev/etc. to str values.
+    character (*), intent(in) :: cname
+    character (*), intent(in), optional :: cabbrev, chelp
+    type (str), intent(out) :: name, abbrev, help
+
+    name = trim(cname)
+    abbrev = str(UNDEFINED_ABBREV)
+    if (present(cabbrev)) abbrev = trim(cabbrev)
+    help = ""
+    if (present(chelp)) help = trim(chelp)
+
+end subroutine
+
 
 !-------------------------------------------------------------------------------
 ! Input validation
@@ -429,9 +548,9 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status)
     ! by default return invalid input status
     call status%init (CL_STATUS_VALUE_ERROR)
 
-    if (.not. name%is_alnum()) then
-        status%msg = "Invalid name '" // name // &
-            "': only alpha-numeric characers allowed"
+    call validate_identifier (name, status)
+    if (status /= CL_STATUS_OK) then
+        status%msg = "Invalid name: " // status%msg
         return
     end if
 
@@ -443,9 +562,17 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status)
     end if
 
     if (present(abbrev)) then
-        if (.not. abbrev%is_alnum()) then
+        if (len(abbrev) /= 1) then
+            status = CL_STATUS_VALUE_ERROR
             status%msg = "Invalid abbrev '" // abbrev // &
-                "': only alpha-numeric characters allowed"
+                "': value must be character of length 1"
+            return
+        end if
+
+        call validate_identifier (abbrev, status)
+        if (status /= CL_STATUS_OK) then
+            status%msg = "Invalid abbrev '" // abbrev // "': " // status%msg
+            return
         end if
 
         ! check whether abbreviation of this name already exists
@@ -481,9 +608,9 @@ subroutine argparser_check_input_char (self, name, abbrev, action, nargs, status
     type (status_t), intent(out) :: status
 
     type (str) :: labbrev, lname
-    lname = name
+    lname = trim(name)
     if (present (abbrev)) then
-        labbrev = abbrev
+        labbrev = trim(abbrev)
         call self%check_input (lname, labbrev, action, nargs, status)
     else
         call self%check_input (lname, action=action, nargs=nargs, &
@@ -491,7 +618,51 @@ subroutine argparser_check_input_char (self, name, abbrev, action, nargs, status
     end if
 end subroutine
 
+pure subroutine validate_identifier (s, status)
+    !*  VALIDATE_IDENTIFIER checks whether a given name/abbrev passed is a valid
+    !   argument identifier.
+    !   Valid identifiers consist only of alpha-numeric characters as well as
+    !   '-' and '_', but are not permitted to begin with '-'.
+    !   Empty values are not permitted.
+    type (str), intent(in) :: s
+    type (status_t), intent(out) :: status
+
+    character (:), allocatable :: work
+    character (1), parameter :: valid_special(2) = ['-', '_']
+
+    integer :: i, n
+    logical :: is_valid
+
+    call status%init (CL_STATUS_OK)
+
+    n = len(s)
+    if (n == 0) then
+        status = CL_STATUS_VALUE_ERROR
+        status%msg = "Empty value not allowed"
+        return
+    end if
+    if (s%startswith('-')) then
+        status = CL_STATUS_VALUE_ERROR
+        status%msg = "String value must not start with '-'"
+    end if
+
+    allocate (character (n) :: work)
+    work = s
+
+    do i = 1, n
+        is_valid = any(work(i:i) == valid_special) .or. is_alnum (work(i:i))
+        if (.not. is_valid) then
+            status = CL_STATUS_VALUE_ERROR
+            status%msg = "Invalid character encountered: '" // work(i:i) // "'"
+        end if
+    end do
+
+end subroutine
+
+
 subroutine validate_action (action, status)
+    !*  VALIDATE_ACTION verifies that a user-provided integer value corresponds
+    !   to a valid ARGPARSER action.
     integer (CL_ENUM_KIND), intent(in), optional :: action
     type (status_t), intent(out) :: status
 
