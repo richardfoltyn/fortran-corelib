@@ -742,7 +742,7 @@ elemental function is_alnum_char (c) result(res)
     character (*), intent(in) :: c
     logical :: res
 
-    integer :: i, n, ia
+    integer :: i, n
     logical :: is_alph, is_dig
 
     n = len(c)
@@ -1641,26 +1641,42 @@ end subroutine
 ! Allocation
 ! Abstract away from how character value is stored internally but handling
 ! allocation in dedicated procedures.
-pure subroutine alloc_int (self, length)
+pure subroutine alloc_int (self, n, stat)
     class (str), intent(in out) :: self
-    integer, intent(in) :: length
+    integer, intent(in) :: n
+    integer, intent(out), optional :: stat
 
-    if (allocated(self%value)) deallocate (self%value)
-    allocate (character (length) :: self%value)
+    integer :: lstat
+
+    lstat = -1
+    
+    if (n > 0) then
+        if (allocated(self%value)) deallocate (self%value)
+        allocate (character (n) :: self%value, stat=lstat)
+    end if
+    if (present(stat)) stat = lstat
 
 end subroutine
 
-pure subroutine alloc_char (self, value)
+pure subroutine alloc_char (self, val, stat)
     class (str), intent(in out) :: self
-    character (*), intent(in) :: value
+    character (*), intent(in) :: val
+    integer, intent(out), optional :: stat
 
-    integer :: length
+    integer :: n , lstat
 
-    if (allocated(self%value)) deallocate (self%value)
+    lstat = -1
+    n = len(val)
 
-    length = len(value)
-    allocate (character (length) :: self%value)
-    self%value = value
+    if (n > 0) then
+        if (allocated(self%value)) deallocate (self%value)
+        allocate (character (n) :: self%value, stat=lstat)
+        if (lstat == 0) then
+            self%value = val
+        end if
+    end if
+
+    if (present(stat)) stat = lstat
 
 end subroutine
 
