@@ -30,9 +30,7 @@ module corelib_argparse_argument
         type (str) :: help
     contains
         procedure, pass :: init_array => argument_init_array
-        procedure, pass :: init_scalar => argument_init_scalar
-        procedure, pass :: init_scalar_default => argument_init_scalar_default
-        generic, public :: init => init_array, init_scalar, init_scalar_default
+        generic, public :: init => init_array
 
         procedure, public, pass :: reset => argument_reset
 
@@ -190,83 +188,6 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     ! Attributes that are independent of anything else
     if (present(abbrev)) self%abbrev = abbrev
     if (present(help)) self%help = help
-
-end subroutine
-
-! Scalar initializer for arguments that have at most 1 arg
-subroutine argument_init_scalar_default (self, name, abbrev, action, required, nargs, &
-        help, status, default)
-    class (argument), intent(in out) :: self
-    class (str), intent(in) :: name
-    class (str), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
-    logical, intent(in), optional :: required
-    integer, intent(in), optional :: nargs
-    type (str), intent(in), optional :: help
-    type (status_t), intent(out) :: status
-    class (*), intent(in) :: default
-
-    class (*), dimension(:), allocatable :: work1
-
-    call status%init (CL_STATUS_OK)
-
-    if (present(nargs)) then
-        if (nargs /= 1) then
-            status = CL_STATUS_VALUE_ERROR
-            status%msg = "Invalid argument: nargs != 1"
-            return
-        end if
-    end if
-
-    allocate (work1(1), source=default)
-
-    ! if action is to store const, then const must be present and
-    ! we interpret 'default' argument to be this constant scalar.
-    if (present(action)) then
-        if (action == ARGPARSE_ACTION_STORE_CONST) then
-            call self%init (name, abbrev, action, required, 1, &
-                help, status, const=work1)
-            return
-        end if
-    end if
-
-    ! In all other scenarios (no action present, or action != store_const)
-    ! interpret 'default' argument as actual default argument
-    call self%init (name, abbrev, action, required, 1, &
-        help, status, default=work1)
-
-end subroutine
-
-! Scalar initializer for arguments that have at most 1 arg
-subroutine argument_init_scalar (self, name, abbrev, action, required, nargs, &
-        help, status, default, const)
-    class (argument), intent(in out) :: self
-    class (str), intent(in) :: name
-    class (str), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
-    logical, intent(in), optional :: required
-    integer, intent(in), optional :: nargs
-    class (str), intent(in), optional :: help
-    type (status_t), intent(out) :: status
-    class (*), intent(in) :: default
-    class (*), intent(in) :: const
-
-    class (*), dimension(:), allocatable :: work1, work2
-
-    call status%init (CL_STATUS_OK)
-
-    if (present(nargs)) then
-        if (nargs /= 1) then
-            status = CL_STATUS_VALUE_ERROR
-            status%msg = "Invalid argument: nargs != 1"
-            return
-        end if
-    end if
-
-    allocate (work1(1), source=default)
-    allocate (work2(1), source=const)
-
-    call self%init (name, abbrev, action, required, 1, help, status, work1, work2)
 
 end subroutine
 

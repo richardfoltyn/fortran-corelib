@@ -38,6 +38,11 @@ module corelib_argparse_parser
     ! seperator used to split a list of arguments into individual tokens
     character (1), parameter :: LIST_SEP = ','
 
+    ! placeholder to be used if user does not specify an abbreviated argument name
+    ! Note that names and abbrevs are required to be alpha-numeric, so
+    ! this can never be a valid user-given value.
+    character (1), parameter :: UNDEFINED_ABBREV = '-'
+
     type, public :: argparser
         private
 
@@ -46,16 +51,16 @@ module corelib_argparse_parser
         integer :: status = ARGPARSE_STATUS_INIT
     contains
         procedure, pass :: argparser_add_argument_array_str
+        procedure, pass :: argparser_add_argument_array_default_str
         procedure, pass :: argparser_add_argument_scalar_default_str
-        procedure, pass :: argparser_add_argument_scalar_str
         procedure, pass :: argparser_add_argument_array_char
-        procedure, pass :: argparser_add_argument_scalar_char
+        procedure, pass :: argparser_add_argument_array_default_char
         procedure, pass :: argparser_add_argument_scalar_default_char
         generic, public :: add_argument => argparser_add_argument_array_str, &
+            argparser_add_argument_array_default_str, &
             argparser_add_argument_scalar_default_str, &
-            argparser_add_argument_scalar_str, &
+            argparser_add_argument_array_default_char, &
             argparser_add_argument_array_char, &
-            argparser_add_argument_scalar_char, &
             argparser_add_argument_scalar_default_char
 
         procedure, pass :: init_str => argparser_init_str
@@ -159,8 +164,13 @@ end function
 
 ! ------------------------------------------------------------------------------
 ! Adding arguments
-subroutine argparser_add_argument_array_str (self, name, abbrev, action, &
-        nargs, required, help, status, default, const)
+
+subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
+        action, nargs, required, help, status, default, const)
+    !*  Add argument definition using the following interface:
+    !       1. str meta-data
+    !       2. array values
+    !       3. mandatory 'default', optional 'const'
 
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
@@ -170,7 +180,7 @@ subroutine argparser_add_argument_array_str (self, name, abbrev, action, &
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    class (*), intent(in), dimension(:), optional :: default
+    class (*), intent(in), dimension(:) :: default
     class (*), intent(in), dimension(:), optional :: const
 
     type (argument) :: arg
@@ -179,8 +189,38 @@ subroutine argparser_add_argument_array_str (self, name, abbrev, action, &
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
 
-    call arg%init (name, abbrev, action, required, nargs, &
-        help, lstatus, default, const)
+    call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+        default, const)
+
+    if (lstatus == CL_STATUS_OK) call self%append (arg)
+
+100 continue
+    if (present(status)) status = lstatus
+end subroutine
+
+subroutine argparser_add_argument_array_str (self, name, abbrev, &
+        action, nargs, required, help, status)
+    !*  Add argument definition using the following interface:
+    !       1. str meta-data
+    !       2. array values
+    !       3. no 'default', no 'const'
+
+    class (argparser), intent(in out) :: self
+    class (str), intent(in) :: name
+    class (str), intent(in), optional :: abbrev
+    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer, intent(in), optional :: nargs
+    logical, intent(in), optional :: required
+    class (str), intent(in), optional :: help
+    type (status_t), intent(out), optional :: status
+
+    type (argument) :: arg
+    type (status_t) :: lstatus
+
+    call self%check_input (name, abbrev, action, nargs, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
+
+    call arg%init (name, abbrev, action, required, nargs, help, lstatus)
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
@@ -189,7 +229,11 @@ subroutine argparser_add_argument_array_str (self, name, abbrev, action, &
 end subroutine
 
 subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action, &
-        nargs, required, help, status, default)
+        nargs, required, help, status, default, const)
+    !*  Add argument definition using the following interface:
+    !       1. str meta-data
+    !       2. scalar values
+    !       3. mandatory 'default', optional 'const'
 
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
@@ -200,50 +244,38 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     class (str), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
     class (*), intent(in) :: default
+    class (*), intent(in), optional :: const
 
     type (argument) :: arg
     type (status_t) :: lstatus
+    class (*), dimension(:), allocatable :: work1, work2
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
 
-    call arg%init (name, abbrev, action, required, nargs, help, lstatus, default)
+    allocate (work1(1), source=default)
+
+    if (present(const)) then
+        allocate(work2(1), source=const)
+        call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+            work1, work2)
+    else
+        call arg%init (name, abbrev, action, required, nargs, help, lstatus, work1)
+    end if
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
-end subroutine
 
-subroutine argparser_add_argument_scalar_str (self, name, abbrev, action, &
-        nargs, required, help, status, default, const)
-
-    class (argparser), intent(in out) :: self
-    class (str), intent(in) :: name
-    class (str), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
-    integer, intent(in), optional :: nargs
-    logical, intent(in), optional :: required
-    class (str), intent(in), optional :: help
-    type (status_t), intent(out), optional :: status
-    class (*), intent(in) :: default, const
-
-    type (argument) :: arg
-    type (status_t) :: lstatus
-
-    call self%check_input (name, abbrev, action, nargs, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
-
-    call arg%init (name, abbrev, action, required, nargs, help, lstatus, default, const)
-
-    if (lstatus == CL_STATUS_OK) call self%append (arg)
-
-100 continue
-    if (present(status)) status = lstatus
 end subroutine
 
 subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, action, &
-        nargs, required, help, status, default)
+        nargs, required, help, status, default, const)
+    !*  Add argument definition using the following interface:
+    !       1. character meta-data
+    !       2. scalar values
+    !       3. mandatory 'default', optional 'const'
 
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
@@ -254,27 +286,66 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
     class (*), intent(in) :: default
+    class (*), intent(in), optional :: const
 
     type (str) :: lhelp, labbrev, lname
     type (argument) :: arg
     type (status_t) :: lstatus
+    class (*), dimension(:), pointer :: work1, work2
+    character (:), dimension(:), allocatable, target :: char1, char2
+
+    integer :: n
+    logical :: is_char
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
 
     lname = name
     if (present(help)) lhelp = str(help)
+    labbrev = str(UNDEFINED_ABBREV)
     if (present(abbrev)) labbrev = str(abbrev)
 
-    call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, default)
+    select type (default)
+    type is (character (*))
+        is_char = .true.
+        n = len(default)
+        allocate (character (n) :: char1(1))
+        char1(1) = default
+        work1 => char1
+    class default
+        allocate (work1(1), source=default)
+    end select
+
+    if (present(const)) then
+        allocate (work2(1), source=const)
+        call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
+            work1, work2)
+    else
+        call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
+            work1)
+    end if
+
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
+    if (.not. is_char) then
+        if (associated(work1)) deallocate(work1)
+        if (associated(work2)) deallocate(work2)
+    else
+        nullify (work1)
+        nullify (work2)
+        if (allocated(char1)) deallocate (char1)
+        if (allocated(char2)) deallocate (char2)
+    end if
 end subroutine
 
-subroutine argparser_add_argument_scalar_char (self, name, abbrev, action, &
+subroutine argparser_add_argument_array_default_char (self, name, abbrev, action, &
         nargs, required, help, status, default, const)
+    !*  Add argument definition using the following interface:
+    !       1. character meta-data
+    !       2. array values
+    !       3. mandatory 'default', optional 'const'
 
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
@@ -284,7 +355,8 @@ subroutine argparser_add_argument_scalar_char (self, name, abbrev, action, &
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    class (*), intent(in) :: default, const
+    class (*), intent(in), dimension(:) :: default
+    class (*), intent(in), dimension(:), optional :: const
 
     type (str) :: lhelp, labbrev, lname
     type (argument) :: arg
@@ -295,6 +367,7 @@ subroutine argparser_add_argument_scalar_char (self, name, abbrev, action, &
 
     lname = name
     if (present(help)) lhelp = str(help)
+    labbrev = str(UNDEFINED_ABBREV)
     if (present(abbrev)) labbrev = str(abbrev)
 
     call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
@@ -307,7 +380,11 @@ subroutine argparser_add_argument_scalar_char (self, name, abbrev, action, &
 end subroutine
 
 subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
-        nargs, required, help, status, const, default)
+        nargs, required, help, status)
+    !*  Add argument definition using the following interface:
+    !       1. character meta-data
+    !       2. array values
+    !       3. no 'default', no 'const'
 
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
@@ -317,8 +394,6 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    class (*), intent(in), dimension(:), optional :: const
-    class (*), intent(in), dimension(:), optional :: default
 
     type (str) :: lhelp, labbrev, lname
     type (argument) :: arg
@@ -329,10 +404,10 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
 
     lname = name
     if (present(help)) lhelp = str(help)
+    labbrev = str(UNDEFINED_ABBREV)
     if (present(abbrev)) labbrev = str(abbrev)
 
-    call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
-        default, const)
+    call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus)
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
@@ -354,38 +429,42 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status)
     ! by default return invalid input status
     call status%init (CL_STATUS_VALUE_ERROR)
 
-    if (len_trim(name) == 0) then
-        status%msg = "Invalid argument: name"
+    if (.not. name%is_alnum()) then
+        status%msg = "Invalid name '" // name // &
+            "': only alpha-numeric characers allowed"
         return
     end if
 
     ! check whether argument with this name is already defined
     if (self%is_defined (name)) then
-        status%msg = "Argument '" // name // "' already defined"
+        status%msg = "Invalid name '" // name // &
+            "': argument with same name already defined"
         return
     end if
 
     if (present(abbrev)) then
-        if (len_trim(abbrev) == 0) then
-            status%msg = "Invalid argument: abbrev"
-            return
+        if (.not. abbrev%is_alnum()) then
+            status%msg = "Invalid abbrev '" // abbrev // &
+                "': only alpha-numeric characters allowed"
         end if
 
         ! check whether abbreviation of this name already exists
         if (self%is_defined (abbrev, is_abbrev=.true.)) then
-            status%msg = "Argument with abbreviation '" // abbrev // "' already defined"
+            status%msg = "Invalid abbrev '" // abbrev // &
+                "' : argument with save abbrev already defined"
+            return
         end if
     end if
 
     call validate_action (action, status)
     if (status /= CL_STATUS_OK) then
-        status%msg = "Invalid argument: action"
+        status%msg = "Invalid action for argument '" // name // "'"
         return
     end if
 
     if (present(nargs)) then
         if (nargs < 0) then
-            status%msg = "Invalid argument: nargs"
+            status%msg = "Invalid nargs for argument '" // name // "'"
             return
         end if
     end if
