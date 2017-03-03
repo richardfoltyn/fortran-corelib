@@ -35,7 +35,7 @@ module corelib_collections_linked_list_mod
         procedure, pass :: node_assign
         generic, public :: assignment (=) => node_assign
 
-        ! final :: node_finalize
+        final :: node_finalize
     end type
 
     type, extends(collection) :: linked_list
@@ -113,11 +113,11 @@ end function
 ! *****************************************************************************
 ! LIST_NODE finalizer
 
-!subroutine node_finalize (self)
-!    type (list_node), intent(in out) :: self
-!
-!    if (allocated(self%item_obj)) deallocate (self%item_obj)
-!end subroutine
+recursive subroutine node_finalize (self)
+   type (list_node), intent(in out) :: self
+
+   if (allocated(self%item_obj)) deallocate (self%item_obj)
+end subroutine
 
 
 ! ******************************************************************************
@@ -358,8 +358,9 @@ end subroutine
 ! *****************************************************************************
 ! LINKED_LIST finalizer
 
-elemental subroutine list_finalize (self)
+recursive subroutine list_finalize (self)
     type (linked_list), intent(in out) :: self
+
     type (list_node), pointer :: ptr_node, ptr_next
 
     ! traverse linked list, deallocate each element in turn
