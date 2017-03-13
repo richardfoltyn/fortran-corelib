@@ -22,6 +22,8 @@ subroutine test_all()
     ! run individual test cases
     call test_append (tests)
 
+    call test_validators (tests)
+
     ! print test statistics
     call tests%print ()
 
@@ -219,7 +221,81 @@ subroutine test_append (tests)
 
     deallocate (cmd, val_list)
 
+end subroutine
 
+subroutine test_validators (tests)
+    class (test_suite) :: tests
+    class (test_case), pointer :: tc
+
+    type (argparser) :: parser
+    type (status_t) :: status
+
+    integer :: ival
+    ! emulated command line arguments
+    type (str), dimension(:), allocatable :: cmd
+
+    tc => tests%add_test("argparse validators")
+
+    call parser%init ("Validators test routine")
+
+    allocate (cmd(1))
+
+    call parser%add_argument ("pos-int", validator=validate_int32_pos)
+    call parser%add_argument ("nonneg", validator=validate_int32_nonneg)
+    call parser%add_argument ("nonempty-str", validator=validate_str_nonempty)
+
+    ! === Test positive int validator ===
+    ! Test with argument that can be converted to int but has invalid
+    ! int value.
+    cmd(1) ='--pos-int=0'
+    call parser%parse (cmd, status)
+    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+        "validate_int32_pos() with invalid integer value")
+
+    ! Test with argument that cannot be converged to int
+    cmd(1) = '--pos-int=foobar'
+    call parser%parse (cmd, status)
+    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+        "validate_int32_pos() with string value")
+
+    cmd(1) = '--pos-int=1'
+    call parser%parse (cmd, status)
+    call parser%get ("pos-int", ival)
+    call tc%assert_true (status == CL_STATUS_OK .and. ival == 1, &
+        "validate_int32_pos() with valid value")
+
+    ! === Test non-negative int validator ===
+    cmd(1) ='--nonneg=-1'
+    call parser%parse (cmd, status)
+    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+        "validate_int32_nonneg() with invalid integer value")
+
+    ! Test with argument that cannot be converged to int
+    cmd(1) = '--nonneg=foobar'
+    call parser%parse (cmd, status)
+    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+        "validate_int32_nonneg() with string value")
+
+    cmd(1) = '--nonneg=0'
+    call parser%parse (cmd, status)
+    call parser%get ("nonneg", ival)
+    call tc%assert_true (status == CL_STATUS_OK .and. ival == 0, &
+        "validate_int32_nonneg() with valid value")
+
+    ! === Test non-empty string ===
+    ! Note: for this to be triggered the user has to supply something like
+    !   --nonempty-str ""
+    ! If the command line is only
+    !   --nonempty-str
+    ! the parser will complain by itself, as it expects at least one value
+    ! with ACTION_STORE.
+    if (allocated(cmd)) deallocate (cmd)
+    allocate (cmd(2))
+    cmd(1) = '--nonempty-str'
+    cmd(2) = ''
+    call parser%parse (cmd, status)
+    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+        "validate_str_nonempty with empty string value")
 end subroutine
 
 end program

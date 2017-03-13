@@ -50,17 +50,17 @@ module corelib_argparse_parser
         type (str) :: description
         integer :: status = ARGPARSE_STATUS_INIT
     contains
-        procedure, pass :: argparser_add_argument_array_str
+        procedure, pass :: argparser_add_argument_str
         procedure, pass :: argparser_add_argument_array_default_str
         procedure, pass :: argparser_add_argument_scalar_default_str
-        procedure, pass :: argparser_add_argument_array_char
+        procedure, pass :: argparser_add_argument_char
         procedure, pass :: argparser_add_argument_array_default_char
         procedure, pass :: argparser_add_argument_scalar_default_char
-        generic, public :: add_argument => argparser_add_argument_array_str, &
+        generic, public :: add_argument => argparser_add_argument_str, &
             argparser_add_argument_array_default_str, &
             argparser_add_argument_scalar_default_str, &
             argparser_add_argument_array_default_char, &
-            argparser_add_argument_array_char, &
+            argparser_add_argument_char, &
             argparser_add_argument_scalar_default_char
 
         procedure, pass :: init_str => argparser_init_str
@@ -189,7 +189,7 @@ end function
 ! crashes when code was compiled with gfortran.
 
 subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
-        action, nargs, required, help, status, default, const)
+        action, nargs, required, help, status, validator, default, const)
     !*  Add argument definition using the following interface:
     !       1. str meta-data
     !       2. array values
@@ -203,6 +203,7 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
+    procedure (fcn_validator), intent(in), pointer, optional :: validator
     class (*), intent(in), dimension(:), target :: default
     class (*), intent(in), dimension(:), optional, target :: const
 
@@ -220,10 +221,10 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     if (present(const)) then
         call sanitize_argument_data_array (const, ptr_const)
         call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
-            ptr_default, ptr_const)
+            ptr_default, ptr_const, validator=validator)
     else
         call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
-            ptr_default)
+            ptr_default, validator=validator)
     end if
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
@@ -236,8 +237,8 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     call dealloc_argument_data_array (const, ptr_const)
 end subroutine
 
-subroutine argparser_add_argument_array_str (self, name, abbrev, &
-        action, nargs, required, help, status)
+subroutine argparser_add_argument_str (self, name, abbrev, &
+        action, nargs, required, help, status, validator)
     !*  Add argument definition using the following interface:
     !       1. str meta-data
     !       2. array values
@@ -251,6 +252,7 @@ subroutine argparser_add_argument_array_str (self, name, abbrev, &
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
+    procedure (fcn_validator), intent(in), pointer, optional :: validator
 
     type (argument) :: arg
     type (status_t) :: lstatus
@@ -258,7 +260,8 @@ subroutine argparser_add_argument_array_str (self, name, abbrev, &
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
 
-    call arg%init (name, abbrev, action, required, nargs, help, lstatus)
+    call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+        validator=validator)
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
@@ -267,7 +270,7 @@ subroutine argparser_add_argument_array_str (self, name, abbrev, &
 end subroutine
 
 subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action, &
-        nargs, required, help, status, default, const)
+        nargs, required, help, status, validator, default, const)
     !*  Add argument definition using the following interface:
     !       1. str meta-data
     !       2. scalar values
@@ -281,6 +284,7 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
+    procedure (fcn_validator), intent(in), pointer, optional :: validator
     class (*), intent(in) :: default
     class (*), intent(in), optional :: const
 
@@ -298,10 +302,10 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     if (present(const)) then
         call sanitize_argument_data_scalar (const, ptr_const)
         call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
-            ptr_default, ptr_const)
+            ptr_default, ptr_const, validator=validator)
     else
         call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
-            ptr_default)
+            ptr_default, validator=validator)
     end if
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
@@ -314,7 +318,7 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
 end subroutine
 
 subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, action, &
-        nargs, required, help, status, default, const)
+        nargs, required, help, status, validator, default, const)
     !*  Add argument definition using the following interface:
     !       1. character meta-data
     !       2. scalar values
@@ -328,6 +332,7 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
+    procedure (fcn_validator), intent(in), pointer, optional :: validator
     class (*), intent(in) :: default
     class (*), intent(in), optional :: const
 
@@ -347,10 +352,10 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     if (present(const)) then
         call sanitize_argument_data_scalar (const, ptr_const)
         call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
-            ptr_default, ptr_const)
+            ptr_default, ptr_const, validator=validator)
     else
         call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
-            ptr_default)
+            ptr_default, validator=validator)
     end if
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
@@ -362,7 +367,7 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
 end subroutine
 
 subroutine argparser_add_argument_array_default_char (self, name, abbrev, action, &
-        nargs, required, help, status, default, const)
+        nargs, required, help, status, validator, default, const)
     !*  Add argument definition using the following interface:
     !       1. character meta-data
     !       2. array values
@@ -376,6 +381,7 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
+    procedure (fcn_validator), intent(in), pointer, optional :: validator
     class (*), intent(in), dimension(:), target :: default
     class (*), intent(in), dimension(:), optional, target :: const
 
@@ -396,10 +402,10 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
     if (present(const)) then
         call sanitize_argument_data_array (const, ptr_const)
         call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
-            ptr_default, ptr_const)
+            ptr_default, ptr_const, validator=validator)
     else
         call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
-            ptr_default)
+            ptr_default, validator=validator)
     end if
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
@@ -412,8 +418,8 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
     call dealloc_argument_data_array (const, ptr_const)
 end subroutine
 
-subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
-        nargs, required, help, status)
+subroutine argparser_add_argument_char (self, name, abbrev, action, &
+        nargs, required, help, status, validator)
     !*  Add argument definition using the following interface:
     !       1. character meta-data
     !       2. array values
@@ -427,6 +433,7 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
+    procedure (fcn_validator), intent(in), pointer, optional :: validator
 
     type (str) :: lhelp, labbrev, lname
     type (argument) :: arg
@@ -437,7 +444,8 @@ subroutine argparser_add_argument_array_char (self, name, abbrev, action, &
 
     call char_to_str_input (name, abbrev, help, lname, labbrev, lhelp)
 
-    call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus)
+    call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
+        validator=validator)
 
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
@@ -1007,6 +1015,7 @@ end subroutine
 
 
 subroutine argparser_parse_cmd (self, status)
+    !*  ARGPARSE_PARSE_CMD parses arguments provided at the command line
     class (argparser), intent(in out) :: self
     type (status_t), intent(out), optional :: status
 
@@ -1081,25 +1090,26 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
 
     ! store command line arguments in argument object
     if (allocated (cmd_values)) then
-        call ptr_arg%set (cmd_values)
+        call ptr_arg%set (cmd_values, status)
+        if (status /= CL_STATUS_OK) goto 100
     else
         ! collect the number of requested arguments from the following commands
         call self%collect_values (cmd_args, offset+1, ptr_arg, cmd_values, status)
         if (status /= CL_STATUS_OK) goto 100
 
         ! store command line arguments in argument object
-        call ptr_arg%set (cmd_values)
+        call ptr_arg%set (cmd_values, status)
+        if (status /= CL_STATUS_OK) goto 100
 
         ! skip the next nargs arguments, those were used as values
         offset = offset + ptr_arg%nargs
     end if
 
-    if (allocated(cmd_values)) deallocate (cmd_values)
-
     ! move to next command line argument
     offset = offset + 1
 
 100 continue
+    if (allocated(cmd_values)) deallocate (cmd_values)
 end subroutine
 
 subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
@@ -1136,6 +1146,8 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
                 str(ptr_arg%nargs) // " arguments, found 0"
             goto 100
         else if (ptr_arg%nargs == 0) then
+            ! can safely discard the status argument return value if
+            ! no user-provided data is present, as nothing can go wrong.
             call ptr_arg%set ()
         else if (ptr_arg%nargs > 0) then
             ! need to collect argument values
@@ -1144,7 +1156,8 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
             if (status /= CL_STATUS_OK) goto 100
 
             ! store command line arguments in argument object
-            call ptr_arg%set (cmd_values)
+            call ptr_arg%set (cmd_values, status)
+            if (status /= CL_STATUS_OK) goto 100
 
             ! skip the next nargs arguments, those were used as values
             offset = offset + ptr_arg%nargs

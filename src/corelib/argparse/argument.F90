@@ -17,6 +17,9 @@ module corelib_argparse_argument
     implicit none
     private
 
+    public :: fcn_validator
+    public :: dynamic_cast
+
     type, public :: argument
         private
         type (str), public :: name, abbrev
@@ -28,6 +31,7 @@ module corelib_argparse_argument
         integer, public :: nargs = 1
         type (str), dimension(:), allocatable :: passed_values
         type (str) :: help
+        procedure (fcn_validator), nopass, pointer :: validator => null()
     contains
         procedure, pass :: init_array => argument_init_array
         generic, public :: init => init_array
@@ -92,7 +96,13 @@ module corelib_argparse_argument
         module procedure cast_any_to_argument
     end interface
 
-    public :: dynamic_cast
+    abstract interface
+        subroutine fcn_validator (val, status)
+            import str, status_t
+            type (str), intent(in) :: val
+            type (status_t), intent(out) :: status
+        end subroutine
+    end interface
 
 contains
 
@@ -100,7 +110,7 @@ contains
 ! Initialization
 
 subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
-        help, status, default, const)
+        help, status, default, const, validator)
 
     class (argument), intent(in out) :: self
     class (str), intent(in) :: name
@@ -108,10 +118,11 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     integer (CL_ENUM_KIND), intent(in), optional :: action
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
-    class (*), intent(in), dimension(:), optional :: const
-    class (*), intent(in), dimension(:), optional :: default
     class (str), intent(in), optional :: help
+    class (*), intent(in), dimension(:), optional :: default
     type (status_t), intent(out) :: status
+    class (*), intent(in), dimension(:), optional :: const
+    procedure (fcn_validator), intent(in), pointer, optional :: validator
 
     integer :: laction, lnargs
     logical :: lrequired
@@ -156,6 +167,15 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
         end if
     end if
 
+    ! Validators are only supported for actions that let users actually pass
+    ! in user-generated input
+    if (present(validator) .and. laction /= ARGPARSE_ACTION_STORE .and. &
+        laction /= ARGPARSE_ACTION_APPEND) then
+        status = CL_STATUS_VALUE_ERROR
+        status%msg = "Validators only supported for STORE and APPEND actions."
+        return
+    end if
+
     select case (laction)
     case (ARGPARSE_ACTION_STORE_TRUE)
         lnargs = 0
@@ -188,6 +208,7 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     ! Attributes that are independent of anything else
     if (present(abbrev)) self%abbrev = abbrev
     if (present(help)) self%help = help
+    if (present(validator)) self%validator => validator
 
 end subroutine
 
@@ -254,27 +275,39 @@ end subroutine
 ! ------------------------------------------------------------------------------
 ! SET methods
 
-subroutine argument_set_scalar (self, val)
+subroutine argument_set_scalar (self, val, status)
     class (argument), intent(in out) :: self
     type (str), intent(in) :: val
+    type (status_t), intent(out), optional :: status
 
     type (str), dimension(:), allocatable :: work
 
     allocate (work(1))
     work(1) = val
-    call self%set (work)
+    call self%set (work, status)
 end subroutine
 
-subroutine argument_set_array (self, val)
+subroutine argument_set_array (self, val, status)
     class (argument), intent(in out) :: self
     type (str), intent(in), dimension(:), optional :: val
+    type (status_t), intent(out), optional :: status
 
     type (str), dimension(:), allocatable :: work
-    integer :: n, m
+    integer :: n, m, i
+    type (status_t) :: lstatus
+
+    lstatus = CL_STATUS_OK
 
     if (present(val)) then
 
         n = size(val)
+
+        if (associated(self%validator)) then
+            do i = 1, n
+                call self%validator (val(i), lstatus)
+                if (lstatus /= CL_STATUS_OK) goto 100
+            end do
+        end if
 
         select case (self%action)
         ! if requested to append repeated appearances of argument on command
@@ -300,6 +333,9 @@ subroutine argument_set_array (self, val)
 
     ! Argument was present in command line invocation
     self%is_present = .true.
+
+100 continue
+    if (present(status)) status = lstatus
 end subroutine
 
 ! ------------------------------------------------------------------------------
