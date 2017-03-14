@@ -10,9 +10,8 @@
 module corelib_argparse_argument
 
     use iso_fortran_env
-    use corelib_argparse_constants
-    use corelib_strings
     use corelib_common
+    use corelib_argparse_actions
 
     implicit none
     private
@@ -29,6 +28,8 @@ module corelib_argparse_argument
         logical :: required = .false.
         logical, public :: is_present = .false.
         integer, public :: nargs = 1
+        logical :: allow_empty = .false.
+            !!  Allow empty strings as argument values. Disabled by default.
         type (str), dimension(:), allocatable :: passed_values
         type (str) :: help
         procedure (fcn_validator), nopass, pointer :: validator => null()
@@ -110,7 +111,7 @@ contains
 ! Initialization
 
 subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
-        help, status, default, const, validator)
+        help, status, default, const, validator, allow_empty)
 
     class (argument), intent(in out) :: self
     class (str), intent(in) :: name
@@ -123,9 +124,10 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     type (status_t), intent(out) :: status
     class (*), intent(in), dimension(:), optional :: const
     procedure (fcn_validator), intent(in), pointer, optional :: validator
+    logical, intent(in), optional :: allow_empty
 
     integer :: laction, lnargs
-    logical :: lrequired
+    logical :: lrequired, supports_arg_values
 
     ! default values
     call status%init (CL_STATUS_OK)
@@ -138,6 +140,10 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     if (present(nargs)) lnargs = nargs
     if (present(required)) lrequired = required
 
+    ! Whether action supports user-provided argument values
+    supports_arg_values = (laction == ARGPARSE_ACTION_APPEND .or. &
+        laction == ARGPARSE_ACTION_STORE)
+
     ! Input validation: check before modifying argument object
     if (present(nargs)) then
         ! if action is APPEND we do not allow to specify number of nargs.
@@ -145,7 +151,8 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
         ! called for each instance of argument encountered.
         if (laction == ARGPARSE_ACTION_APPEND) then
             status = CL_STATUS_VALUE_ERROR
-            status%msg = "Must not specify nargs when ACTION_APPEND given"
+            status%msg = "Must not specify 'nargs' with action " &
+                // get_action_label (ARGPARSE_ACTION_APPEND)
             return
         else if (present(default)) then
             ! Consistency of nargs and length of default array: assert these are
@@ -162,18 +169,27 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     if (laction == ARGPARSE_ACTION_STORE_CONST) then
         if (.not. present(const)) then
             status = CL_STATUS_VALUE_ERROR
-            status%msg = "Action STORE_CONST requires 'const' argument"
+            status%msg = "Action " // get_action_label (ARGPARSE_ACTION_STORE_CONST) &
+                // " requires 'const' argument"
             return
         end if
     end if
 
     ! Validators are only supported for actions that let users actually pass
     ! in user-generated input
-    if (present(validator) .and. laction /= ARGPARSE_ACTION_STORE .and. &
-        laction /= ARGPARSE_ACTION_APPEND) then
-        status = CL_STATUS_VALUE_ERROR
-        status%msg = "Validators only supported for STORE and APPEND actions."
-        return
+    if (.not. supports_arg_values) then
+        if (present(validator)) then
+            status = CL_STATUS_VALUE_ERROR
+            status%msg = "Action " // get_action_label (laction) &
+                // " does not support validators"
+            return
+        end if
+
+        if (present(allow_empty)) then
+            status = CL_STATUS_VALUE_ERROR
+            status%msg = "Must not specify 'allow_empty' with action " &
+                // get_action_label (ARGPARSE_ACTION_APPEND)
+        end if
     end if
 
     select case (laction)
@@ -209,6 +225,7 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     if (present(abbrev)) self%abbrev = abbrev
     if (present(help)) self%help = help
     if (present(validator)) self%validator => validator
+    if (present(allow_empty)) self%allow_empty = allow_empty
 
 end subroutine
 
@@ -300,12 +317,31 @@ subroutine argument_set_array (self, val, status)
 
     if (present(val)) then
 
+        ! For actions STORE_TRUE, STORE_FALSE and STORE_CONST, no values
+        ! are permitted.
+        if (self%nargs == 0) then
+            lstatus = CL_STATUS_UNSUPPORTED_OP
+            lstatus%msg = "Argument does not accept user-provided values"
+            goto 100
+        end if
+
         n = size(val)
 
         if (associated(self%validator)) then
             do i = 1, n
                 call self%validator (val(i), lstatus)
                 if (lstatus /= CL_STATUS_OK) goto 100
+            end do
+        end if
+
+        ! Check for empty strings if these are not permitted
+        if (.not. self%allow_empty) then
+            do i = 1, n
+                if (len(val(i)) == 0) then
+                    lstatus = CL_STATUS_VALUE_ERROR
+                    lstatus%msg = "Invalid value; non-empty string not allowed"
+                    goto 100
+                end if
             end do
         end if
 

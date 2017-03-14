@@ -5,7 +5,7 @@ get_filename_component(COMPONENT_NAME "${CMAKE_CURRENT_SOURCE_DIR}" NAME)
 set(SOURCE_FILES
     argparse.f90
     argument.F90
-    constants.f90
+    actions.f90
     parser.F90
     validators.f90
 )

@@ -10,6 +10,7 @@
     in user-accessible str list
 -   Predefined `--help` and `-h` switches
 -   Printing of help text
+-   Expose `allow_empty` option to user code
 
 
 ## collections ##

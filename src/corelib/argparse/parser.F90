@@ -15,8 +15,8 @@ module corelib_argparse_parser
     use corelib_strings
     use corelib_collections
 
-    use corelib_argparse_constants
     use corelib_argparse_argument
+    use corelib_argparse_actions
 
     implicit none
     private
@@ -227,6 +227,7 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
             ptr_default, validator=validator)
     end if
 
+    call process_argument_status (name, lstatus)
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
@@ -263,6 +264,7 @@ subroutine argparser_add_argument_str (self, name, abbrev, &
     call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
         validator=validator)
 
+    call process_argument_status (name, lstatus)
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
@@ -308,6 +310,7 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
             ptr_default, validator=validator)
     end if
 
+    call process_argument_status (name, lstatus)
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
@@ -358,6 +361,7 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
             ptr_default, validator=validator)
     end if
 
+    call process_argument_status (lname, lstatus)
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
@@ -408,6 +412,7 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
             ptr_default, validator=validator)
     end if
 
+    call process_argument_status (lname, lstatus)
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
@@ -447,6 +452,7 @@ subroutine argparser_add_argument_char (self, name, abbrev, action, &
     call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
         validator=validator)
 
+    call process_argument_status (lname, lstatus)
     if (lstatus == CL_STATUS_OK) call self%append (arg)
 
 100 continue
@@ -727,6 +733,8 @@ subroutine argparser_get_array_str (self, name, val, status)
     ! Retrieve stored argument value
     call ptr_arg%parse (val, lstatus)
 
+    call process_argument_status (name, lstatus)
+
 100 continue
     if (present(status)) status = lstatus
 end subroutine
@@ -751,6 +759,8 @@ subroutine argparser_get_scalar_str (self, name, val, status)
     ! at this point ptr_arg points to the argument identified by name.
     ! Retrieve stored argument value
     call ptr_arg%parse (val, lstatus)
+
+    call process_argument_status (name, lstatus)
 
 100 continue
     if (present(status)) status = lstatus
@@ -845,7 +855,7 @@ subroutine argparser_find_arg (self, name, ptr_arg, status, is_abbrev)
         call status%init (CL_STATUS_OK)
         if (.not. associated (ptr_arg)) then
             status = CL_STATUS_VALUE_ERROR
-            status%msg = "Unknown argment: " // name
+            status%msg = "Unknown argment: '" // name // "'"
         end if
     end if
 
@@ -1064,7 +1074,7 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
 
     ! find corresponding argument object
     call self%find_arg (cmd_name, ptr_arg, status, is_abbrev=.false.)
-    if (status /= CL_STATUS_OK) goto 100
+    if (status /= CL_STATUS_OK) goto 200
 
     ! if argument value was passed within the same command line argument,
     ! extract it from substring after the '='
@@ -1085,7 +1095,7 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
         status = ARGPARSE_STATUS_PARSE_ERROR
         status%msg = "Argument '" // ptr_arg%name // &
             "': received one argument value, expected " // str(ptr_arg%nargs)
-        goto 100
+        goto 200
     end if
 
     ! store command line arguments in argument object
@@ -1108,8 +1118,17 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
     ! move to next command line argument
     offset = offset + 1
 
+    return
+
 100 continue
-    if (allocated(cmd_values)) deallocate (cmd_values)
+    ! Post-processing of status objects received from argument methods if
+    ! error occurs
+    call process_argument_status (cmd_name, status)
+    return
+
+200 continue
+    ! Post-processing of status objects populated in current routine
+    ! Note: none required at this point.
 end subroutine
 
 subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
@@ -1136,7 +1155,7 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
     do j = 1, len(cmd_arg)
         cmd_name = cmd_arg%substring (j, j)
         call self%find_arg (cmd_name, ptr_arg, status, is_abbrev=.true.)
-        if (status /= CL_STATUS_OK) goto 100
+        if (status /= CL_STATUS_OK) goto 200
 
         if (ptr_arg%nargs > 0 .and. j < len(cmd_arg)) then
             ! cannot satisfy any positive number of values for abbrev.
@@ -1144,11 +1163,12 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
             status = CL_STATUS_INVALID_STATE
             status%msg = "Argument '" // ptr_arg%name  // "': expected " // &
                 str(ptr_arg%nargs) // " arguments, found 0"
-            goto 100
+            goto 200
         else if (ptr_arg%nargs == 0) then
             ! can safely discard the status argument return value if
             ! no user-provided data is present, as nothing can go wrong.
-            call ptr_arg%set ()
+            call ptr_arg%set (status=status)
+            if (status /= CL_STATUS_OK) goto 100
         else if (ptr_arg%nargs > 0) then
             ! need to collect argument values
             call self%collect_values (cmd_args, offset+1, ptr_arg, &
@@ -1169,7 +1189,17 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
     ! move to next command line argument
     offset = offset + 1
 
+    return
+
 100 continue
+    ! Post-processing of status objects received from argument methods if
+    ! error occurs
+    call process_argument_status (cmd_name, status)
+    return
+
+200 continue
+    ! Post-processing of status objects populated in current routine
+    ! Note: none required at this point.
 end subroutine
 
 subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
@@ -1204,6 +1234,17 @@ subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
         j = j + 1
     end do
 
+end subroutine
+
+pure subroutine process_argument_status (name, status)
+    type (str), intent(in) :: name
+    type (status_t), intent(in out) :: status
+
+    ! prepend argument name to any non-empty error message received
+    ! from argument type.
+    if (status%msg /= "") then
+        status%msg = "Argument '" // name // "': " // status%msg
+    end if
 end subroutine
 
 end module
