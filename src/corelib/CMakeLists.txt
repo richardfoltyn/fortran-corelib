@@ -40,7 +40,7 @@ set_target_properties(${LIBRARY_NAME} PROPERTIES
 )
 
 # build static library so tests can link against it
-if (BUILD_TESTS)
+if (BUILD_TESTS OR BUILD_EXAMPLES)
     add_library(${LIBRARY_NAME}_static STATIC ${SOURCE_FILES} ${COMPONENT_OBJECTS})
 endif()
 
