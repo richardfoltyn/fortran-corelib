@@ -203,7 +203,7 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    procedure (fcn_validator), intent(in), pointer, optional :: validator
+    procedure (fcn_validator), optional :: validator
     class (*), intent(in), dimension(:), target :: default
     class (*), intent(in), dimension(:), optional, target :: const
 
@@ -253,7 +253,7 @@ subroutine argparser_add_argument_str (self, name, abbrev, &
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    procedure (fcn_validator), intent(in), pointer, optional :: validator
+    procedure (fcn_validator), optional :: validator
 
     type (argument) :: arg
     type (status_t) :: lstatus
@@ -286,7 +286,7 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    procedure (fcn_validator), intent(in), pointer, optional :: validator
+    procedure (fcn_validator), optional :: validator
     class (*), intent(in) :: default
     class (*), intent(in), optional :: const
 
@@ -335,7 +335,7 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    procedure (fcn_validator), intent(in), pointer, optional :: validator
+    procedure (fcn_validator), optional :: validator
     class (*), intent(in) :: default
     class (*), intent(in), optional :: const
 
@@ -385,7 +385,7 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    procedure (fcn_validator), intent(in), pointer, optional :: validator
+    procedure (fcn_validator), optional :: validator
     class (*), intent(in), dimension(:), target :: default
     class (*), intent(in), dimension(:), optional, target :: const
 
@@ -438,7 +438,7 @@ subroutine argparser_add_argument_char (self, name, abbrev, action, &
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
-    procedure (fcn_validator), intent(in), pointer, optional :: validator
+    procedure (fcn_validator), optional :: validator
 
     type (str) :: lhelp, labbrev, lname
     type (argument) :: arg

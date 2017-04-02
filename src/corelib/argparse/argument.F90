@@ -123,7 +123,7 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     class (*), intent(in), dimension(:), optional :: default
     type (status_t), intent(out) :: status
     class (*), intent(in), dimension(:), optional :: const
-    procedure (fcn_validator), intent(in), pointer, optional :: validator
+    procedure (fcn_validator), optional :: validator
     logical, intent(in), optional :: allow_empty
 
     integer :: laction, lnargs
