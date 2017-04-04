@@ -51,6 +51,8 @@ module corelib_argparse_argument
         procedure, pass :: store_default_scalar => argument_store_default_scalar
         generic :: store_default => store_default_array, store_default_scalar
 
+        procedure, pass :: process_cmd_value => argument_process_cmd_value
+
         procedure, pass :: argument_parse_array_int32
         procedure, pass :: argument_parse_array_int64
         procedure, pass :: argument_parse_array_real32
@@ -293,6 +295,9 @@ end subroutine
 ! SET methods
 
 subroutine argument_set_scalar (self, val, status)
+    !*  ARGUMENT_SET_SCALAR is a wrapper around ARGUMENT_SET_ARRAY
+    !   for scalar command line argument values.
+
     class (argument), intent(in out) :: self
     type (str), intent(in) :: val
     type (status_t), intent(out), optional :: status
@@ -305,66 +310,33 @@ subroutine argument_set_scalar (self, val, status)
 end subroutine
 
 subroutine argument_set_array (self, val, status)
+    !*  ARGUMENT_SET_ARRAY stores any command line arguments passed
+    !   in as values to this argument instance. Performs input
+    !   validation if requested.
+    !
+    !   Implementation detail: the argument value is store as type(str),
+    !   as the eventual data type that the user will request is
+    !   not known at this point.
+
     class (argument), intent(in out) :: self
     type (str), intent(in), dimension(:), optional :: val
     type (status_t), intent(out), optional :: status
 
-    type (str), dimension(:), allocatable :: work
-    integer :: n, m, i
     type (status_t) :: lstatus
 
     lstatus = CL_STATUS_OK
 
+    ! Note: no further code needed to deal with ACTION_STORE_CONST,
+    ! will automatically read the default or stored const value when
+    ! get() routine is called.
+
     if (present(val)) then
-
-        ! For actions STORE_TRUE, STORE_FALSE and STORE_CONST, no values
-        ! are permitted.
-        if (self%nargs == 0) then
-            lstatus = CL_STATUS_UNSUPPORTED_OP
-            lstatus%msg = "Argument does not accept user-provided values"
-            goto 100
+        if (size(val) > 0) then
+            ! Delegate actuall processing of non-zero-length value
+            ! array.
+            call self%process_cmd_value (val, lstatus)
+            if (lstatus /= CL_STATUS_OK) goto 100
         end if
-
-        n = size(val)
-
-        if (associated(self%validator)) then
-            do i = 1, n
-                call self%validator (val(i), lstatus)
-                if (lstatus /= CL_STATUS_OK) goto 100
-            end do
-        end if
-
-        ! Check for empty strings if these are not permitted
-        if (.not. self%allow_empty) then
-            do i = 1, n
-                if (len(val(i)) == 0) then
-                    lstatus = CL_STATUS_VALUE_ERROR
-                    lstatus%msg = "Invalid value; non-empty string not allowed"
-                    goto 100
-                end if
-            end do
-        end if
-
-        select case (self%action)
-        ! if requested to append repeated appearances of argument on command
-        ! line, allocate or reallocate passed_values array as required
-        case (ARGPARSE_ACTION_APPEND)
-            if (.not. allocated(self%passed_values)) then
-                allocate (self%passed_values(n), source=val)
-            else
-                ! need to reallocate new array that is large enough to hold
-                ! existing data as well as val
-                m = size(self%passed_values)
-                allocate (work(m+n))
-                work(1:m) = self%passed_values
-                work(m+1:m+n) = val
-                call move_alloc (work, self%passed_values)
-            end if
-        ! in all other cases, discard any previous values and store only val
-        case default
-            if (allocated(self%passed_values)) deallocate (self%passed_values)
-            allocate (self%passed_values(size(val)), source=val)
-        end select
     end if
 
     ! Argument was present in command line invocation
@@ -372,6 +344,75 @@ subroutine argument_set_array (self, val, status)
 
 100 continue
     if (present(status)) status = lstatus
+end subroutine
+
+subroutine argument_process_cmd_value (self, val, status)
+    !*  ARGUMENT_PROCESS_CMD_VALUE performs the actual input
+    !   validation and storing of argument values passed in via
+    !   one of the front-end routines.
+    !
+    !   Implementation detail: this routine should only be called for
+    !   ACTION_STORE and ACTION_APPEND, as none of the other actions
+    !   accepts user-provided arguments.
+
+    class (argument), intent(in out) :: self
+    type (str), intent(in), dimension(:) :: val
+    type (status_t), intent(out) :: status
+
+    type (str), dimension(:), allocatable :: work
+    integer :: n, m, i
+
+    status = CL_STATUS_OK
+    n = size(val)
+
+    ! For actions STORE_TRUE, STORE_FALSE and STORE_CONST, no values
+    ! are permitted.
+    if (self%nargs == 0) then
+        status = CL_STATUS_UNSUPPORTED_OP
+        status%msg = "Argument does not accept user-provided values"
+        goto 100
+    end if
+
+    if (associated(self%validator)) then
+        do i = 1, n
+            call self%validator (val(i), status)
+            if (status /= CL_STATUS_OK) goto 100
+        end do
+    end if
+
+    ! Check for empty strings if these are not permitted
+    if (.not. self%allow_empty) then
+        do i = 1, n
+            if (len(val(i)) == 0) then
+                status = CL_STATUS_VALUE_ERROR
+                status%msg = "Invalid value; non-empty string not allowed"
+                goto 100
+            end if
+        end do
+    end if
+
+    select case (self%action)
+    ! if requested to append repeated appearances of argument on command
+    ! line, allocate or reallocate passed_values array as required
+    case (ARGPARSE_ACTION_APPEND)
+        if (.not. allocated(self%passed_values)) then
+            allocate (self%passed_values(n), source=val)
+        else
+            ! need to reallocate new array that is large enough to hold
+            ! existing data as well as val
+            m = size(self%passed_values)
+            allocate (work(m+n))
+            work(1:m) = self%passed_values
+            work(m+1:m+n) = val
+            call move_alloc (work, self%passed_values)
+        end if
+    ! in all other cases, discard any previous values and store only val
+    case default
+        if (allocated(self%passed_values)) deallocate (self%passed_values)
+        allocate (self%passed_values(size(val)), source=val)
+    end select
+
+100 continue
 end subroutine
 
 ! ------------------------------------------------------------------------------
@@ -501,6 +542,13 @@ subroutine argument_parse_array_str (self, val, status)
         case (ARGPARSE_ACTION_STORE_CONST)
             ptr_stored => self%const
         case default
+
+            if (size(val) < self%get_nvals()) then
+                status = CL_STATUS_VALUE_ERROR
+                status%msg = "Array size insufficient to store value(s)"
+                return
+            end if
+
             do i = 1, self%get_nvals()
                 call self%passed_values(i)%parse (val(i), status)
 
@@ -558,6 +606,13 @@ subroutine argument_parse_array_char (self, val, status)
         case (ARGPARSE_ACTION_STORE_CONST)
             ptr_stored => self%const
         case default
+
+            if (size(val) < self%get_nvals()) then
+                status = CL_STATUS_VALUE_ERROR
+                status%msg = "Array size insufficient to store value(s)"
+                return
+            end if
+
             do i = 1, self%get_nvals()
                 call self%passed_values(i)%parse (val(i), status)
                 if (status /= CL_STATUS_OK) then

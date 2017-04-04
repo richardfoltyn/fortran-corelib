@@ -15,6 +15,13 @@ if (self%is_present) then
     case (ARGPARSE_ACTION_STORE_CONST)
         ptr_stored => self%const
     case default
+
+        if (size(val) < self%get_nvals()) then
+            status = CL_STATUS_VALUE_ERROR
+            status%msg = "Array size insufficient to store value(s)"
+            return
+        end if
+
         do i = 1, self%get_nvals()
             call self%passed_values(i)%parse (val(i), status)
             if (status /= CL_STATUS_OK) then
@@ -35,7 +42,7 @@ if (.not. associated(ptr_stored)) then
     return
 end if
 
-call dynamic_cast (self%default, ptr, status)
+call dynamic_cast (ptr_stored, ptr, status)
 if (status == CL_STATUS_OK) then
     val = ptr
 else

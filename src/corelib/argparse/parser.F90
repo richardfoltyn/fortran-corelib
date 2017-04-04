@@ -42,6 +42,7 @@ module corelib_argparse_parser
     ! Note that names and abbrevs are required to be alpha-numeric, so
     ! this can never be a valid user-given value.
     character (1), parameter :: UNDEFINED_ABBREV = '-'
+    character (*), parameter :: UNMAPPED_ARG_NAME = '::UNMAPPED'
 
     type, public :: argparser
         private
@@ -79,6 +80,11 @@ module corelib_argparse_parser
             argparser_get_array_char, &
             argparser_get_scalar_char
 
+        procedure, pass :: argparser_get_unmapped_array
+        procedure, pass :: argparser_get_unmapped_scalar
+        generic, public :: get_unmapped => argparser_get_unmapped_array, &
+            argparser_get_unmapped_scalar
+
         procedure, pass :: argparser_parse_array
         procedure, pass :: argparser_parse_cmd
         generic, public :: parse => argparser_parse_array, argparser_parse_cmd
@@ -87,6 +93,7 @@ module corelib_argparse_parser
         procedure, pass :: find_arg => argparser_find_arg
         procedure, pass :: parse_long => argparser_parse_long
         procedure, pass :: parse_abbrev => argparser_parse_abbrev
+        procedure, pass :: parse_unmapped => argparser_parse_unmapped
         procedure, pass :: collect_values => argparser_collect_values
         procedure, pass :: length => argparser_length
 
@@ -108,6 +115,7 @@ module corelib_argparse_parser
         procedure, pass :: argparser_get_nvals_char
         generic, public :: get_nvals => argparser_get_nvals_str, &
             argparser_get_nvals_char
+        procedure, pass, public :: get_num_unmapped => argparser_get_num_unmapped
     end type
 
     interface len
@@ -121,16 +129,29 @@ contains
 ! ------------------------------------------------------------------------------
 ! Initialization
 
-pure subroutine argparser_init_str (self, description)
+subroutine argparser_init_str (self, description)
     class (argparser), intent(in out) :: self
     class (str), intent(in), optional :: description
+
+    type (argument) :: arg
+    type (str) :: name
+    type (status_t) :: status
 
     call self%reset ()
 
     if (present(description)) self%description = description
+
+    ! Add "fake" argument object that will be used to store all unmapped
+    ! command line arguments.
+    name = str(UNMAPPED_ARG_NAME)
+    call arg%init (name=name, action=ARGPARSE_ACTION_APPEND, status=status, &
+        allow_empty=.true.)
+
+    call self%append (arg)
+
 end subroutine
 
-pure subroutine argparser_init_char (self, description)
+subroutine argparser_init_char (self, description)
     class (argparser), intent(in out) :: self
     character (len=*), intent(in) :: description
 
@@ -723,6 +744,9 @@ subroutine argparser_get_array_str (self, name, val, status)
 
     call lstatus%init (CL_STATUS_OK)
 
+    call validate_identifier (name, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
+
     call argparser_get_check_state (self, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
 
@@ -749,6 +773,9 @@ subroutine argparser_get_scalar_str (self, name, val, status)
     type (status_t) :: lstatus
 
     call lstatus%init (CL_STATUS_OK)
+
+    call validate_identifier (name, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
 
     call argparser_get_check_state (self, lstatus)
     if (lstatus /= CL_STATUS_OK) goto 100
@@ -783,6 +810,92 @@ subroutine argparser_get_scalar_char (self, name, val, status)
 
     call self%get (str(name), val, status)
 end subroutine
+
+subroutine argparser_get_unmapped_array (self, val, status)
+    !*  GET_UNMAPPED_ARRAY returns an array of command line arguments
+    !   that could not be mapped to any named argument.
+    !
+    !   Note: Do not call GET_ARRAY_STR to do the actual work since
+    !   there we perform input validation, and the identifier for
+    !   the argument object that stores unmapped values was chosen to be
+    !   an invalid value by design.
+    class (argparser), intent(in) :: self
+    class (*), intent(in out), dimension(:) :: val
+    type (status_t), intent(out), optional :: status
+
+    class (argument), pointer :: ptr_arg
+    type (status_t) :: lstatus
+    type (str) :: name
+    integer :: nvals
+
+    call lstatus%init (CL_STATUS_OK)
+
+    call argparser_get_check_state (self, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
+
+    name = UNMAPPED_ARG_NAME
+    call self%find_arg (name, ptr_arg)
+
+    ! Handle dimension check upfront, even though argument::parse also does this.
+    nvals = ptr_arg%get_nvals ()
+    if (nvals == 0) then
+        lstatus = CL_STATUS_INVALID_STATE
+        lstatus%msg = "No unmapped command line arguments present."
+        goto 100
+    else if (size(val) < nvals) then
+        lstatus = CL_STATUS_VALUE_ERROR
+        lstatus%msg = "Array size insufficient to store all unmapped arguments"
+        goto 100
+    end if
+
+    call ptr_arg%parse (val, lstatus)
+
+    ! Note: do not post-process error message, as this would prepend
+    ! internal argument name.
+100 continue
+    if (present(status)) status = lstatus
+end subroutine
+
+
+subroutine argparser_get_unmapped_scalar (self, val, status)
+    !*  GET_UNMAPPED_SCALAR returns the command line argument that
+    !   could not be mapped to any named argument.
+    !   Returns an error if there is not exactly one unnamed argument.
+    class (argparser), intent(in) :: self
+    class (*), intent(in out) :: val
+    type (status_t), intent(out), optional :: status
+
+    class (argument), pointer :: ptr_arg
+    type (status_t) :: lstatus
+    type (str) :: name
+    integer :: nvals
+
+    call lstatus%init (CL_STATUS_OK)
+
+    call argparser_get_check_state (self, lstatus)
+    if (lstatus /= CL_STATUS_OK) goto 100
+
+    name = UNMAPPED_ARG_NAME
+    call self%find_arg (name, ptr_arg)
+
+    ! Handle dimension check upfront, even though argument::parse also does this.
+    nvals = ptr_arg%get_nvals ()
+    if (nvals == 0) then
+        lstatus = CL_STATUS_INVALID_STATE
+        lstatus%msg = "No unmapped command line arguments present."
+        goto 100
+    else if (nvals > 1) then
+        lstatus = CL_STATUS_VALUE_ERROR
+        lstatus%msg = "Array size insufficient to store all unmapped arguments"
+        goto 100
+    end if
+
+    call ptr_arg%parse (val, lstatus)
+
+100 continue
+    if (present(status)) status = lstatus
+end subroutine
+
 
 subroutine argparser_get_check_state (self, status)
     class (argparser), intent(in) :: self
@@ -917,6 +1030,20 @@ function argparser_get_nvals_char (self, identifier, is_abbrev) result(res)
     res = self%get_nvals (str(identifier), is_abbrev)
 end function
 
+function argparser_get_num_unmapped (self) result(res)
+    class (argparser), intent(in) :: self
+    integer :: res
+
+    class (argument), pointer :: ptr_arg
+    type (str) :: id
+
+    id = UNMAPPED_ARG_NAME
+
+    ! this should always return a valid pointer
+    call self%find_arg (id, ptr_arg)
+    res = ptr_arg%get_nvals ()
+end function
+
 ! ------------------------------------------------------------------------------
 ! IS_PRESENT method
 
@@ -1008,6 +1135,11 @@ subroutine argparser_parse_array (self, cmd_args, status)
         else if (cmd_arg%startswith ('-')) then
             call self%parse_abbrev (cmd_args, i, lstatus)
             if (lstatus /= CL_STATUS_OK) goto 100
+        else
+            call self%parse_unmapped (cmd_arg, lstatus)
+            if (lstatus /= CL_STATUS_OK) goto 100
+            ! Process unmapped arguments only one at a time.
+            i = i + 1
         end if
 
         ! NB: i is incremented in parse_long / parse_abbrev routines
@@ -1090,7 +1222,9 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
         end if
     end if
 
-    ! collect required number of argument values
+    ! If argument value was specified as --name=value, we require
+    ! that the argument supports exactly one value.
+    ! At this point, this single value is stored in cmd_values(1).
     if (allocated (cmd_values) .and. ptr_arg%nargs /= 1) then
         status = ARGPARSE_STATUS_PARSE_ERROR
         status%msg = "Argument '" // ptr_arg%name // &
@@ -1104,6 +1238,8 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
         if (status /= CL_STATUS_OK) goto 100
     else
         ! collect the number of requested arguments from the following commands
+        ! This also supports collecting 0 values (e.g. if action is
+        ! STORE_CONST), then cmd_values is allocated to cmd_values(1:0).
         call self%collect_values (cmd_args, offset+1, ptr_arg, cmd_values, status)
         if (status /= CL_STATUS_OK) goto 100
 
@@ -1233,6 +1369,23 @@ subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
         cmd_values(j+1) = cmd_args(offset+j)
         j = j + 1
     end do
+
+end subroutine
+
+subroutine argparser_parse_unmapped (self, cmd_arg, status)
+    class (argparser), intent(in out) :: self
+    class (str), intent(in) :: cmd_arg
+
+    type (str) :: cmd_name
+    class (argument), pointer :: ptr_arg
+    type (status_t), intent(out) :: status
+
+    cmd_name = str(UNMAPPED_ARG_NAME)
+    ! Nothing should go wrong here since this is an argument object we
+    ! added ourselves.
+    call self%find_arg (cmd_name, ptr_arg, status, is_abbrev=.false.)
+
+    call ptr_arg%set (cmd_arg)
 
 end subroutine
 

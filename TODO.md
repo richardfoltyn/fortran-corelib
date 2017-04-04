@@ -6,8 +6,6 @@
 -   Allow for empty value list when `ACTION_APPEND` requested
 -   Action `ACTION_COUNT` that collects the number of times an argument was
     specified
--   Collect remaining arguments that do not match any defined argument
-    in user-accessible str list
 -   Predefined `--help` and `-h` switches
 -   Printing of help text
 -   Expose `allow_empty` option to user code

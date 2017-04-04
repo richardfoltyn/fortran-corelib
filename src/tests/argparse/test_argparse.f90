@@ -19,8 +19,17 @@ subroutine test_all()
     ! test reading integer arguments
     call test_integer (tests)
 
+    ! Test STORE_TRUE action
+    call test_store_true (tests)
+
+    ! Test STORE_FALSE action
+    call test_store_false (tests)
+
     ! run individual test cases
     call test_append (tests)
+
+    ! Test handling of cmd. arguments that are not mapped to any argument object
+    call test_unmapped (tests)
 
     call test_validators (tests)
 
@@ -296,6 +305,209 @@ subroutine test_validators (tests)
     call parser%parse (cmd, status)
     call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
         "validate_str_nonempty with empty string value")
+end subroutine
+
+
+subroutine test_store_true (tests)
+    class (test_suite) :: tests
+    class (test_case), pointer :: tc
+
+    type (argparser) :: parser
+    type (status_t) :: status
+    logical :: val
+
+    type (str), dimension(:), allocatable :: cmd_str
+
+    tc => tests%add_test("argparse STORE_TRUE action")
+
+    call parser%init ()
+    call parser%add_argument ("foo", abbrev='f', action=ARGPARSE_ACTION_STORE_TRUE)
+
+    allocate (cmd_str(1))
+
+    ! Long form argument present
+    cmd_str(1) = "--foo"
+    call parser%parse (cmd_str, status)
+
+    call parser%get ("foo", val)
+    call tc%assert_true (status == CL_STATUS_OK .and. val, &
+        "Argument present, value = .true. (long form)")
+
+    ! Short form, argument present
+    cmd_str(1) = "-f"
+    call parser%parse (cmd_str, status)
+    call parser%get ("foo", val)
+    call tc%assert_true (status == CL_STATUS_OK .and. val, &
+        "Argument present, value = .true. (short form)")
+
+    ! Argument not present
+    cmd_str(1) = ""
+    call parser%parse (cmd_str, status)
+    call parser%get ("foo", val)
+    call tc%assert_true (status == CL_STATUS_OK .and. .not. val, &
+        "Argument NOT present, value = .false. (long form)")
+
+    ! Unexpected argument value
+    cmd_str(1) = "--foo=bar"
+    call parser%parse (cmd_str, status)
+    call tc%assert_true (status == ARGPARSE_STATUS_PARSE_ERROR, &
+        "Argument present, unexpected argument value (short form)")
+
+end subroutine
+
+
+subroutine test_store_false (tests)
+    class (test_suite) :: tests
+    class (test_case), pointer :: tc
+
+    type (argparser) :: parser
+    type (status_t) :: status
+    logical :: val
+
+    type (str), dimension(:), allocatable :: cmd_str
+
+    tc => tests%add_test("argparse STORE_FALSE action")
+
+    call parser%init ()
+    call parser%add_argument ("foo", abbrev='f', action=ARGPARSE_ACTION_STORE_FALSE)
+
+    allocate (cmd_str(1))
+
+    ! Long form argument present
+    cmd_str(1) = "--foo"
+    call parser%parse (cmd_str, status)
+
+    call parser%get ("foo", val)
+    call tc%assert_true (status == CL_STATUS_OK .and. .not. val, &
+        "Argument present, value = .false. (long form)")
+
+    ! Short form, argument present
+    cmd_str(1) = "-f"
+    call parser%parse (cmd_str, status)
+    call parser%get ("foo", val)
+    call tc%assert_true (status == CL_STATUS_OK .and. .not. val, &
+        "Argument present, value = .false. (short form)")
+
+    ! Argument not present
+    cmd_str(1) = ""
+    call parser%parse (cmd_str, status)
+    call parser%get ("foo", val)
+    call tc%assert_true (status == CL_STATUS_OK .and. val, &
+        "Argument NOT present, value = .true. (long form)")
+
+    ! Unexpected argument value
+    cmd_str(1) = "--foo=bar"
+    call parser%parse (cmd_str, status)
+    call tc%assert_true (status == ARGPARSE_STATUS_PARSE_ERROR, &
+        "Argument present, unexpected argument value (short form)")
+
+end subroutine
+
+
+subroutine test_unmapped (tests)
+    class (test_suite) :: tests
+    class (test_case), pointer :: tc
+
+    type (argparser) :: parser
+    type (status_t) :: status
+    integer :: num
+
+    type (str), dimension(3) :: cmd_unmapped
+    type (str), dimension(:), allocatable :: cmd_str, stored_str
+    type (str) :: val1, val2
+
+    tc => tests%add_test("argparse unmapped args")
+
+    cmd_unmapped(1) = "foo"
+    cmd_unmapped(2) = "bar"
+    cmd_unmapped(3) = "lorem ipsum"
+
+    call parser%init ()
+    call parser%add_argument ("option1", required=.false.)
+    call parser%add_argument ("option2", required=.false.)
+
+    ! Test with no args present
+    allocate (cmd_str(0))
+    call parser%parse (cmd_str, status)
+    num = parser%get_num_unmapped ()
+    call tc%assert_true (status == CL_STATUS_OK .and. num == 0, &
+        "No args present, assert (num_unmapped == 0)")
+
+    ! Test with no unmapped args, but other args present
+    if (allocated(cmd_str)) deallocate (cmd_str)
+    allocate (cmd_str(2))
+    cmd_str(1) = "--option1"
+    cmd_str(2) = "value 1"
+
+    call parser%parse (cmd_str, status)
+    num = parser%get_num_unmapped ()
+    call tc%assert_true (status == CL_STATUS_OK .and. num == 0, &
+        "No unmapped but other args. present, assert (num_unmapped == 0)")
+
+    ! Test with only unmapped args, one empty unmapped arg present
+    if (allocated(cmd_str)) deallocate (cmd_str)
+    allocate (cmd_str(1))
+    cmd_str(1) = ""
+    call parser%parse (cmd_str, status)
+    num = parser%get_num_unmapped ()
+    call parser%get_unmapped (val1)
+    call tc%assert_true (status == CL_STATUS_OK .and. num == 1 &
+        .and. val1 == "", &
+        "One empty unmapped arg. present, assert (num_unmapped == 1)")
+
+    ! Test mix of mappend and unmapped values at various positions
+    if (allocated(cmd_str)) deallocate (cmd_str)
+    allocate (cmd_str(6))
+    cmd_str(1) = cmd_unmapped(1)
+    cmd_str(2) = "--option1"
+    cmd_str(3) = "baz"
+    cmd_str(4) = cmd_unmapped(2)
+    cmd_str(5) = "--option2=bar"
+    cmd_str(6) = cmd_unmapped(3)
+
+    call parser%parse (cmd_str, status)
+
+    call parser%get ("option1", val1, status)
+    call tc%assert_true (status == CL_STATUS_OK .and. val1 == "baz", &
+        "Multiple interleaved mapped/unmapped args, mapped arg 1 OK")
+
+    call parser%get ("option2", val2, status)
+    call tc%assert_true (status == CL_STATUS_OK .and. val2 == "bar", &
+        "Multiple interleaved mapped/unmapped args, mapped arg 2 OK")
+
+    if (allocated(stored_str)) deallocate (stored_str)
+    allocate (stored_str(size(cmd_unmapped)))
+    num = parser%get_num_unmapped ()
+    call parser%get_unmapped (stored_str, status)
+    call tc%assert_true (status == CL_STATUS_OK .and. num == size(cmd_unmapped) &
+        .and. all(stored_str == cmd_unmapped), &
+        "Multiple interleaved mapped/unmapped args; unmapped args OK")
+
+    ! Attempting to retrieve more or fewer unmapped values than present
+    if (allocated(stored_str)) deallocate (stored_str)
+    allocate (stored_str(size(cmd_unmapped) - 1))
+    call parser%get_unmapped (stored_str, status)
+    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+        "Attempt to retrieve fewer unmapped values than present")
+
+    ! Store into array that is larger than number of unmapped args:
+    ! This is OK.
+    if (allocated(stored_str)) deallocate (stored_str)
+    allocate (stored_str(size(cmd_unmapped) + 1))
+    call parser%get_unmapped (stored_str, status)
+    num = parser%get_num_unmapped ()
+    call tc%assert_true (status == CL_STATUS_OK .and. &
+        all(cmd_unmapped == stored_str(1:num)), &
+        "Attempt to retrieve more unmapped values than present")
+
+    ! Test with no unmapped args. present, but trying to retrieve one as scalar
+    if (allocated(cmd_str)) deallocate (cmd_str)
+    allocate (cmd_str(0))
+    call parser%parse (cmd_str, status)
+    call parser%get_unmapped (val1, status)
+    call tc%assert_true (status == CL_STATUS_INVALID_STATE, &
+        "Attempt to retrieve scalar unmapped arg if none present")
+
 end subroutine
 
 end program
