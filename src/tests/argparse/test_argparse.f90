@@ -249,9 +249,9 @@ subroutine test_validators (tests)
 
     allocate (cmd(1))
 
-    call parser%add_argument ("pos-int", validator=validate_int32_pos)
-    call parser%add_argument ("nonneg", validator=validate_int32_nonneg)
-    call parser%add_argument ("nonempty-str", validator=validate_str_nonempty)
+    call parser%add_argument ("pos-int", validator=validate_pos_int32)
+    call parser%add_argument ("nonneg", validator=validate_nonneg_int32)
+    call parser%add_argument ("nonempty-str", validator=validate_nonempty_str)
 
     ! === Test positive int validator ===
     ! Test with argument that can be converted to int but has invalid
@@ -259,37 +259,37 @@ subroutine test_validators (tests)
     cmd(1) ='--pos-int=0'
     call parser%parse (cmd, status)
     call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
-        "validate_int32_pos() with invalid integer value")
+        "validate_pos_int32() with invalid integer value")
 
     ! Test with argument that cannot be converged to int
     cmd(1) = '--pos-int=foobar'
     call parser%parse (cmd, status)
     call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
-        "validate_int32_pos() with string value")
+        "validate_pos_int32() with string value")
 
     cmd(1) = '--pos-int=1'
     call parser%parse (cmd, status)
     call parser%get ("pos-int", ival)
     call tc%assert_true (status == CL_STATUS_OK .and. ival == 1, &
-        "validate_int32_pos() with valid value")
+        "validate_pos_int32() with valid value")
 
     ! === Test non-negative int validator ===
     cmd(1) ='--nonneg=-1'
     call parser%parse (cmd, status)
     call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
-        "validate_int32_nonneg() with invalid integer value")
+        "validate_nonneg_int32() with invalid integer value")
 
     ! Test with argument that cannot be converged to int
     cmd(1) = '--nonneg=foobar'
     call parser%parse (cmd, status)
     call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
-        "validate_int32_nonneg() with string value")
+        "validate_nonneg_int32() with string value")
 
     cmd(1) = '--nonneg=0'
     call parser%parse (cmd, status)
     call parser%get ("nonneg", ival)
     call tc%assert_true (status == CL_STATUS_OK .and. ival == 0, &
-        "validate_int32_nonneg() with valid value")
+        "validate_nonneg_int32() with valid value")
 
     ! === Test non-empty string ===
     ! Note: for this to be triggered the user has to supply something like
@@ -304,7 +304,7 @@ subroutine test_validators (tests)
     cmd(2) = ''
     call parser%parse (cmd, status)
     call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
-        "validate_str_nonempty with empty string value")
+        "validate_nonempty_str with empty string value")
 end subroutine
 
 
