@@ -105,6 +105,7 @@ module corelib_common_base
         ! procedure, pass :: upper => str_upper
 
         ! Parsers for other data types
+        procedure, pass :: parse_int8
         procedure, pass :: parse_int32
         procedure, pass :: parse_int64
         procedure, pass :: parse_real32
@@ -112,20 +113,21 @@ module corelib_common_base
         procedure, pass :: parse_str
         procedure, pass :: parse_char
         procedure, pass :: parse_logical
-        generic, public :: parse => parse_int32, parse_int64, parse_real32, &
-            parse_real64, parse_str, parse_char, parse_logical
+        generic, public :: parse => parse_int8, parse_int32, parse_int64, &
+            parse_real32, parse_real64, &
+            parse_str, parse_char, parse_logical
 
         ! Finalizers
         ! final :: finalize
     end type
 
     interface str
-        module procedure ctor_char, ctor_real64, ctor_real32, ctor_int64, &
-            ctor_int32, ctor_logical
+        module procedure ctor_char, ctor_real64, ctor_real32, &
+            ctor_int8, ctor_int32, ctor_int64, ctor_logical
     end interface
 
     interface str_array
-        module procedure str_array_1d_int32, str_array_1d_int64, &
+        module procedure str_array_1d_int8, str_array_1d_int32, str_array_1d_int64, &
             str_array_1d_real32, str_array_1d_real64
     end interface
 
@@ -558,6 +560,27 @@ elemental function ctor_int64 (from_int, fmt) result(res)
     call res%alloc (trim(buf))
 end function
 
+elemental function ctor_int8 (from_int, fmt) result(res)
+    integer, parameter :: INTSIZE = int8
+
+    integer (INTSIZE), intent(in) :: from_int
+    character (len=*), intent(in), optional :: fmt
+    type (str) :: res
+
+    integer, parameter :: LEN_BUFFER = 100
+    character (len=:), allocatable :: buf
+
+    allocate (character (len=LEN_BUFFER) :: buf)
+
+    if (present(fmt)) then
+        write (unit=buf, fmt=pad_format(fmt)) from_int
+    else
+        write (unit=buf, fmt=*) from_int
+    end if
+
+    call res%alloc (trim(buf))
+end function
+
 elemental function ctor_int32 (from_int, fmt) result(res)
     integer, parameter :: INTSIZE = int32
 
@@ -611,6 +634,11 @@ end function
 
 ! *****************************************************************************
 ! String representations of arrays
+pure function str_array_1d_int8 (x, fmt) result(res)
+    integer (int8), intent(in), dimension(:) :: x
+    include "include/str_array_1d.f90"
+end function
+
 pure function str_array_1d_int32 (x, fmt) result(res)
     integer (int32), intent(in), dimension(:) :: x
     include "include/str_array_1d.f90"
@@ -1531,6 +1559,11 @@ end function
 
 ! *****************************************************************************
 ! Converstion to other native data types
+subroutine parse_int8 (self, val, status)
+    integer (int8) :: val
+    include "include/str_parse.f90"
+end subroutine
+
 subroutine parse_int32 (self, val, status)
     integer (int32) :: val
     include "include/str_parse.f90"
@@ -1649,7 +1682,7 @@ pure subroutine alloc_int (self, n, stat)
     integer :: lstat
 
     lstat = -1
-    
+
     if (n > 0) then
         if (allocated(self%value)) deallocate (self%value)
         allocate (character (n) :: self%value, stat=lstat)
