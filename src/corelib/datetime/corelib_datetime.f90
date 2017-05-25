@@ -99,9 +99,9 @@ pure function timedelta_strftime (self, fmt) result(res)
     i_at = 1
     j_at = 1
 
-    hh = self%seconds / 3600
-    mm = (self%seconds - hh * 3600) / 60
-    ss = mod(self%seconds, 60_int64)
+    hh = int(self%seconds / 3600)
+    mm = int((self%seconds - hh * 3600) / 60)
+    ss = int(mod(self%seconds, 60_int64))
 
     do while (i_at <= n)
         if (fmt(i_at:i_at) == '%') then
