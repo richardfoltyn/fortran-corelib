@@ -33,6 +33,8 @@ subroutine test_all()
 
     call test_validators (tests)
 
+    call test_help (tests)
+
     ! print test statistics
     call tests%print ()
 
@@ -507,6 +509,80 @@ subroutine test_unmapped (tests)
     call parser%get_unmapped (val1, status)
     call tc%assert_true (status == CL_STATUS_INVALID_STATE, &
         "Attempt to retrieve scalar unmapped arg if none present")
+
+end subroutine
+
+
+
+subroutine test_help (tests)
+    class (test_suite) :: tests
+    class (test_case), pointer :: tc
+
+    type (argparser) :: parser
+    type (status_t) :: status
+    type (str), dimension(:), allocatable :: cmd_args
+
+    tc => tests%add_test("argparse HELP argument")
+
+    call parser%init ("argparse HELP test")
+
+    ! Test if --help is the only argument
+    allocate (cmd_args(1))
+    cmd_args(1) = "--help"
+    call parser%parse (cmd_args, status)
+    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
+        "Single argument --help")
+
+    cmd_args(1) = "-h"
+    call parser%parse (cmd_args, status)
+    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
+        "Single argument -h")
+    deallocate (cmd_args)
+
+    ! Test with  3 arguments with --help at various positions;
+    ! Other arguments are not defined ex ante, as help should work regardless.
+    allocate (cmd_args(3))
+    cmd_args(1) = "--help"
+    cmd_args(2) = "--foo"
+    cmd_args(3) = "--bar"
+    call parser%parse (cmd_args, status)
+    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
+        "Three arguments, --help in position 1")
+
+    cmd_args(1) = "--foo"
+    cmd_args(2) = "--help"
+    call parser%parse (cmd_args, status)
+    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
+        "Three arguments, --help in position 2")
+
+    cmd_args(2) = "--bar"
+    cmd_args(3) = "--help"
+    call parser%parse (cmd_args, status)
+    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
+        "Three arguments, --help in position 3")
+    deallocate (cmd_args)
+
+    ! Test with args that take user-provided values
+    allocate (cmd_args(3))
+    cmd_args(1) = "-f"
+    cmd_args(2) = "bar"
+    cmd_args(3) = "--help"
+    call parser%parse (cmd_args, status)
+    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
+        "Three arguments incl. user-provided value")
+    deallocate (cmd_args)
+
+    ! Test with args. that are defined
+    call parser%add_argument ("foo", abbrev="f", action=ARGPARSE_ACTION_STORE)
+    allocate (cmd_args(3))
+    cmd_args(1) = "-f"
+    cmd_args(2) = "bar"
+    cmd_args(3) = "--help"
+    call parser%parse (cmd_args, status)
+    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
+        "Three arguments incl. user-provided value; args. defined ex ante")
+    deallocate (cmd_args)
+
 
 end subroutine
 

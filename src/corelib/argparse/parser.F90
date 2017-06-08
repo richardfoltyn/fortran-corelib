@@ -27,9 +27,10 @@ module corelib_argparse_parser
     integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_EMPTY_CMDLINE = ishft(1, 1)
     integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_PARSE_ERROR = ishft(1, 2)
     integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_PARSED = ishft(1, 3)
+    integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_HELP_PRESENT = ishft(1, 4)
 
     ! only status code that needs to be communicated to client code
-    public :: ARGPARSE_STATUS_PARSE_ERROR
+    public :: ARGPARSE_STATUS_PARSE_ERROR, ARGPARSE_STATUS_HELP_PRESENT
 
     ! buffer size used to read in command line arguments
     integer, parameter :: CMD_BUFFER_SIZE = 1024
@@ -43,6 +44,11 @@ module corelib_argparse_parser
     ! this can never be a valid user-given value.
     character (1), parameter :: UNDEFINED_ABBREV = '-'
     character (*), parameter :: UNMAPPED_ARG_NAME = '::UNMAPPED'
+
+    character (*), parameter :: HELP_ARGNAME = "help"
+    character (*), parameter :: HELP_ABBREV = "h"
+    integer, parameter :: LINEWIDTH = 80
+        !*  Linewidth when printing diagnostic messages, e.g. help text.
 
     type, public :: argparser
         private
@@ -116,6 +122,10 @@ module corelib_argparse_parser
         generic, public :: get_nvals => argparser_get_nvals_str, &
             argparser_get_nvals_char
         procedure, pass, public :: get_num_unmapped => argparser_get_num_unmapped
+
+        procedure, pass :: help_present => argparser_help_present
+
+        procedure, public, pass :: print_help => argparser_print_help
     end type
 
     interface len
@@ -134,7 +144,7 @@ subroutine argparser_init_str (self, description)
     class (str), intent(in), optional :: description
 
     type (argument) :: arg
-    type (str) :: name
+    type (str) :: name, help_text
     type (status_t) :: status
 
     call self%reset ()
@@ -147,6 +157,13 @@ subroutine argparser_init_str (self, description)
     call arg%init (name=name, action=ARGPARSE_ACTION_APPEND, status=status, &
         allow_empty=.true.)
 
+    call self%append (arg)
+
+    ! Add "built-in" argument --help that displays help text
+    help_text = "Display this help message"
+    call arg%init (name=str(HELP_ARGNAME), abbrev=str(HELP_ABBREV), &
+        action=ARGPARSE_ACTION_STORE_TRUE, &
+        help=help_text, status=status)
     call self%append (arg)
 
 end subroutine
@@ -582,6 +599,19 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status)
 
     ! by default return invalid input status
     call status%init (CL_STATUS_VALUE_ERROR)
+
+    if (name%lower() == HELP_ARGNAME) then
+        status = CL_STATUS_VALUE_ERROR
+        status%msg = "Argument --" // HELP_ARGNAME // " is reserved for internal use"
+        return
+    end if
+
+    if (present(abbrev)) then
+        if (abbrev%lower() == HELP_ABBREV) then
+            status = CL_STATUS_VALUE_ERROR
+            status%msg = "Argument -" // HELP_ABBREV // " is reserved for internal use"
+        end if
+    end if
 
     call validate_identifier (name, status)
     if (status /= CL_STATUS_OK) then
@@ -1108,12 +1138,26 @@ subroutine argparser_parse_array (self, cmd_args, status)
     integer :: i, cmd_nargs
     type (status_t) :: lstatus
     type (str) :: cmd_arg
+    logical :: help_present
 
     call lstatus%init (CL_STATUS_OK)
+    self%status = ARGPARSE_STATUS_PARSE_ERROR
+
+    ! Check whether --help/-h was passed before anything else, as then we
+    ! just display the help message and exit.
+    help_present = self%help_present (cmd_args)
+
+    ! Do not bother parsing any other arguments if --help was passed.
+    if (help_present) then
+        lstatus = ARGPARSE_STATUS_HELP_PRESENT
+        self%status = ARGPARSE_STATUS_HELP_PRESENT
+        call self%print_help ()
+        goto 100
+    end if
 
     if (len(self) == 0) then
-        status = CL_STATUS_INVALID_STATE
-        status%msg = "Need to define arguments before parsing"
+        lstatus = CL_STATUS_INVALID_STATE
+        lstatus%msg = "Need to define arguments before parsing"
         goto 100
     end if
 
@@ -1151,7 +1195,6 @@ subroutine argparser_parse_array (self, cmd_args, status)
 
 100 continue
     if (present(status)) status = lstatus
-    if (lstatus /= CL_STATUS_OK) self%status = ARGPARSE_STATUS_PARSE_ERROR
 
 end subroutine
 
@@ -1398,6 +1441,159 @@ pure subroutine process_argument_status (name, status)
     if (status%msg /= "") then
         status%msg = "Argument '" // name // "': " // status%msg
     end if
+end subroutine
+
+
+
+function argparser_help_present (self, cmd_args) result(res)
+    !*  HELP_PRESENT parses all command line arguments in order to determine
+    !   whether the HELP argument is present. Errors encountered while
+    !   parsing other arguments that might be present are ignored.
+
+    class (argparser), intent(in out) :: self
+    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    logical :: res
+        !*  On exit this value is set to true if --help/-h was passed,
+        !   and to false otherwise.
+
+    integer :: i, cmd_nargs
+    type (str) :: cmd_arg
+    logical :: help_present
+    class (argument), pointer :: ptr_arg
+    type (status_t) :: lstatus
+
+    help_present = .false.
+
+    cmd_nargs = size(cmd_args)
+
+    ! Process all command line arguments even though we are only looking
+    ! for --help/-h. However, in principle --help or -h could be values
+    ! to some other argument that accepts user-provided values, so use
+    ! the full parsing infrastructure to handle those cases.
+    ! We also ignore any parsing errors occurring when processing
+    ! arguments other than --help/-h (no errors can occur with --help itself).
+    i = 1
+    do while (i <= cmd_nargs)
+        cmd_arg = cmd_args(i)
+
+        ! find associated argument object, either using the long name or the
+        ! abbreviation
+        if (cmd_arg%startswith ('--')) then
+            call self%parse_long (cmd_args, i, lstatus)
+        else if (cmd_arg%startswith ('-')) then
+            call self%parse_abbrev (cmd_args, i, lstatus)
+        else
+            call self%parse_unmapped (cmd_arg, lstatus)
+            ! Process unmapped arguments only one at a time.
+            i = i + 1
+        end if
+
+        ! NB: i is incremented in parse_long / parse_abbrev routines
+        ! as necessary.
+    end do
+
+    call self%find_arg (str(HELP_ARGNAME), ptr_arg)
+    ! Since --help is added automatically when parser is Initialization,
+    ! the pointer should in all cases point to a valid object!
+    res = ptr_arg%is_present
+
+    ! Reset args again
+    call self%reset_args ()
+
+end function
+
+
+subroutine argparser_print_help (self)
+    !*  PRINT_HELP prints the help message for each defined argument
+    !   to standard output.
+
+    class (argparser), intent(in) :: self
+
+    class (iterator), allocatable :: iter
+    class (*), pointer :: ptr_item
+    class (argument), pointer :: ptr_arg
+
+    type (str) :: name, abbrev, help, line, fmt, fmt_cont, fmt_arg, help_line
+    integer :: nargs, ifrom, ito
+
+    integer, parameter :: INDENT = 2
+    integer, parameter :: FIRST_TW = 40
+    integer, parameter :: CONT_TW = 60
+        !   Text width on continuation lines
+    integer, parameter :: PAD_WIDTH = 10
+    integer, parameter :: MAX_ARG_WIDTH = LINEWIDTH - INDENT - FIRST_TW - PAD_WIDTH
+
+
+    nullify (ptr_arg, ptr_item)
+
+    call self%args%get_iter (iter)
+
+    fmt = "(t" // str(INDENT + 1, "i0") // ", a" // str(MAX_ARG_WIDTH, "i0") &
+        // ", t" // str(LINEWIDTH - FIRST_TW + 1, "i0") // ", a)"
+    fmt_cont = "(t" // str(LINEWIDTH - CONT_TW + 1, "i0") // ", a)"
+    fmt_arg = "(t" // str(INDENT + 1, "i0") // ", a)"
+
+    write (OUTPUT_UNIT, *) "Supported arguments:"
+
+    do while (iter%has_next())
+        ptr_item => iter%item ()
+        call dynamic_cast (ptr_item, ptr_arg)
+
+        name = ptr_arg%name
+
+        if (name == UNMAPPED_ARG_NAME) cycle
+
+        abbrev = ptr_arg%abbrev
+        help = ptr_arg%help
+        nargs = ptr_arg%nargs
+
+        line = ""
+        if (len(abbrev) > 0) then
+            line = "-" // abbrev
+            if (nargs >= 1) then
+                line = line // " <value>"
+            end if
+            line = line // ", "
+        end if
+
+        line = "--" // name
+        if (nargs >= 1) then
+            line = line // "=<value>"
+        end if
+
+        if (len(line) <= MAX_ARG_WIDTH) then
+            ifrom = 1
+            ito = min(FIRST_TW, len(help))
+            call word_boundary (help, ifrom, ito)
+            help_line = help%substring(ifrom, ito)
+            write (OUTPUT_UNIT, fmt%to_char()) line%to_char(), help_line%to_char()
+
+        else
+            write (OUTPUT_UNIT, fmt_arg%to_char()) line%to_char()
+            ito = 0
+        end if
+
+        ifrom = ito + 1
+        do while (ifrom <= len(help))
+            ito = min(len(help) - ifrom + 1, CONT_TW)
+            call word_boundary (help, ifrom, ito)
+            help_line = help%substring(ifrom, ito)
+            write (OUTPUT_UNIT, fmt_cont%to_char()) help_line%to_char()
+            ifrom = ito + 1
+        end do
+
+    end do
+
+contains
+    subroutine word_boundary (s, ifrom, ito)
+        type (str), intent(in) :: s
+        integer, intent(in) :: ifrom
+        integer, intent(in out) :: ito
+
+        do while (ito > ifrom .and. s%substring(ito,ito) /= " ")
+            ito = ito - 1
+        end do
+    end subroutine
 end subroutine
 
 end module

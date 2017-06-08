@@ -31,7 +31,7 @@ module corelib_argparse_argument
         logical :: allow_empty = .false.
             !!  Allow empty strings as argument values. Disabled by default.
         type (str), dimension(:), allocatable :: passed_values
-        type (str) :: help
+        type (str), public :: help
         procedure (fcn_validator), nopass, pointer :: validator => null()
     contains
         procedure, pass :: init_array => argument_init_array
