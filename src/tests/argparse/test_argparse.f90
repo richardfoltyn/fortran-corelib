@@ -573,7 +573,8 @@ subroutine test_help (tests)
     deallocate (cmd_args)
 
     ! Test with args. that are defined
-    call parser%add_argument ("foo", abbrev="f", action=ARGPARSE_ACTION_STORE)
+    call parser%add_argument ("foo", abbrev="f", action=ARGPARSE_ACTION_STORE, &
+        help="Help text for argument foo")
     allocate (cmd_args(3))
     cmd_args(1) = "-f"
     cmd_args(2) = "bar"

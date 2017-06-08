@@ -1238,6 +1238,10 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
 
     ! remove leading -- from long syntax
     cmd_arg = cmd_args(offset)%substring (3, -1)
+    
+    ! move to next command line argument; perform this even if 
+    ! parsing errors are encountered further below
+    offset = offset + 1
 
     ! check whether there is an = and separate token in that case
     j = index (cmd_arg, "=")
@@ -1283,7 +1287,7 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
         ! collect the number of requested arguments from the following commands
         ! This also supports collecting 0 values (e.g. if action is
         ! STORE_CONST), then cmd_values is allocated to cmd_values(1:0).
-        call self%collect_values (cmd_args, offset+1, ptr_arg, cmd_values, status)
+        call self%collect_values (cmd_args, offset, ptr_arg, cmd_values, status)
         if (status /= CL_STATUS_OK) goto 100
 
         ! store command line arguments in argument object
@@ -1293,9 +1297,6 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
         ! skip the next nargs arguments, those were used as values
         offset = offset + ptr_arg%nargs
     end if
-
-    ! move to next command line argument
-    offset = offset + 1
 
     return
 
@@ -1327,6 +1328,10 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
 
     ! remove leading - from argument (list)
     cmd_arg = cmd_args(offset)%substring (2, -1)
+    
+    ! move to next command line argument, even if errors are 
+    ! encountered below
+    offset = offset + 1
 
     ! loop through all characters; note that argument values can
     ! only be specified for the very last argument, ie
@@ -1350,7 +1355,7 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
             if (status /= CL_STATUS_OK) goto 100
         else if (ptr_arg%nargs > 0) then
             ! need to collect argument values
-            call self%collect_values (cmd_args, offset+1, ptr_arg, &
+            call self%collect_values (cmd_args, offset, ptr_arg, &
                 cmd_values, status)
             if (status /= CL_STATUS_OK) goto 100
 
@@ -1364,9 +1369,6 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
             if (allocated(cmd_values)) deallocate (cmd_values)
         end if
     end do
-
-    ! move to next command line argument
-    offset = offset + 1
 
     return
 
@@ -1517,10 +1519,10 @@ subroutine argparser_print_help (self)
     integer :: nargs, ifrom, ito
 
     integer, parameter :: INDENT = 2
-    integer, parameter :: FIRST_TW = 40
+    integer, parameter :: FIRST_TW = 45
     integer, parameter :: CONT_TW = 60
         !   Text width on continuation lines
-    integer, parameter :: PAD_WIDTH = 10
+    integer, parameter :: PAD_WIDTH = 5
     integer, parameter :: MAX_ARG_WIDTH = LINEWIDTH - INDENT - FIRST_TW - PAD_WIDTH
 
 
@@ -1528,8 +1530,8 @@ subroutine argparser_print_help (self)
 
     call self%args%get_iter (iter)
 
-    fmt = "(t" // str(INDENT + 1, "i0") // ", a" // str(MAX_ARG_WIDTH, "i0") &
-        // ", t" // str(LINEWIDTH - FIRST_TW + 1, "i0") // ", a)"
+    fmt = "(t" // str(INDENT + 1, "i0") // ", a, t" &
+        // str(LINEWIDTH - FIRST_TW + 1, "i0") // ", a)"
     fmt_cont = "(t" // str(LINEWIDTH - CONT_TW + 1, "i0") // ", a)"
     fmt_arg = "(t" // str(INDENT + 1, "i0") // ", a)"
 
@@ -1548,7 +1550,7 @@ subroutine argparser_print_help (self)
         nargs = ptr_arg%nargs
 
         line = ""
-        if (len(abbrev) > 0) then
+        if (len(abbrev) > 0 .and. abbrev /= UNDEFINED_ABBREV) then
             line = "-" // abbrev
             if (nargs >= 1) then
                 line = line // " <value>"
@@ -1556,17 +1558,16 @@ subroutine argparser_print_help (self)
             line = line // ", "
         end if
 
-        line = "--" // name
+        line = line // "--" // name
         if (nargs >= 1) then
             line = line // "=<value>"
         end if
 
         if (len(line) <= MAX_ARG_WIDTH) then
             ifrom = 1
-            ito = min(FIRST_TW, len(help))
-            call word_boundary (help, ifrom, ito)
+            call word_boundary (help, ifrom, FIRST_TW, ito)
             help_line = help%substring(ifrom, ito)
-            write (OUTPUT_UNIT, fmt%to_char()) line%to_char(), help_line%to_char()
+            write (OUTPUT_UNIT, fmt%to_char()) line%to_char(), trim(help_line%to_char())
 
         else
             write (OUTPUT_UNIT, fmt_arg%to_char()) line%to_char()
@@ -1575,24 +1576,29 @@ subroutine argparser_print_help (self)
 
         ifrom = ito + 1
         do while (ifrom <= len(help))
-            ito = min(len(help) - ifrom + 1, CONT_TW)
-            call word_boundary (help, ifrom, ito)
+            call word_boundary (help, ifrom, CONT_TW, ito)
             help_line = help%substring(ifrom, ito)
-            write (OUTPUT_UNIT, fmt_cont%to_char()) help_line%to_char()
+            write (OUTPUT_UNIT, fmt_cont%to_char()) trim(help_line%to_char())
             ifrom = ito + 1
         end do
 
     end do
 
 contains
-    subroutine word_boundary (s, ifrom, ito)
+    subroutine word_boundary (s, ifrom, max_len, ito)
         type (str), intent(in) :: s
         integer, intent(in) :: ifrom
+        integer, intent(in) :: max_len
         integer, intent(in out) :: ito
-
-        do while (ito > ifrom .and. s%substring(ito,ito) /= " ")
-            ito = ito - 1
-        end do
+        
+        if (len(s) - ifrom + 1 <= max_len) then
+            ito = len(s)
+        else
+            ito = ifrom + max_len - 1
+            do while (ito > ifrom .and. s%substring(ito,ito) /= " ")
+                ito = ito - 1
+            end do
+        end if
     end subroutine
 end subroutine
 
