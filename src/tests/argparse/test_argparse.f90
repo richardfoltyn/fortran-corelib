@@ -60,7 +60,7 @@ subroutine test_integer (tests)
     tc => tests%add_test("argparse integer tests")
 
     ! ===== Scalar 32bit integer =====
-    call parser%init ("argparse integer tests")
+    call parser%init (description="argparse integer tests")
     call parser%add_argument ("name", default=input1_32, status=status)
 
     allocate (cmd(1))
@@ -85,7 +85,7 @@ subroutine test_integer (tests)
     deallocate (cmd)
 
     ! ===== Scalar 64bit integer =====
-    call parser%init ("argparse integer tests")
+    call parser%init (description="argparse integer tests")
     call parser%add_argument ("name", default=input1_64, status=status)
 
     allocate (cmd(1))
@@ -125,7 +125,7 @@ subroutine test_append (tests)
 
     tc => tests%add_test("argparse ACTION_APPEND")
 
-    call parser%init ("argparse append test")
+    call parser%init (description="argparse append test")
     call parser%add_argument ("name", "n", action=ARGPARSE_ACTION_APPEND, status=status)
 
     ! --------------------------------------------------------------------------
@@ -247,7 +247,7 @@ subroutine test_validators (tests)
 
     tc => tests%add_test("argparse validators")
 
-    call parser%init ("Validators test routine")
+    call parser%init (description="Validators test routine")
 
     allocate (cmd(1))
 
@@ -524,7 +524,7 @@ subroutine test_help (tests)
 
     tc => tests%add_test("argparse HELP argument")
 
-    call parser%init ("argparse HELP test")
+    call parser%init (description="argparse HELP test")
 
     ! Test if --help is the only argument
     allocate (cmd_args(1))

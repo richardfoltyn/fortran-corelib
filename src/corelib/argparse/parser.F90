@@ -55,6 +55,7 @@ module corelib_argparse_parser
 
         type (linked_list), allocatable :: args
         type (str) :: description
+        type (str) :: progname
         integer :: status = ARGPARSE_STATUS_INIT
     contains
         procedure, pass :: argparser_add_argument_str
@@ -139,16 +140,36 @@ contains
 ! ------------------------------------------------------------------------------
 ! Initialization
 
-subroutine argparser_init_str (self, description)
+subroutine argparser_init_str (self, description, progname)
     class (argparser), intent(in out) :: self
     class (str), intent(in), optional :: description
+    class (str), intent(in), optional :: progname
 
     type (argument) :: arg
     type (str) :: name, help_text
     type (status_t) :: status
 
+    integer :: cmd_len, cmd_status
+    character (:), allocatable :: cmd_value
+    character (0) :: dummy
+
     call self%reset ()
 
+    self%progname = ""
+    if (present(progname)) then
+        self%progname = progname
+    else
+        ! Get program name as the first token on command line
+        call get_command_argument (0, dummy, cmd_len)
+        if (cmd_len > 0) then
+            allocate (character (cmd_len) :: cmd_value)
+            call get_command_argument (0, cmd_value, cmd_len, cmd_status)
+            if (cmd_len > 0 .and. cmd_status == 0) then
+                self%progname = cmd_value(1:cmd_len)
+            end if
+            deallocate (cmd_value)
+        end if
+    end if
     if (present(description)) self%description = description
 
     ! Add "fake" argument object that will be used to store all unmapped
@@ -168,11 +189,17 @@ subroutine argparser_init_str (self, description)
 
 end subroutine
 
-subroutine argparser_init_char (self, description)
+subroutine argparser_init_char (self, description, progname)
     class (argparser), intent(in out) :: self
-    character (len=*), intent(in) :: description
+    character (*), intent(in) :: description
+    character (*), intent(in), optional :: progname
 
-    call self%init (str(description))
+    if (present(progname)) then
+        call self%init (str(description), str(progname))
+    else
+        call self%init (str(description))
+    end if
+
 end subroutine
 
 pure subroutine argparser_reset (self)
@@ -1238,8 +1265,8 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
 
     ! remove leading -- from long syntax
     cmd_arg = cmd_args(offset)%substring (3, -1)
-    
-    ! move to next command line argument; perform this even if 
+
+    ! move to next command line argument; perform this even if
     ! parsing errors are encountered further below
     offset = offset + 1
 
@@ -1328,8 +1355,8 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
 
     ! remove leading - from argument (list)
     cmd_arg = cmd_args(offset)%substring (2, -1)
-    
-    ! move to next command line argument, even if errors are 
+
+    ! move to next command line argument, even if errors are
     ! encountered below
     offset = offset + 1
 
@@ -1515,14 +1542,18 @@ subroutine argparser_print_help (self)
     class (*), pointer :: ptr_item
     class (argument), pointer :: ptr_arg
 
-    type (str) :: name, abbrev, help, line, fmt, fmt_cont, fmt_arg, help_line
-    integer :: nargs, ifrom, ito
+    type (str) :: progname, name, abbrev, help, line, help_line
+    type (str) :: fmt_first_text, fmt_first_arg, fmt_cont, fmt_first_text_pos
+    integer :: nargs, ifrom, ito, max_len
 
     integer, parameter :: INDENT = 2
-    integer, parameter :: FIRST_TW = 45
-    integer, parameter :: CONT_TW = 60
+    integer, parameter :: FIRST_MIN_TW = 30
+    integer, parameter :: FIRST_TW = 50
+        !   Text width on first line if there is at least FIRST_TW + PAD_WIDTH
+        !   columns of space left
+    integer, parameter :: CONT_TW = 50
         !   Text width on continuation lines
-    integer, parameter :: PAD_WIDTH = 5
+    integer, parameter :: PAD_WIDTH = 3
     integer, parameter :: MAX_ARG_WIDTH = LINEWIDTH - INDENT - FIRST_TW - PAD_WIDTH
 
 
@@ -1530,12 +1561,23 @@ subroutine argparser_print_help (self)
 
     call self%args%get_iter (iter)
 
-    fmt = "(t" // str(INDENT + 1, "i0") // ", a, t" &
+    fmt_first_text_pos = "(t" // str(INDENT + 1, "i0") // ", a, t" &
         // str(LINEWIDTH - FIRST_TW + 1, "i0") // ", a)"
+    fmt_first_text = "(t" // str(INDENT+1, "i0") // ", a, tr" &
+        // str(PAD_WIDTH, "i0") // ", a)"
+    fmt_first_arg = "(t" // str(INDENT + 1, "i0") // ", a)"
     fmt_cont = "(t" // str(LINEWIDTH - CONT_TW + 1, "i0") // ", a)"
-    fmt_arg = "(t" // str(INDENT + 1, "i0") // ", a)"
 
-    write (OUTPUT_UNIT, *) "Supported arguments:"
+
+    if (self%description /= "") then
+        write (OUTPUT_UNIT, "(a)") self%description%to_char()
+    end if
+
+    progname = self%progname
+    if (progname == "") progname = "program_name"
+
+    write (OUTPUT_UNIT, '(a, tr1, a, tr1, a)') "Usage: ", progname%to_char(), "[OPTIONS]"
+    write (OUTPUT_UNIT, '(/,a)') "Supported options:"
 
     do while (iter%has_next())
         ptr_item => iter%item ()
@@ -1563,14 +1605,28 @@ subroutine argparser_print_help (self)
             line = line // "=<value>"
         end if
 
-        if (len(line) <= MAX_ARG_WIDTH) then
+        if (len(line) < LINEWIDTH - INDENT - PAD_WIDTH - FIRST_MIN_TW) then
+            ! Plot argument abbrev, name and (first fragment of) help text.
             ifrom = 1
-            call word_boundary (help, ifrom, FIRST_TW, ito)
-            help_line = help%substring(ifrom, ito)
-            write (OUTPUT_UNIT, fmt%to_char()) line%to_char(), trim(help_line%to_char())
-
+            if (len(line) < LINEWIDTH - INDENT - PAD_WIDTH - FIRST_TW)  then
+                ! There is enough space to place FIRST_TW columns of help text
+                call word_boundary (help, ifrom, FIRST_TW, ito)
+                help_line = help%substring(ifrom, ito)
+                write (OUTPUT_UNIT, fmt_first_text_pos%to_char()) line%to_char(), &
+                    trim(help_line%to_char())
+            else
+                ! Not enough space to place FIRST_TW columns of help text;
+                ! trim help text to fit line.
+                max_len = LINEWIDTH - INDENT - PAD_WIDTH - len(line) + 1
+                call word_boundary (help, ifrom, max_len, ito)
+                help_line = help%substring(ifrom, ito)
+                write (OUTPUT_UNIT, fmt_first_text%to_char()) line%to_char(), &
+                    trim(help_line%to_char())
+            end if
         else
-            write (OUTPUT_UNIT, fmt_arg%to_char()) line%to_char()
+            ! Plot only argument abbrev and name on the first line,
+            ! no space left for help text.
+            write (OUTPUT_UNIT, fmt_first_arg%to_char()) line%to_char()
             ito = 0
         end if
 
@@ -1590,7 +1646,7 @@ contains
         integer, intent(in) :: ifrom
         integer, intent(in) :: max_len
         integer, intent(in out) :: ito
-        
+
         if (len(s) - ifrom + 1 <= max_len) then
             ito = len(s)
         else
