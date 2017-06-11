@@ -1554,8 +1554,6 @@ subroutine argparser_print_help (self)
     integer, parameter :: CONT_TW = 50
         !   Text width on continuation lines
     integer, parameter :: PAD_WIDTH = 3
-    integer, parameter :: MAX_ARG_WIDTH = LINEWIDTH - INDENT - FIRST_TW - PAD_WIDTH
-
 
     nullify (ptr_arg, ptr_item)
 
