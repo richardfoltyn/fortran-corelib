@@ -39,19 +39,74 @@ set_target_properties(${LIBRARY_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
 )
 
+
 # build static library so tests can link against it
 if (BUILD_TESTS OR BUILD_EXAMPLES)
     add_library(${LIBRARY_NAME}_static STATIC ${SOURCE_FILES} ${COMPONENT_OBJECTS})
 endif()
 
-install(TARGETS ${LIBRARY_NAME}
-    RUNTIME DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    LIBRARY INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-    ARCHIVE INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+##########################################################################################
+# INSTALLATION
+
+include(CMakePackageConfigHelpers)
+
+# Allow for installing ifort and gfortran version of libraries side-by-side by 
+# appending compiler suffix
+if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    set(Fortran_COMPILER_SUFFIX "gfortran")
+elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+    set(Fortran_COMPILER_SUFFIX "ifort")
+else ()
+    message(FATAL_ERROR "Unsupported Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}")
+endif ()
+
+set(_version ${CORELIB_VERSION_MAJOR}.${CORELIB_VERSION_MINOR})
+set(CORELIB_INSTALL_DIRNAME
+    "${LIBRARY_NAME}-${_version}_${Fortran_COMPILER_SUFFIX}"
 )
 
-install(DIRECTORY ${${PROJECT_NAME}_MODDIR}/
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${LIBRARY_NAME}"
+set(CORELIB_CONFIG_INSTALL_DIR 
+    ${CMAKE_INSTALL_LIBDIR}/cmake/${CORELIB_INSTALL_DIRNAME})
+
+
+# Use helper functions to create basic version file
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/${LIBRARY_NAME}-config-version.cmake
+    VERSION ${CORELIB_VERSION}
+    COMPATIBILITY SameMajorVersion
 )
+
+# Note: INCLUDES DESTINATION is equivalent to adding
+# INTERFACE_INCLUDE_DIRECTORIES property on exported targets.
+install(TARGETS ${LIBRARY_NAME} 
+    EXPORT ${LIBRARY_NAME}_targets
+    RUNTIME DESTINATION "${CMAKE_INSTALL_LIBDIR}/${CORELIB_INSTALL_DIRNAME}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/${CORELIB_INSTALL_DIRNAME}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/${CORELIB_INSTALL_DIRNAME}"
+    INCLUDES DESTINATION
+        "${CMAKE_INSTALL_INCLUDEDIR}/${CORELIB_INSTALL_DIRNAME}"
+)
+
+export(EXPORT ${LIBRARY_NAME}_targets
+    FILE "${CMAKE_CURRENT_BINARY_DIR}/${LIBRARY_NAME}Targets.cmake"
+    NAMESPACE ${LIBRARY_NAME}::
+)
+
+install(EXPORT ${LIBRARY_NAME}_targets
+    FILE ${LIBRARY_NAME}Targets.cmake
+    NAMESPACE ${LIBRARY_NAME}::
+    DESTINATION ${CORELIB_CONFIG_INSTALL_DIR}
+)
+
+# install compiler-specific MOD files
+install(DIRECTORY ${${PROJECT_NAME}_MODDIR}/
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${CORELIB_INSTALL_DIRNAME}"
+    COMPONENT devel
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${LIBRARY_NAME}-config-version.cmake"
+    DESTINATION ${CORELIB_CONFIG_INSTALL_DIR}
+    COMPONENT devel
+)
+
