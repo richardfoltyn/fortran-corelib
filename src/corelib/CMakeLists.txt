@@ -68,12 +68,14 @@ set(CORELIB_INSTALL_DIRNAME
 set(CORELIB_CONFIG_INSTALL_DIR 
     ${CMAKE_INSTALL_LIBDIR}/cmake/${CORELIB_INSTALL_DIRNAME})
 
-
-# Use helper functions to create basic version file
-write_basic_package_version_file(
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config-version.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/${LIBRARY_NAME}-config-version.cmake
-    VERSION ${CORELIB_VERSION}
-    COMPATIBILITY SameMajorVersion
+    @ONLY
+)
+
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/${LIBRARY_NAME}-config.cmake
+    INSTALL_DESTINATION ${CORELIB_CONFIG_INSTALL_DIR}
 )
 
 # Note: INCLUDES DESTINATION is equivalent to adding
@@ -106,6 +108,7 @@ install(DIRECTORY ${${PROJECT_NAME}_MODDIR}/
 
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/${LIBRARY_NAME}-config-version.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${LIBRARY_NAME}-config.cmake"
     DESTINATION ${CORELIB_CONFIG_INSTALL_DIR}
     COMPONENT devel
 )
