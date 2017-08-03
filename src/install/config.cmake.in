@@ -1,0 +1,46 @@
+
+set(@LIBRARY_NAME@_VERSION @CORELIB_VERSION@)
+
+@PACKAGE_INIT@
+
+set(PACKAGE_NAMESPACE @CORELIB_INSTALL_NAMESPACE@)
+set(PACKAGE_NAME @LIBRARY_NAME@)
+
+set_and_check(${PACKAGE_NAME}_CONFIG_PATH "@PACKAGE_CORELIB_INSTALL_CONFIG_PATH@")
+
+set(PACKAGE_TARGET ${PACKAGE_NAMESPACE}::${PACKAGE_NAME})
+
+if(NOT TARGET ${PACKAGE_TARGET}})
+    include("${${PACKAGE_NAME}_CONFIG_PATH}/${PACKAGE_NAME}Targets.cmake")
+endif()
+
+# Do this only for compatibility if downstream uses the
+# @LIBRARY_NAME@_INCLUDE_DIRS variable. This variable is not needed if
+# the upstream include directories are added via
+# target_include_directories(target INTERFACE
+#   @CORELIB_INSTALL_NAMESPACE@::@LIBRARY_NAME@)
+# statement.
+get_target_property(_include ${PACKAGE_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+set(${PACKAGE_NAME}_INCLUDE_DIRS "${_include}" 
+    CACHE STRING "${PACKAGE_NAME} include directory" 
+    FORCE
+)
+
+
+if(NOT ${PACKAGE_NAME}_FOUND)
+    # Try compiling to see whether the library and the target architecture match
+    # Note: _result is set to TRUE/FALSE
+    try_compile(_result
+        "${CMAKE_CURRENT_BINARY_DIR}"
+        "${CMAKE_CURRENT_LIST_DIR}/compiler_test.f90"
+        LINK_LIBRARIES ${PACKAGE_TARGET}
+    )
+
+    set(${PACKAGE_NAME}_FOUND ${_result} CACHE BOOL "" FORCE)
+
+    if(NOT ${PACKAGE_NAME}_FIND_QUIETLY)
+        message(STATUS "Found package fcore (Include dir: ${${PACKAGE_NAME}_INCLUDE_DIRS})")
+    endif()
+
+endif()
+

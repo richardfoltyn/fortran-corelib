@@ -3,9 +3,9 @@
 
 cmake_minimum_required(VERSION 3.1)
 
-project(fcorelib Fortran)
+project(fcore Fortran)
 # name used for library files, include directory, etc.
-set(LIBRARY_NAME fcorelib)
+set(LIBRARY_NAME fcore)
 
 # make sure that the default is a RELEASE
 if (NOT CMAKE_BUILD_TYPE)
@@ -135,6 +135,10 @@ set(${PROJECT_NAME}_EXAMPLES_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/exampl
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/include)
 set(${PROJECT_NAME}_MODDIR ${CMAKE_Fortran_MODULE_DIRECTORY})
+get_filename_component(CORELIB_INSTALL_SOURCE_DIR
+    "${CMAKE_CURRENT_LIST_DIR}/install"
+    ABSOLUTE
+)
 
 add_subdirectory(corelib)
 

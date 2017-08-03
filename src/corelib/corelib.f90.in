@@ -1,4 +1,4 @@
-module corelib_version_mod
+module corelib
 
     implicit none
 
