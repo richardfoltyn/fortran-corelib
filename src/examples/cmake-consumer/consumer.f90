@@ -1,7 +1,7 @@
 program fcore_consumer
     
-    use corelib
+    use fcore
 
-    print '(a, tr1, a)', 'Corelib version', CORELIB_VERSION
+    print '(a, tr1, a)', 'fcore library version', FCORE_VERSION
 
 end

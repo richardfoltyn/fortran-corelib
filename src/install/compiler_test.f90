@@ -1,9 +1,9 @@
 program compiler_test
     
-    use corelib
+    use fcore
 
     implicit none
 
-    character (*), parameter :: LIB_VERSION = CORELIB_VERSION
+    character (*), parameter :: LIB_VERSION = FCORE_VERSION
 
 end

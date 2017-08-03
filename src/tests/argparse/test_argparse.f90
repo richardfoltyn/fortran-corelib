@@ -1,8 +1,8 @@
 program test_strings
 
     use iso_fortran_env
-    use corelib_argparse
-    use corelib_testing
+    use fcore_argparse
+    use fcore_testing
 
     implicit none
 
@@ -14,7 +14,7 @@ subroutine test_all()
 
     type (test_suite) :: tests
 
-    call tests%set_label ("corelib_argparse unit tests")
+    call tests%set_label ("fcore_argparse unit tests")
 
     ! test reading integer arguments
     call test_integer (tests)

@@ -1,6 +1,6 @@
 program argparse1
 
-    use corelib_argparse
+    use fcore_argparse
 
     implicit none
 

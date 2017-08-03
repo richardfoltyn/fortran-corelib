@@ -34,12 +34,12 @@ option(BUILD_EXAMPLES "Build example code" ON)
 
 ###############################################################################
 # Version
-set(CORELIB_VERSION_COUNT 3)
-set(CORELIB_VERSION_MAJOR 0)
-set(CORELIB_VERSION_MINOR 1)
-set(CORELIB_VERSION_PATCH 0)
-set(CORELIB_VERSION
-	"${CORELIB_VERSION_MAJOR}.${CORELIB_VERSION_MINOR}.${CORELIB_VERSION_PATCH}"
+set(FCORE_VERSION_COUNT 3)
+set(FCORE_VERSION_MAJOR 0)
+set(FCORE_VERSION_MINOR 1)
+set(FCORE_VERSION_PATCH 0)
+set(FCORE_VERSION
+	"${FCORE_VERSION_MAJOR}.${FCORE_VERSION_MINOR}.${FCORE_VERSION_PATCH}"
 )
 
 ###############################################################################
@@ -135,12 +135,12 @@ set(${PROJECT_NAME}_EXAMPLES_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/exampl
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/include)
 set(${PROJECT_NAME}_MODDIR ${CMAKE_Fortran_MODULE_DIRECTORY})
-get_filename_component(CORELIB_INSTALL_SOURCE_DIR
+get_filename_component(FCORE_INSTALL_SOURCE_DIR
     "${CMAKE_CURRENT_LIST_DIR}/install"
     ABSOLUTE
 )
 
-add_subdirectory(corelib)
+add_subdirectory(fcore)
 
 if (BUILD_TESTS)
     add_subdirectory(tests)
