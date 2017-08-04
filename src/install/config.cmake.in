@@ -38,9 +38,9 @@ if(NOT ${PACKAGE_NAME}_FOUND)
 
     set(${PACKAGE_NAME}_FOUND ${_result} CACHE BOOL "" FORCE)
 
-    if(NOT ${PACKAGE_NAME}_FIND_QUIETLY)
-        message(STATUS "Found package fcore (Include dir: ${${PACKAGE_NAME}_INCLUDE_DIRS})")
-    endif()
+endif()
 
+if(NOT ${PACKAGE_NAME}_FIND_QUIETLY)
+    message(STATUS "Found FCORE: ${${PACKAGE_NAME}_INCLUDE_DIRS}")
 endif()
 
