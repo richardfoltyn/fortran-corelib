@@ -135,6 +135,7 @@ set(${PROJECT_NAME}_EXAMPLES_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/exampl
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/include)
 set(${PROJECT_NAME}_MODDIR ${CMAKE_Fortran_MODULE_DIRECTORY})
+# Directory that contains installation-specific (config) files
 get_filename_component(FCORE_INSTALL_SOURCE_DIR
     "${CMAKE_CURRENT_LIST_DIR}/install"
     ABSOLUTE

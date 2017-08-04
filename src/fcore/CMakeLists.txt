@@ -62,13 +62,21 @@ else ()
     message(FATAL_ERROR "Unsupported Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}")
 endif ()
 
-set(_version ${FCORE_VERSION_MAJOR}.${FCORE_VERSION_MINOR})
-set(FCORE_INSTALL_DIR
-    "${LIBRARY_NAME}-${_version}-${Fortran_COMPILER_SUFFIX}"
-)
+# Installation directory within <prefix>/lib, <prefix>/include, etc.
+# If ont defined by -DFCORE_INSTALL_DIR by the user, create 
+# version- and compiler-specific directory name.
+if (NOT DEFINED FCORE_INSTALL_DIR)
+    set(_version ${FCORE_VERSION_MAJOR}.${FCORE_VERSION_MINOR})
+    set(FCORE_INSTALL_DIR
+        "${LIBRARY_NAME}-${_version}-${Fortran_COMPILER_SUFFIX}"
+        CACHE STRING "Install directory name"
+        FORCE
+    )
+endif()
 
+# Path there cmake config files will be installed
 set(FCORE_INSTALL_CONFIG_PATH 
-    ${CMAKE_INSTALL_LIBDIR}/cmake/${FCORE_INSTALL_DIR}
+    ${CMAKE_INSTALL_LIBDIR}/${FCORE_INSTALL_DIR}/cmake
 )
 
 set(FCORE_INSTALL_NAMESPACE ${LIBRARY_NAME})
