@@ -207,11 +207,11 @@ module fcore_common_base
     !---------------------------------------------------------------------------
     ! STATUS_T type
 
-    integer, public, parameter :: CL_MAX_STATUS_CODES = bit_size (CL_STATUS_OK)
+    integer, public, parameter :: FC_MAX_STATUS_CODES = bit_size (FC_STATUS_OK)
 
     type :: status_t
         private
-        integer (CL_ENUM_KIND) :: code = CL_STATUS_UNDEFINED
+        integer (FC_ENUM_KIND) :: code = FC_STATUS_UNDEFINED
         type (str), public :: msg
     contains
         procedure, public, pass :: clear => status_clear
@@ -288,12 +288,12 @@ pure subroutine status_clear (self)
     ! do not deallocate space used for message so we don't necessarily have to
     ! reallocate if new message is assined
     self%msg = ""
-    self = CL_STATUS_UNDEFINED
+    self = FC_STATUS_UNDEFINED
 end subroutine
 
 pure subroutine status_init (self, code, msg)
     class (status_t), intent(in out) :: self
-    integer (CL_ENUM_KIND), intent(in), optional :: code
+    integer (FC_ENUM_KIND), intent(in), optional :: code
     character (*), intent(in), optional :: msg
 
     if (.not. present(msg)) then
@@ -305,7 +305,7 @@ pure subroutine status_init (self, code, msg)
     if (present(code)) then
         self = code
     else
-        self = CL_STATUS_UNDEFINED
+        self = FC_STATUS_UNDEFINED
     end if
 end subroutine
 
@@ -322,14 +322,14 @@ pure subroutine status_decode (self, x, n)
         !!  (n <= size(array)).
 
     integer :: i
-    integer (CL_ENUM_KIND) :: pattern
+    integer (FC_ENUM_KIND) :: pattern
 
     ! Since status codes are integers >= 0, initialize to something invalid.
     x = -1
     n = 0
 
-    if ((size(x) >= 1) .and. (self /= CL_STATUS_UNDEFINED)) then
-        do i = 1, min(size(x), CL_MAX_STATUS_CODES)
+    if ((size(x) >= 1) .and. (self /= FC_STATUS_UNDEFINED)) then
+        do i = 1, min(size(x), FC_MAX_STATUS_CODES)
             pattern = ishft(1, i-1)
             if (iand(self, pattern) == pattern) then
                 n = n + 1
@@ -344,9 +344,9 @@ pure function status_size (self) result(res)
     integer :: res
 
     integer :: i
-    integer (CL_ENUM_KIND) :: pattern
+    integer (FC_ENUM_KIND) :: pattern
     res = 0
-    do i = CL_MAX_STATUS_CODES, 1, -1
+    do i = FC_MAX_STATUS_CODES, 1, -1
         pattern = ishft(1, i-1)
         if (iand(self%code, pattern) == pattern) then
             res = i
@@ -359,14 +359,14 @@ pure function status_to_char (self) result(res)
     class (status_t), intent(in) :: self
     character (:), allocatable :: res
 
-    integer, dimension(CL_MAX_STATUS_CODES) :: b2status
+    integer, dimension(FC_MAX_STATUS_CODES) :: b2status
     integer :: nstatus, n
     character (:), allocatable :: buf
 
     call self%decode (b2status, nstatus)
 
     ! compute char length including separators and parenthesis
-    n = CL_MAX_STATUS_CODES * 4 + 2
+    n = FC_MAX_STATUS_CODES * 4 + 2
     allocate (character (n) :: buf)
 
     write (buf, '("(", *(i0, :, ", "))') b2status(1:nstatus)
@@ -401,13 +401,13 @@ end subroutine
 
 elemental function add_status_int (lhs, rhs) result(res)
     class (status_t), intent(in) :: lhs
-    integer (CL_ENUM_KIND), intent(in) :: rhs
+    integer (FC_ENUM_KIND), intent(in) :: rhs
     type (status_t) :: res
     res%code = ior(lhs%code, rhs)
 end function
 
 elemental function add_int_status (lhs, rhs) result(res)
-    integer (CL_ENUM_KIND), intent(in) :: lhs
+    integer (FC_ENUM_KIND), intent(in) :: lhs
     class (status_t), intent(in) :: rhs
     type (status_t) :: res
     res%code = ior(lhs, rhs%code)
@@ -415,27 +415,27 @@ end function
 
 elemental function iand_status_int (lhs, rhs) result(res)
     class (status_t), intent(in) :: lhs
-    integer (CL_ENUM_KIND), intent(in) :: rhs
+    integer (FC_ENUM_KIND), intent(in) :: rhs
     type (status_t) :: res
     res%code = iand(lhs%code, rhs)
 end function
 
 elemental function iand_int_status (lhs, rhs) result(res)
-    integer (CL_ENUM_KIND), intent(in) :: lhs
+    integer (FC_ENUM_KIND), intent(in) :: lhs
     class (status_t), intent(in) :: rhs
     type (status_t) :: res
     res%code = iand(lhs, rhs%code)
 end function
 
 elemental subroutine assign_int_status (lhs, rhs)
-    integer (CL_ENUM_KIND), intent(out) :: lhs
+    integer (FC_ENUM_KIND), intent(out) :: lhs
     class (status_t), intent(in) :: rhs
     lhs = rhs%code
 end subroutine
 
 elemental subroutine assign_status_int (lhs, rhs)
     type (status_t), intent(out) :: lhs
-    integer (CL_ENUM_KIND), intent(in) :: rhs
+    integer (FC_ENUM_KIND), intent(in) :: rhs
     lhs%code = rhs
 end subroutine
 
@@ -447,13 +447,13 @@ end function
 
 elemental function equal_status_int (lhs, rhs) result(res)
     class (status_t), intent(in) :: lhs
-    integer (CL_ENUM_KIND), intent(in) :: rhs
+    integer (FC_ENUM_KIND), intent(in) :: rhs
     logical :: res
     res = (lhs%code == rhs)
 end function
 
 elemental function equal_int_status (lhs, rhs) result(res)
-    integer (CL_ENUM_KIND), intent(in) :: lhs
+    integer (FC_ENUM_KIND), intent(in) :: lhs
     class (status_t), intent(in) :: rhs
     logical :: res
     res = (lhs == rhs%code)
@@ -467,27 +467,27 @@ end function
 
 elemental function nequal_status_int (lhs, rhs) result(res)
     class (status_t), intent(in) :: lhs
-    integer (CL_ENUM_KIND), intent(in) :: rhs
+    integer (FC_ENUM_KIND), intent(in) :: rhs
     logical :: res
     res = .not. (lhs == rhs)
 end function
 
 elemental function nequal_int_status (lhs, rhs) result(res)
-    integer (CL_ENUM_KIND), intent(in) :: lhs
+    integer (FC_ENUM_KIND), intent(in) :: lhs
     class (status_t), intent(in) :: rhs
     logical :: res
     res = .not. (lhs == rhs)
 end function
 
 elemental function operator_in_int_status (lhs, rhs) result(res)
-    integer (CL_ENUM_KIND), intent(in) :: lhs
+    integer (FC_ENUM_KIND), intent(in) :: lhs
     class (status_t), intent(in) :: rhs
     logical :: res
     res = (iand(lhs, rhs%code) == lhs)
 end function
 
 elemental function operator_notin_int_status (lhs, rhs) result(res)
-    integer (CL_ENUM_KIND), intent(in) :: lhs
+    integer (FC_ENUM_KIND), intent(in) :: lhs
     class (status_t), intent(in) :: rhs
     logical :: res
     res = .not. (lhs .in. rhs)
@@ -1248,7 +1248,7 @@ pure subroutine split_str (self, str_list, sep, drop_empty, status)
 
     ! do not allow empty separators, not even if the string instance is empty
     if (present(sep) .and. nsep == 0) then
-        lstatus = CL_STATUS_VALUE_ERROR
+        lstatus = FC_STATUS_VALUE_ERROR
         lstatus%msg = "Invalid empty separator"
         goto 100
     endif
@@ -1374,7 +1374,7 @@ pure subroutine split_str (self, str_list, sep, drop_empty, status)
         str_list(i) = self%value(is:ie)
     end do
 
-    lstatus = CL_STATUS_OK
+    lstatus = FC_STATUS_OK
 
 100 continue
     if (present(status)) status = lstatus
@@ -1592,7 +1592,7 @@ subroutine parse_str(self, val, status)
 
     if (present(status)) then
         call status%clear ()
-        status = CL_STATUS_OK
+        status = FC_STATUS_OK
     end if
 
     if (_VALID(self)) then
@@ -1609,7 +1609,7 @@ subroutine parse_char(self, val, status)
 
     if (present(status)) then
         call status%clear ()
-        status = CL_STATUS_OK
+        status = FC_STATUS_OK
     end if
 
     if (_VALID(self)) then
@@ -1720,7 +1720,7 @@ end subroutine
 pure subroutine cast_status_init (status)
     type (status_t), intent(out), optional :: status
     if (present(status)) then
-        call status%init (CL_STATUS_OK)
+        call status%init (FC_STATUS_OK)
     end if
 end subroutine
 
@@ -1729,7 +1729,7 @@ pure subroutine cast_status_error (status, type_name)
     character (*), intent(in) :: type_name
 
     if (present(status)) then
-        status = CL_STATUS_TYPE_ERROR
+        status = FC_STATUS_TYPE_ERROR
         status%msg = "Unsupported cast to " // type_name
     end if
 end subroutine

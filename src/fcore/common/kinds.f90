@@ -4,6 +4,6 @@ module fcore_common_kinds
     implicit none
     private
 
-    integer, public, parameter :: CL_ENUM_KIND = int32
+    integer, public, parameter :: FC_ENUM_KIND = int32
 
 end module

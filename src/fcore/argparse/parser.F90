@@ -22,11 +22,11 @@ module fcore_argparse_parser
 
     ! Status codes for internal use
     ! in intial state, no arguments added
-    integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_INIT = 0
-    integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_EMPTY_CMDLINE = ishft(1, 1)
-    integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_PARSE_ERROR = ishft(1, 2)
-    integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_PARSED = ishft(1, 3)
-    integer (CL_ENUM_KIND), parameter :: ARGPARSE_STATUS_HELP_PRESENT = ishft(1, 4)
+    integer (FC_ENUM_KIND), parameter :: ARGPARSE_STATUS_INIT = 0
+    integer (FC_ENUM_KIND), parameter :: ARGPARSE_STATUS_EMPTY_CMDLINE = ishft(1, 1)
+    integer (FC_ENUM_KIND), parameter :: ARGPARSE_STATUS_PARSE_ERROR = ishft(1, 2)
+    integer (FC_ENUM_KIND), parameter :: ARGPARSE_STATUS_PARSED = ishft(1, 3)
+    integer (FC_ENUM_KIND), parameter :: ARGPARSE_STATUS_HELP_PRESENT = ishft(1, 4)
 
     ! only status code that needs to be communicated to client code
     public :: ARGPARSE_STATUS_PARSE_ERROR, ARGPARSE_STATUS_HELP_PRESENT
@@ -262,7 +262,7 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer (FC_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
@@ -278,7 +278,7 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     call sanitize_argument_data_array (default, ptr_default)
 
@@ -292,7 +292,7 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     end if
 
     call process_argument_status (name, lstatus)
-    if (lstatus == CL_STATUS_OK) call self%append (arg)
+    if (lstatus == FC_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
@@ -312,7 +312,7 @@ subroutine argparser_add_argument_str (self, name, abbrev, &
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer (FC_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
@@ -323,13 +323,13 @@ subroutine argparser_add_argument_str (self, name, abbrev, &
     type (status_t) :: lstatus
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
         validator=validator)
 
     call process_argument_status (name, lstatus)
-    if (lstatus == CL_STATUS_OK) call self%append (arg)
+    if (lstatus == FC_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
@@ -345,7 +345,7 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     class (argparser), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer (FC_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     class (str), intent(in), optional :: help
@@ -361,7 +361,7 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     call sanitize_argument_data_scalar (default, ptr_default)
 
@@ -375,7 +375,7 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     end if
 
     call process_argument_status (name, lstatus)
-    if (lstatus == CL_STATUS_OK) call self%append (arg)
+    if (lstatus == FC_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
@@ -394,7 +394,7 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer (FC_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
@@ -411,7 +411,7 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     call char_to_str_input (name, abbrev, help, lname, labbrev, lhelp)
     call sanitize_argument_data_scalar (default, ptr_default)
@@ -426,7 +426,7 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     end if
 
     call process_argument_status (lname, lstatus)
-    if (lstatus == CL_STATUS_OK) call self%append (arg)
+    if (lstatus == FC_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
@@ -444,7 +444,7 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer (FC_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
@@ -462,7 +462,7 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
     nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     call char_to_str_input (name, abbrev, help, lname, labbrev, lhelp)
     call sanitize_argument_data_array (default, ptr_default)
@@ -477,7 +477,7 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
     end if
 
     call process_argument_status (lname, lstatus)
-    if (lstatus == CL_STATUS_OK) call self%append (arg)
+    if (lstatus == FC_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
@@ -497,7 +497,7 @@ subroutine argparser_add_argument_char (self, name, abbrev, action, &
     class (argparser), intent(in out) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer (FC_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     logical, intent(in), optional :: required
     character (*), intent(in), optional :: help
@@ -509,7 +509,7 @@ subroutine argparser_add_argument_char (self, name, abbrev, action, &
     type (status_t) :: lstatus
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     call char_to_str_input (name, abbrev, help, lname, labbrev, lhelp)
 
@@ -517,7 +517,7 @@ subroutine argparser_add_argument_char (self, name, abbrev, action, &
         validator=validator)
 
     call process_argument_status (lname, lstatus)
-    if (lstatus == CL_STATUS_OK) call self%append (arg)
+    if (lstatus == FC_STATUS_OK) call self%append (arg)
 
 100 continue
     if (present(status)) status = lstatus
@@ -619,28 +619,28 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status)
     class (argparser), intent(in) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer (FC_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     type (status_t), intent(out) :: status
 
     ! by default return invalid input status
-    call status%init (CL_STATUS_VALUE_ERROR)
+    call status%init (FC_STATUS_VALUE_ERROR)
 
     if (name%lower() == HELP_ARGNAME) then
-        status = CL_STATUS_VALUE_ERROR
+        status = FC_STATUS_VALUE_ERROR
         status%msg = "Argument --" // HELP_ARGNAME // " is reserved for internal use"
         return
     end if
 
     if (present(abbrev)) then
         if (abbrev%lower() == HELP_ABBREV) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Argument -" // HELP_ABBREV // " is reserved for internal use"
         end if
     end if
 
     call validate_identifier (name, status)
-    if (status /= CL_STATUS_OK) then
+    if (status /= FC_STATUS_OK) then
         status%msg = "Invalid name: " // status%msg
         return
     end if
@@ -654,14 +654,14 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status)
 
     if (present(abbrev)) then
         if (len(abbrev) /= 1) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Invalid abbrev '" // abbrev // &
                 "': value must be character of length 1"
             return
         end if
 
         call validate_identifier (abbrev, status)
-        if (status /= CL_STATUS_OK) then
+        if (status /= FC_STATUS_OK) then
             status%msg = "Invalid abbrev '" // abbrev // "': " // status%msg
             return
         end if
@@ -675,7 +675,7 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status)
     end if
 
     call validate_action (action, status)
-    if (status /= CL_STATUS_OK) then
+    if (status /= FC_STATUS_OK) then
         status%msg = "Invalid action for argument '" // name // "'"
         return
     end if
@@ -687,14 +687,14 @@ subroutine argparser_check_input_str (self, name, abbrev, action, nargs, status)
         end if
     end if
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 end subroutine
 
 subroutine argparser_check_input_char (self, name, abbrev, action, nargs, status)
     class (argparser), intent(in) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer (FC_ENUM_KIND), intent(in), optional :: action
     integer, intent(in), optional :: nargs
     type (status_t), intent(out) :: status
 
@@ -724,16 +724,16 @@ pure subroutine validate_identifier (s, status)
     integer :: i, n
     logical :: is_valid
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 
     n = len(s)
     if (n == 0) then
-        status = CL_STATUS_VALUE_ERROR
+        status = FC_STATUS_VALUE_ERROR
         status%msg = "Empty value not allowed"
         return
     end if
     if (s%startswith('-')) then
-        status = CL_STATUS_VALUE_ERROR
+        status = FC_STATUS_VALUE_ERROR
         status%msg = "String value must not start with '-'"
     end if
 
@@ -743,7 +743,7 @@ pure subroutine validate_identifier (s, status)
     do i = 1, n
         is_valid = any(work(i:i) == valid_special) .or. is_alnum (work(i:i))
         if (.not. is_valid) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Invalid character encountered: '" // work(i:i) // "'"
         end if
     end do
@@ -754,10 +754,10 @@ end subroutine
 subroutine validate_action (action, status)
     !*  VALIDATE_ACTION verifies that a user-provided integer value corresponds
     !   to a valid ARGPARSER action.
-    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer (FC_ENUM_KIND), intent(in), optional :: action
     type (status_t), intent(out) :: status
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
     if (.not. present(action)) return
     select case (action)
     case (ARGPARSE_ACTION_STORE)
@@ -771,7 +771,7 @@ subroutine validate_action (action, status)
     case (ARGPARSE_ACTION_APPEND)
         return
     case default
-        status = CL_STATUS_VALUE_ERROR
+        status = FC_STATUS_VALUE_ERROR
     end select
 end subroutine
 
@@ -798,16 +798,16 @@ subroutine argparser_get_array_str (self, name, val, status)
     class (argument), pointer :: ptr_arg
     type (status_t) :: lstatus
 
-    call lstatus%init (CL_STATUS_OK)
+    call lstatus%init (FC_STATUS_OK)
 
     call validate_identifier (name, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     call argparser_get_check_state (self, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     call self%find_arg (name, ptr_arg, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     ! at this point ptr_arg points to the argument identified by name.
     ! Retrieve stored argument value
@@ -828,16 +828,16 @@ subroutine argparser_get_scalar_str (self, name, val, status)
     class (argument), pointer :: ptr_arg
     type (status_t) :: lstatus
 
-    call lstatus%init (CL_STATUS_OK)
+    call lstatus%init (FC_STATUS_OK)
 
     call validate_identifier (name, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     call argparser_get_check_state (self, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     call self%find_arg (name, ptr_arg, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     ! at this point ptr_arg points to the argument identified by name.
     ! Retrieve stored argument value
@@ -884,10 +884,10 @@ subroutine argparser_get_unmapped_array (self, val, status)
     type (str) :: name
     integer :: nvals
 
-    call lstatus%init (CL_STATUS_OK)
+    call lstatus%init (FC_STATUS_OK)
 
     call argparser_get_check_state (self, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     name = UNMAPPED_ARG_NAME
     call self%find_arg (name, ptr_arg)
@@ -895,11 +895,11 @@ subroutine argparser_get_unmapped_array (self, val, status)
     ! Handle dimension check upfront, even though argument::parse also does this.
     nvals = ptr_arg%get_nvals ()
     if (nvals == 0) then
-        lstatus = CL_STATUS_INVALID_STATE
+        lstatus = FC_STATUS_INVALID_STATE
         lstatus%msg = "No unmapped command line arguments present."
         goto 100
     else if (size(val) < nvals) then
-        lstatus = CL_STATUS_VALUE_ERROR
+        lstatus = FC_STATUS_VALUE_ERROR
         lstatus%msg = "Array size insufficient to store all unmapped arguments"
         goto 100
     end if
@@ -926,10 +926,10 @@ subroutine argparser_get_unmapped_scalar (self, val, status)
     type (str) :: name
     integer :: nvals
 
-    call lstatus%init (CL_STATUS_OK)
+    call lstatus%init (FC_STATUS_OK)
 
     call argparser_get_check_state (self, lstatus)
-    if (lstatus /= CL_STATUS_OK) goto 100
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     name = UNMAPPED_ARG_NAME
     call self%find_arg (name, ptr_arg)
@@ -937,11 +937,11 @@ subroutine argparser_get_unmapped_scalar (self, val, status)
     ! Handle dimension check upfront, even though argument::parse also does this.
     nvals = ptr_arg%get_nvals ()
     if (nvals == 0) then
-        lstatus = CL_STATUS_INVALID_STATE
+        lstatus = FC_STATUS_INVALID_STATE
         lstatus%msg = "No unmapped command line arguments present."
         goto 100
     else if (nvals > 1) then
-        lstatus = CL_STATUS_VALUE_ERROR
+        lstatus = FC_STATUS_VALUE_ERROR
         lstatus%msg = "Array size insufficient to store all unmapped arguments"
         goto 100
     end if
@@ -957,18 +957,18 @@ subroutine argparser_get_check_state (self, status)
     class (argparser), intent(in) :: self
     type (status_t), intent(out) :: status
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 
     if (len(self) == 0) then
-        status = CL_STATUS_INVALID_STATE
+        status = FC_STATUS_INVALID_STATE
         status%msg = "No arguments defined"
         return
     else if (self%status == ARGPARSE_STATUS_PARSE_ERROR) then
-        status = CL_STATUS_INVALID_STATE
+        status = FC_STATUS_INVALID_STATE
         status%msg = "Cannot retrieve argument due to previous parsing error"
         return
     else if (self%status /= ARGPARSE_STATUS_PARSED) then
-        status = CL_STATUS_UNKNOWN
+        status = FC_STATUS_UNKNOWN
         status%msg = "Unknown error encountered"
         return
     end if
@@ -996,7 +996,7 @@ subroutine argparser_find_arg (self, name, ptr_arg, status, is_abbrev)
 
     if (len(self) == 0) then
         if (present(status)) then
-            status = CL_STATUS_INVALID_STATE
+            status = FC_STATUS_INVALID_STATE
             status%msg = "No arguments defined"
         end if
         return
@@ -1021,9 +1021,9 @@ subroutine argparser_find_arg (self, name, ptr_arg, status, is_abbrev)
     end do
 
     if (present(status)) then
-        call status%init (CL_STATUS_OK)
+        call status%init (FC_STATUS_OK)
         if (.not. associated (ptr_arg)) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Unknown argment: '" // name // "'"
         end if
     end if
@@ -1166,7 +1166,7 @@ subroutine argparser_parse_array (self, cmd_args, status)
     type (str) :: cmd_arg
     logical :: help_present
 
-    call lstatus%init (CL_STATUS_OK)
+    call lstatus%init (FC_STATUS_OK)
     self%status = ARGPARSE_STATUS_PARSE_ERROR
 
     ! Check whether --help/-h was passed before anything else, as then we
@@ -1182,7 +1182,7 @@ subroutine argparser_parse_array (self, cmd_args, status)
     end if
 
     if (len(self) == 0) then
-        lstatus = CL_STATUS_INVALID_STATE
+        lstatus = FC_STATUS_INVALID_STATE
         lstatus%msg = "Need to define arguments before parsing"
         goto 100
     end if
@@ -1201,13 +1201,13 @@ subroutine argparser_parse_array (self, cmd_args, status)
         ! abbreviation
         if (cmd_arg%startswith ('--')) then
             call self%parse_long (cmd_args, i, lstatus)
-            if (lstatus /= CL_STATUS_OK) goto 100
+            if (lstatus /= FC_STATUS_OK) goto 100
         else if (cmd_arg%startswith ('-')) then
             call self%parse_abbrev (cmd_args, i, lstatus)
-            if (lstatus /= CL_STATUS_OK) goto 100
+            if (lstatus /= FC_STATUS_OK) goto 100
         else
             call self%parse_unmapped (cmd_arg, lstatus)
-            if (lstatus /= CL_STATUS_OK) goto 100
+            if (lstatus /= FC_STATUS_OK) goto 100
             ! Process unmapped arguments only one at a time.
             i = i + 1
         end if
@@ -1259,7 +1259,7 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
 
     integer :: j, cmd_nargs
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
     cmd_nargs = size(cmd_args)
 
     ! remove leading -- from long syntax
@@ -1279,7 +1279,7 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
 
     ! find corresponding argument object
     call self%find_arg (cmd_name, ptr_arg, status, is_abbrev=.false.)
-    if (status /= CL_STATUS_OK) goto 200
+    if (status /= FC_STATUS_OK) goto 200
 
     ! if argument value was passed within the same command line argument,
     ! extract it from substring after the '='
@@ -1308,17 +1308,17 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
     ! store command line arguments in argument object
     if (allocated (cmd_values)) then
         call ptr_arg%set (cmd_values, status)
-        if (status /= CL_STATUS_OK) goto 100
+        if (status /= FC_STATUS_OK) goto 100
     else
         ! collect the number of requested arguments from the following commands
         ! This also supports collecting 0 values (e.g. if action is
         ! STORE_CONST), then cmd_values is allocated to cmd_values(1:0).
         call self%collect_values (cmd_args, offset, ptr_arg, cmd_values, status)
-        if (status /= CL_STATUS_OK) goto 100
+        if (status /= FC_STATUS_OK) goto 100
 
         ! store command line arguments in argument object
         call ptr_arg%set (cmd_values, status)
-        if (status /= CL_STATUS_OK) goto 100
+        if (status /= FC_STATUS_OK) goto 100
 
         ! skip the next nargs arguments, those were used as values
         offset = offset + ptr_arg%nargs
@@ -1349,7 +1349,7 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
 
     integer :: j, cmd_nargs
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
     cmd_nargs = size(cmd_args)
 
     ! remove leading - from argument (list)
@@ -1365,12 +1365,12 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
     do j = 1, len(cmd_arg)
         cmd_name = cmd_arg%substring (j, j)
         call self%find_arg (cmd_name, ptr_arg, status, is_abbrev=.true.)
-        if (status /= CL_STATUS_OK) goto 200
+        if (status /= FC_STATUS_OK) goto 200
 
         if (ptr_arg%nargs > 0 .and. j < len(cmd_arg)) then
             ! cannot satisfy any positive number of values for abbrev.
             ! arguments that are not the last character
-            status = CL_STATUS_INVALID_STATE
+            status = FC_STATUS_INVALID_STATE
             status%msg = "Argument '" // ptr_arg%name  // "': expected " // &
                 str(ptr_arg%nargs) // " arguments, found 0"
             goto 200
@@ -1378,16 +1378,16 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
             ! can safely discard the status argument return value if
             ! no user-provided data is present, as nothing can go wrong.
             call ptr_arg%set (status=status)
-            if (status /= CL_STATUS_OK) goto 100
+            if (status /= FC_STATUS_OK) goto 100
         else if (ptr_arg%nargs > 0) then
             ! need to collect argument values
             call self%collect_values (cmd_args, offset, ptr_arg, &
                 cmd_values, status)
-            if (status /= CL_STATUS_OK) goto 100
+            if (status /= FC_STATUS_OK) goto 100
 
             ! store command line arguments in argument object
             call ptr_arg%set (cmd_values, status)
-            if (status /= CL_STATUS_OK) goto 100
+            if (status /= FC_STATUS_OK) goto 100
 
             ! skip the next nargs arguments, those were used as values
             offset = offset + ptr_arg%nargs
@@ -1421,7 +1421,7 @@ subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
 
     integer :: j, cmd_nargs
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
     cmd_nargs = size(cmd_args)
 
     if (allocated(cmd_values)) deallocate (cmd_values)
@@ -1431,7 +1431,7 @@ subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
     do while (j < ptr_arg%nargs)
         ! check that the number of command line arguments is not too low
         if (offset + j > cmd_nargs) then
-            status = CL_STATUS_INVALID_STATE
+            status = FC_STATUS_INVALID_STATE
             status%msg = "Argument '" // ptr_arg%name  // "': expected " // &
                 str(ptr_arg%nargs) // " arguments, found " // str(j-1)
             return

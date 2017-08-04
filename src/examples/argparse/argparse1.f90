@@ -98,7 +98,7 @@ program argparse1
     allocate (str_arr(2))
     call parser%get ("opt-char-arr", str_arr, status)
     call status%print ()
-    if (status == CL_STATUS_OK) then
+    if (status == FC_STATUS_OK) then
         print *, "Argument 'opt-char-arr', retrieved as type(str) array"
         do i = 1, size(str_arr)
             print '(t10, "(", i0, ") ", a)', i, str_arr(i)%to_char()
@@ -111,7 +111,7 @@ program argparse1
     n = parser%get_nvals ("opt-int-arr")
     allocate (int_arr(n))
     call parser%get ("opt-int-arr", int_arr, status)
-    if (status == CL_STATUS_OK) then
+    if (status == FC_STATUS_OK) then
         print '(tr1, a, *(i0, :, ", "))', "-- Values : ", int_arr
     end if
     call status%print ()
@@ -121,7 +121,7 @@ program argparse1
     allocate (str_arr(2))
     call parser%get ("opt-str-arr", str_arr, status)
     call print_result_header (parser, 'opt-str-arr', status)
-    if (status == CL_STATUS_OK) then
+    if (status == FC_STATUS_OK) then
         print *, "-- Values:"
         do i = 1, size(str_arr)
             print '(t5, "(", i0, ") ", a)', i, str_arr(i)%to_char()

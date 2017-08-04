@@ -69,7 +69,7 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val32, status=status)
-    call tc%assert_true (is_present .and. val32 == input2_32 .and. status == CL_STATUS_OK, &
+    call tc%assert_true (is_present .and. val32 == input2_32 .and. status == FC_STATUS_OK, &
         "Scalar 32bit integer argument, argument present")
     deallocate (cmd)
 
@@ -79,7 +79,7 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val32, status=status)
-    call tc%assert_true ((.not. is_present) .and. val32 == input1_32 .and. status == CL_STATUS_OK, &
+    call tc%assert_true ((.not. is_present) .and. val32 == input1_32 .and. status == FC_STATUS_OK, &
         "Scalar 32bit integer argument, argument NOT present")
 
     deallocate (cmd)
@@ -94,7 +94,7 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val64, status=status)
-    call tc%assert_true (is_present .and. val64 == input2_64 .and. status == CL_STATUS_OK, &
+    call tc%assert_true (is_present .and. val64 == input2_64 .and. status == FC_STATUS_OK, &
         "Scalar 64bit integer argument, argument present")
     deallocate (cmd)
 
@@ -104,7 +104,7 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val64, status=status)
-    call tc%assert_true ((.not. is_present) .and. val64 == input1_64 .and. status == CL_STATUS_OK, &
+    call tc%assert_true ((.not. is_present) .and. val64 == input1_64 .and. status == FC_STATUS_OK, &
         "Scalar 64bit integer argument, argument NOT present")
     deallocate (cmd)
 
@@ -260,37 +260,37 @@ subroutine test_validators (tests)
     ! int value.
     cmd(1) ='--pos-int=0'
     call parser%parse (cmd, status)
-    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
         "validate_pos_int32() with invalid integer value")
 
     ! Test with argument that cannot be converged to int
     cmd(1) = '--pos-int=foobar'
     call parser%parse (cmd, status)
-    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
         "validate_pos_int32() with string value")
 
     cmd(1) = '--pos-int=1'
     call parser%parse (cmd, status)
     call parser%get ("pos-int", ival)
-    call tc%assert_true (status == CL_STATUS_OK .and. ival == 1, &
+    call tc%assert_true (status == FC_STATUS_OK .and. ival == 1, &
         "validate_pos_int32() with valid value")
 
     ! === Test non-negative int validator ===
     cmd(1) ='--nonneg=-1'
     call parser%parse (cmd, status)
-    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
         "validate_nonneg_int32() with invalid integer value")
 
     ! Test with argument that cannot be converged to int
     cmd(1) = '--nonneg=foobar'
     call parser%parse (cmd, status)
-    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
         "validate_nonneg_int32() with string value")
 
     cmd(1) = '--nonneg=0'
     call parser%parse (cmd, status)
     call parser%get ("nonneg", ival)
-    call tc%assert_true (status == CL_STATUS_OK .and. ival == 0, &
+    call tc%assert_true (status == FC_STATUS_OK .and. ival == 0, &
         "validate_nonneg_int32() with valid value")
 
     ! === Test non-empty string ===
@@ -305,7 +305,7 @@ subroutine test_validators (tests)
     cmd(1) = '--nonempty-str'
     cmd(2) = ''
     call parser%parse (cmd, status)
-    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
         "validate_nonempty_str with empty string value")
 end subroutine
 
@@ -332,21 +332,21 @@ subroutine test_store_true (tests)
     call parser%parse (cmd_str, status)
 
     call parser%get ("foo", val)
-    call tc%assert_true (status == CL_STATUS_OK .and. val, &
+    call tc%assert_true (status == FC_STATUS_OK .and. val, &
         "Argument present, value = .true. (long form)")
 
     ! Short form, argument present
     cmd_str(1) = "-f"
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
-    call tc%assert_true (status == CL_STATUS_OK .and. val, &
+    call tc%assert_true (status == FC_STATUS_OK .and. val, &
         "Argument present, value = .true. (short form)")
 
     ! Argument not present
     cmd_str(1) = ""
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
-    call tc%assert_true (status == CL_STATUS_OK .and. .not. val, &
+    call tc%assert_true (status == FC_STATUS_OK .and. .not. val, &
         "Argument NOT present, value = .false. (long form)")
 
     ! Unexpected argument value
@@ -380,21 +380,21 @@ subroutine test_store_false (tests)
     call parser%parse (cmd_str, status)
 
     call parser%get ("foo", val)
-    call tc%assert_true (status == CL_STATUS_OK .and. .not. val, &
+    call tc%assert_true (status == FC_STATUS_OK .and. .not. val, &
         "Argument present, value = .false. (long form)")
 
     ! Short form, argument present
     cmd_str(1) = "-f"
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
-    call tc%assert_true (status == CL_STATUS_OK .and. .not. val, &
+    call tc%assert_true (status == FC_STATUS_OK .and. .not. val, &
         "Argument present, value = .false. (short form)")
 
     ! Argument not present
     cmd_str(1) = ""
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
-    call tc%assert_true (status == CL_STATUS_OK .and. val, &
+    call tc%assert_true (status == FC_STATUS_OK .and. val, &
         "Argument NOT present, value = .true. (long form)")
 
     ! Unexpected argument value
@@ -432,7 +432,7 @@ subroutine test_unmapped (tests)
     allocate (cmd_str(0))
     call parser%parse (cmd_str, status)
     num = parser%get_num_unmapped ()
-    call tc%assert_true (status == CL_STATUS_OK .and. num == 0, &
+    call tc%assert_true (status == FC_STATUS_OK .and. num == 0, &
         "No args present, assert (num_unmapped == 0)")
 
     ! Test with no unmapped args, but other args present
@@ -443,7 +443,7 @@ subroutine test_unmapped (tests)
 
     call parser%parse (cmd_str, status)
     num = parser%get_num_unmapped ()
-    call tc%assert_true (status == CL_STATUS_OK .and. num == 0, &
+    call tc%assert_true (status == FC_STATUS_OK .and. num == 0, &
         "No unmapped but other args. present, assert (num_unmapped == 0)")
 
     ! Test with only unmapped args, one empty unmapped arg present
@@ -453,7 +453,7 @@ subroutine test_unmapped (tests)
     call parser%parse (cmd_str, status)
     num = parser%get_num_unmapped ()
     call parser%get_unmapped (val1)
-    call tc%assert_true (status == CL_STATUS_OK .and. num == 1 &
+    call tc%assert_true (status == FC_STATUS_OK .and. num == 1 &
         .and. val1 == "", &
         "One empty unmapped arg. present, assert (num_unmapped == 1)")
 
@@ -470,18 +470,18 @@ subroutine test_unmapped (tests)
     call parser%parse (cmd_str, status)
 
     call parser%get ("option1", val1, status)
-    call tc%assert_true (status == CL_STATUS_OK .and. val1 == "baz", &
+    call tc%assert_true (status == FC_STATUS_OK .and. val1 == "baz", &
         "Multiple interleaved mapped/unmapped args, mapped arg 1 OK")
 
     call parser%get ("option2", val2, status)
-    call tc%assert_true (status == CL_STATUS_OK .and. val2 == "bar", &
+    call tc%assert_true (status == FC_STATUS_OK .and. val2 == "bar", &
         "Multiple interleaved mapped/unmapped args, mapped arg 2 OK")
 
     if (allocated(stored_str)) deallocate (stored_str)
     allocate (stored_str(size(cmd_unmapped)))
     num = parser%get_num_unmapped ()
     call parser%get_unmapped (stored_str, status)
-    call tc%assert_true (status == CL_STATUS_OK .and. num == size(cmd_unmapped) &
+    call tc%assert_true (status == FC_STATUS_OK .and. num == size(cmd_unmapped) &
         .and. all(stored_str == cmd_unmapped), &
         "Multiple interleaved mapped/unmapped args; unmapped args OK")
 
@@ -489,7 +489,7 @@ subroutine test_unmapped (tests)
     if (allocated(stored_str)) deallocate (stored_str)
     allocate (stored_str(size(cmd_unmapped) - 1))
     call parser%get_unmapped (stored_str, status)
-    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
         "Attempt to retrieve fewer unmapped values than present")
 
     ! Store into array that is larger than number of unmapped args:
@@ -498,7 +498,7 @@ subroutine test_unmapped (tests)
     allocate (stored_str(size(cmd_unmapped) + 1))
     call parser%get_unmapped (stored_str, status)
     num = parser%get_num_unmapped ()
-    call tc%assert_true (status == CL_STATUS_OK .and. &
+    call tc%assert_true (status == FC_STATUS_OK .and. &
         all(cmd_unmapped == stored_str(1:num)), &
         "Attempt to retrieve more unmapped values than present")
 
@@ -507,7 +507,7 @@ subroutine test_unmapped (tests)
     allocate (cmd_str(0))
     call parser%parse (cmd_str, status)
     call parser%get_unmapped (val1, status)
-    call tc%assert_true (status == CL_STATUS_INVALID_STATE, &
+    call tc%assert_true (status == FC_STATUS_INVALID_STATE, &
         "Attempt to retrieve scalar unmapped arg if none present")
 
 end subroutine

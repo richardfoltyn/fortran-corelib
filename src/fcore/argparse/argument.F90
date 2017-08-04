@@ -24,7 +24,7 @@ module fcore_argparse_argument
         type (str), public :: name, abbrev
         class (*), dimension(:), allocatable :: default
         class (*), dimension(:), allocatable :: const
-        integer (CL_ENUM_KIND), public :: action = ARGPARSE_ACTION_STORE
+        integer (FC_ENUM_KIND), public :: action = ARGPARSE_ACTION_STORE
         logical :: required = .false.
         logical, public :: is_present = .false.
         integer, public :: nargs = 1
@@ -118,7 +118,7 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     class (argument), intent(in out) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
-    integer (CL_ENUM_KIND), intent(in), optional :: action
+    integer (FC_ENUM_KIND), intent(in), optional :: action
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
     class (str), intent(in), optional :: help
@@ -132,7 +132,7 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     logical :: lrequired, supports_arg_values
 
     ! default values
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
     laction = ARGPARSE_ACTION_STORE
     lrequired = .false.
     lnargs = 1
@@ -152,7 +152,7 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
         ! In this case nargs must be 1, as argument::set() is assumed to be
         ! called for each instance of argument encountered.
         if (laction == ARGPARSE_ACTION_APPEND) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Must not specify 'nargs' with action " &
                 // get_action_label (ARGPARSE_ACTION_APPEND)
             return
@@ -160,7 +160,7 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
             ! Consistency of nargs and length of default array: assert these are
             ! of same length only if action is not APPEND
             if (size(default) /= nargs) then
-                status = CL_STATUS_VALUE_ERROR
+                status = FC_STATUS_VALUE_ERROR
                 status%msg = "Default array size must be identical to nargs"
                 return
             end if
@@ -170,7 +170,7 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     ! require constant to be present and have the right array size
     if (laction == ARGPARSE_ACTION_STORE_CONST) then
         if (.not. present(const)) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Action " // get_action_label (ARGPARSE_ACTION_STORE_CONST) &
                 // " requires 'const' argument"
             return
@@ -181,14 +181,14 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     ! in user-generated input
     if (.not. supports_arg_values) then
         if (present(validator)) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Action " // get_action_label (laction) &
                 // " does not support validators"
             return
         end if
 
         if (present(allow_empty)) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Must not specify 'allow_empty' with action " &
                 // get_action_label (ARGPARSE_ACTION_APPEND)
         end if
@@ -324,7 +324,7 @@ subroutine argument_set_array (self, val, status)
 
     type (status_t) :: lstatus
 
-    lstatus = CL_STATUS_OK
+    lstatus = FC_STATUS_OK
 
     ! Note: no further code needed to deal with ACTION_STORE_CONST,
     ! will automatically read the default or stored const value when
@@ -335,7 +335,7 @@ subroutine argument_set_array (self, val, status)
             ! Delegate actuall processing of non-zero-length value
             ! array.
             call self%process_cmd_value (val, lstatus)
-            if (lstatus /= CL_STATUS_OK) goto 100
+            if (lstatus /= FC_STATUS_OK) goto 100
         end if
     end if
 
@@ -362,13 +362,13 @@ subroutine argument_process_cmd_value (self, val, status)
     type (str), dimension(:), allocatable :: work
     integer :: n, m, i
 
-    status = CL_STATUS_OK
+    status = FC_STATUS_OK
     n = size(val)
 
     ! For actions STORE_TRUE, STORE_FALSE and STORE_CONST, no values
     ! are permitted.
     if (self%nargs == 0) then
-        status = CL_STATUS_UNSUPPORTED_OP
+        status = FC_STATUS_UNSUPPORTED_OP
         status%msg = "Argument does not accept user-provided values"
         goto 100
     end if
@@ -376,7 +376,7 @@ subroutine argument_process_cmd_value (self, val, status)
     if (associated(self%validator)) then
         do i = 1, n
             call self%validator (val(i), status)
-            if (status /= CL_STATUS_OK) goto 100
+            if (status /= FC_STATUS_OK) goto 100
         end do
     end if
 
@@ -384,7 +384,7 @@ subroutine argument_process_cmd_value (self, val, status)
     if (.not. self%allow_empty) then
         do i = 1, n
             if (len(val(i)) == 0) then
-                status = CL_STATUS_VALUE_ERROR
+                status = FC_STATUS_VALUE_ERROR
                 status%msg = "Invalid value; non-empty string not allowed"
                 goto 100
             end if
@@ -423,10 +423,10 @@ subroutine argument_parse_array (self, val, status)
     class (*), intent(out), dimension(:), target :: val
     type (status_t), intent(out) :: status
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 
     call self%parse_check_input (val, status)
-    if (status /= CL_STATUS_OK) return
+    if (status /= FC_STATUS_OK) return
 
     select type (val)
     type is (integer(int32))
@@ -444,7 +444,7 @@ subroutine argument_parse_array (self, val, status)
     class is (str)
         call self%parse_impl (val, status)
     class default
-        status = CL_STATUS_VALUE_ERROR
+        status = FC_STATUS_VALUE_ERROR
         status%msg = "Unsupported argument type"
     end select
 
@@ -455,10 +455,10 @@ subroutine argument_parse_scalar (self, val, status)
     class (*), intent(out), target :: val
     type (status_t), intent(out) :: status
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 
     call self%parse_check_input (val, status)
-    if (status /= CL_STATUS_OK) return
+    if (status /= FC_STATUS_OK) return
 
     select type (val)
     type is (integer(int32))
@@ -476,7 +476,7 @@ subroutine argument_parse_scalar (self, val, status)
     class is (str)
         call self%parse_impl (val, status)
     class default
-        status = CL_STATUS_VALUE_ERROR
+        status = FC_STATUS_VALUE_ERROR
         status%msg = "Unsupported argument type"
     end select
 
@@ -535,7 +535,7 @@ subroutine argument_parse_array_str (self, val, status)
     integer :: i
 
     nullify (ptr_stored, ptr)
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 
     if (self%is_present) then
         select case (self%action)
@@ -544,7 +544,7 @@ subroutine argument_parse_array_str (self, val, status)
         case default
 
             if (size(val) < self%get_nvals()) then
-                status = CL_STATUS_VALUE_ERROR
+                status = FC_STATUS_VALUE_ERROR
                 status%msg = "Array size insufficient to store value(s)"
                 return
             end if
@@ -552,8 +552,8 @@ subroutine argument_parse_array_str (self, val, status)
             do i = 1, self%get_nvals()
                 call self%passed_values(i)%parse (val(i), status)
 
-                if (status /= CL_STATUS_OK) then
-                    status = CL_STATUS_INVALID_STATE
+                if (status /= FC_STATUS_OK) then
+                    status = FC_STATUS_INVALID_STATE
                     status%msg = "Could not convert str to desired type"
                     return
                 end if
@@ -566,21 +566,21 @@ subroutine argument_parse_array_str (self, val, status)
     end if
 
     if (.not. associated(ptr_stored)) then
-        status = CL_STATUS_INVALID_STATE
+        status = FC_STATUS_INVALID_STATE
         status%msg = "Argument not present and no default value provided"
         return
     end if
 
     call dynamic_cast (ptr_stored, ptr, status)
-    if (status == CL_STATUS_OK) then
+    if (status == FC_STATUS_OK) then
         val = ptr
     else
         select type (ptr_stored)
         type is (character (*))
             val = ptr_stored
-            status = CL_STATUS_OK
+            status = FC_STATUS_OK
         class default
-            status = CL_STATUS_INVALID_STATE
+            status = FC_STATUS_INVALID_STATE
             status%msg = "Argument type incompatible with stored default value"
         end select
     end if
@@ -599,7 +599,7 @@ subroutine argument_parse_array_char (self, val, status)
     integer :: i
 
     nullify (ptr_stored, ptr)
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 
     if (self%is_present) then
         select case (self%action)
@@ -608,15 +608,15 @@ subroutine argument_parse_array_char (self, val, status)
         case default
 
             if (size(val) < self%get_nvals()) then
-                status = CL_STATUS_VALUE_ERROR
+                status = FC_STATUS_VALUE_ERROR
                 status%msg = "Array size insufficient to store value(s)"
                 return
             end if
 
             do i = 1, self%get_nvals()
                 call self%passed_values(i)%parse (val(i), status)
-                if (status /= CL_STATUS_OK) then
-                    status = CL_STATUS_INVALID_STATE
+                if (status /= FC_STATUS_OK) then
+                    status = FC_STATUS_INVALID_STATE
                     status%msg = "Could not convert str to desired type"
                     return
                 end if
@@ -629,21 +629,21 @@ subroutine argument_parse_array_char (self, val, status)
     end if
 
     if (.not. associated(ptr_stored)) then
-        status = CL_STATUS_INVALID_STATE
+        status = FC_STATUS_INVALID_STATE
         status%msg = "Argument not present and no default value provided"
         return
     end if
 
     call dynamic_cast (ptr_stored, ptr, status)
-    if (status == CL_STATUS_OK) then
+    if (status == FC_STATUS_OK) then
         val = ptr
     else
         select type (ptr_stored)
         class is (str)
             val = ptr_stored
-            status = CL_STATUS_OK
+            status = FC_STATUS_OK
         class default
-            status = CL_STATUS_INVALID_STATE
+            status = FC_STATUS_INVALID_STATE
             status%msg = "Argument type incompatible with stored value"
         end select
     end if
@@ -697,7 +697,7 @@ subroutine argument_parse_scalar_str (self, val, status)
     class (*), dimension(:), pointer :: ptr_stored
 
     nullify (ptr_stored)
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 
     if (self%is_present) then
         select case (self%action)
@@ -712,7 +712,7 @@ subroutine argument_parse_scalar_str (self, val, status)
     end if
 
     if (.not. associated(ptr_stored)) then
-        status = CL_STATUS_INVALID_STATE
+        status = FC_STATUS_INVALID_STATE
         status%msg = "Argument not present and no default value provided"
         return
     end if
@@ -720,7 +720,7 @@ subroutine argument_parse_scalar_str (self, val, status)
     ! at this point we need to retrieve and convert the value stored in either
     ! const or default
     call dynamic_cast (ptr_stored, ptr, status)
-    if (status == CL_STATUS_OK) then
+    if (status == FC_STATUS_OK) then
         val = ptr(1)
     else
         ! in case stored data is of type character and return value is of type str,
@@ -728,9 +728,9 @@ subroutine argument_parse_scalar_str (self, val, status)
         select type (ptr_stored)
         type is (character (*))
             val = ptr_stored(1)
-            status = CL_STATUS_OK
+            status = FC_STATUS_OK
         class default
-            status = CL_STATUS_INVALID_STATE
+            status = FC_STATUS_INVALID_STATE
             status%msg = "Argument type incompatible with stored default value"
         end select
     end if
@@ -748,7 +748,7 @@ subroutine argument_parse_scalar_char (self, val, status)
     class (*), dimension(:), pointer :: ptr_stored
 
     nullify (ptr_stored)
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 
     if (self%is_present) then
         select case (self%action)
@@ -763,7 +763,7 @@ subroutine argument_parse_scalar_char (self, val, status)
     end if
 
     if (.not. associated(ptr_stored)) then
-        status = CL_STATUS_INVALID_STATE
+        status = FC_STATUS_INVALID_STATE
         status%msg = "Argument not present and no default value provided"
         return
     end if
@@ -771,7 +771,7 @@ subroutine argument_parse_scalar_char (self, val, status)
     ! at this point we need to retrieve and convert the value stored in either
     ! const or default
     call dynamic_cast (ptr_stored, ptr, status)
-    if (status == CL_STATUS_OK) then
+    if (status == FC_STATUS_OK) then
         val = ptr(1)
     else
         ! in case stored data is of type character and return value is of type str,
@@ -779,9 +779,9 @@ subroutine argument_parse_scalar_char (self, val, status)
         select type (ptr_stored)
         class is (str)
             val = ptr_stored(1)
-            status = CL_STATUS_OK
+            status = FC_STATUS_OK
         class default
-            status = CL_STATUS_INVALID_STATE
+            status = FC_STATUS_INVALID_STATE
             status%msg = "Argument type incompatible with stored value"
         end select
     end if
@@ -796,17 +796,17 @@ pure subroutine argument_parse_check_input_scalar (self, val, status)
     class (*), intent(in) :: val
     type (status_t), intent(out) :: status
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 
     if (self%action == ARGPARSE_ACTION_STORE_CONST) then
         if (size(self%const) > 1) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Array size insufficient to store constant"
             return
         end if
     else if (self%action == ARGPARSE_ACTION_STORE) then
         if (self%get_nvals() > 1) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Array size insufficient to store command line arguments"
             return
         end if
@@ -818,17 +818,17 @@ pure subroutine argument_parse_check_input_array (self, val, status)
     class (*), intent(in), dimension(:) :: val
     type (status_t), intent(out) :: status
 
-    call status%init (CL_STATUS_OK)
+    call status%init (FC_STATUS_OK)
 
     if (self%action == ARGPARSE_ACTION_STORE_CONST) then
         if (size(val) < size(self%const)) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Array size insufficient to store constant"
             return
         end if
     else if (self%action == ARGPARSE_ACTION_STORE) then
         if (size(val) < self%get_nvals()) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Array size insufficient to store command line arguments"
             return
         end if
@@ -878,7 +878,7 @@ subroutine cast_any_to_argument (tgt, ptr, status)
         ptr => tgt
     class default
         if (present(status)) then
-            status = CL_STATUS_UNSUPPORTED_OP
+            status = FC_STATUS_UNSUPPORTED_OP
             status%msg = "Casting to type(argument) not supported"
         end if
     end select

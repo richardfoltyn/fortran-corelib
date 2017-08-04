@@ -545,7 +545,7 @@ subroutine test_split (tests)
     s4 = sep%join (ilist)
     sep = ''
     call s4%split (olist, sep, status=status)
-    call tc%assert_true (status == CL_STATUS_VALUE_ERROR, &
+    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
         "str::split(), empty separator")
     deallocate (ilist)
 
@@ -739,58 +739,58 @@ subroutine test_parse (tests)
     i1 = 123
     s1 = str(i1)
     call s1%parse (i2, status)
-    call tc%assert_true (i1 == i2 .and. status == CL_STATUS_OK, &
+    call tc%assert_true (i1 == i2 .and. status == FC_STATUS_OK, &
         "str::parse(int32)")
 
     i3 = 1234567890
     s1 = str(i3)
     call s1%parse (i4, status)
-    call tc%assert_true (i3 == i4 .and. status == CL_STATUS_OK, &
+    call tc%assert_true (i3 == i4 .and. status == FC_STATUS_OK, &
         "str::parse(int64)")
 
     r1 = 123.123
     s1 = str(r1)
     call s1%parse (r2, status)
-    call tc%assert_true (r1 == r2 .and. status == CL_STATUS_OK, &
+    call tc%assert_true (r1 == r2 .and. status == FC_STATUS_OK, &
         "str::parse(real32)")
 
     r3 = 123.123456789_real64
     s1 = str(r3)
     call s1%parse (r4, status)
-    call tc%assert_true (r3 == r4 .and. status == CL_STATUS_OK, &
+    call tc%assert_true (r3 == r4 .and. status == FC_STATUS_OK, &
         "str::parse(real64)")
 
     s1 = "123"
     call s1%parse (s2, status)
-    call tc%assert_true (s1 == s2 .and. status == CL_STATUS_OK, &
+    call tc%assert_true (s1 == s2 .and. status == FC_STATUS_OK, &
         "str::parse(str)")
 
     ! try with uninitialized string, should parse to empty string
     call s3%parse (s1, status)
-    call tc%assert_true (s1 == "" .and. status == CL_STATUS_OK, &
+    call tc%assert_true (s1 == "" .and. status == FC_STATUS_OK, &
         "str::parse(str), uninitialized string")
 
     s1 = "123"
     call s1%parse (c1, status)
-    call tc%assert_true (s1 == trim(c1) .and. status == CL_STATUS_OK, &
+    call tc%assert_true (s1 == trim(c1) .and. status == FC_STATUS_OK, &
         "str::parse(char)")
 
     ! try with uninitialized string, should parse to empty string
     call s3%parse (c1, status)
-    call tc%assert_true (c1 == "" .and. status == CL_STATUS_OK, &
+    call tc%assert_true (c1 == "" .and. status == FC_STATUS_OK, &
         "str::parse(char), uninitialized string")
 
     ! logical conversion
     l1 = .true.
     s1 = str(l1)
     call s1%parse (l2, status)
-    call tc%assert_true (l1 .eqv. l2 .and. status == CL_STATUS_OK, &
+    call tc%assert_true (l1 .eqv. l2 .and. status == FC_STATUS_OK, &
         "str::parse(logical), true input")
 
     l1 = .false.
     s1 = str(l1)
     call s1%parse (l2, status)
-    call tc%assert_true (l1 .eqv. l2 .and. status == CL_STATUS_OK, &
+    call tc%assert_true (l1 .eqv. l2 .and. status == FC_STATUS_OK, &
         "str::parse(logical), false input")
 
 

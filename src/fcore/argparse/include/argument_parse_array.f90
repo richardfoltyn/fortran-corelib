@@ -8,7 +8,7 @@ integer :: i
 
 nullify (ptr, ptr_stored)
 call status%clear ()
-status = CL_STATUS_OK
+status = FC_STATUS_OK
 
 if (self%is_present) then
     select case (self%action)
@@ -17,15 +17,15 @@ if (self%is_present) then
     case default
 
         if (size(val) < self%get_nvals()) then
-            status = CL_STATUS_VALUE_ERROR
+            status = FC_STATUS_VALUE_ERROR
             status%msg = "Array size insufficient to store value(s)"
             return
         end if
 
         do i = 1, self%get_nvals()
             call self%passed_values(i)%parse (val(i), status)
-            if (status /= CL_STATUS_OK) then
-                status = CL_STATUS_INVALID_STATE
+            if (status /= FC_STATUS_OK) then
+                status = FC_STATUS_INVALID_STATE
                 status%msg = "Could not convert command line argument to requested type"
                 return
             end if
@@ -37,13 +37,13 @@ else if (allocated (self%default)) then
 end if
 
 if (.not. associated(ptr_stored)) then
-    status = CL_STATUS_INVALID_STATE
+    status = FC_STATUS_INVALID_STATE
     status%msg = "Argument not present and no default value provided"
     return
 end if
 
 call dynamic_cast (ptr_stored, ptr, status)
-if (status == CL_STATUS_OK) then
+if (status == FC_STATUS_OK) then
     val = ptr
 else
     status%msg = "Argument type incompatible with stored value"

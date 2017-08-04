@@ -110,9 +110,9 @@ subroutine validate_nonempty_str (val, status)
     type (str), intent(in) :: val
     type (status_t), intent(out) :: status
 
-    status = CL_STATUS_OK
+    status = FC_STATUS_OK
     if(len(val) == 0) then
-        status = CL_STATUS_VALUE_ERROR
+        status = FC_STATUS_VALUE_ERROR
         status%msg = "Invalid value; non-empty string required"
     end if
 end subroutine
