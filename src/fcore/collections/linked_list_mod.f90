@@ -48,8 +48,10 @@ module fcore_collections_linked_list_mod
         procedure, public, pass :: length => list_length
 
         procedure, public, pass :: append => list_append
+        procedure, public, pass :: extend => list_extend
         procedure, public, pass :: remove => list_remove
         procedure, public, pass :: insert => list_insert
+        procedure, public, pass :: clear => list_clear
 
         procedure, public, pass :: item => list_get_item
         procedure, pass :: node => list_get_node
@@ -301,6 +303,23 @@ subroutine list_append(self, item)
 end subroutine
 
 ! *****************************************************************************
+! EXTEND method
+
+subroutine list_extend (self, items)
+    class (linked_list), intent(in out) :: self
+    class (*), intent(in), dimension(:) :: items
+
+    integer :: n, i
+
+    n = size(items)
+
+    do i = 1, n
+        call self%insert (items(i), self%n + 1)
+    end do
+
+end subroutine
+
+! *****************************************************************************
 ! Remove methods
 subroutine list_remove(self, i)
     class (linked_list), intent(in out) :: self
@@ -339,6 +358,32 @@ subroutine list_remove(self, i)
 
 end subroutine
 
+!-------------------------------------------------------------------------------
+! CLEAR method
+
+recursive subroutine list_clear (self)
+    !*  LIST_CLEAR removes all elements contained in the list, deallocating
+    !   any memory used in the process. The list length is reset to zero.
+
+    class (linked_list), intent(in out) :: self
+
+    type (list_node), pointer :: ptr_node, ptr_next
+
+    ! traverse linked list, deallocate each element in turn
+    ptr_node => self%ptr_first
+    do while (associated(ptr_node))
+        ptr_next => ptr_node%ptr_next
+        deallocate (ptr_node)
+        ptr_node => ptr_next
+    end do
+
+    nullify (self%ptr_first)
+    nullify (self%ptr_last)
+
+    self%n = 0
+end subroutine
+
+
 ! *****************************************************************************
 ! LINKED_LIST iter
 
@@ -361,20 +406,7 @@ end subroutine
 recursive subroutine list_finalize (self)
     type (linked_list), intent(in out) :: self
 
-    type (list_node), pointer :: ptr_node, ptr_next
-
-    ! traverse linked list, deallocate each element in turn
-    ptr_node => self%ptr_first
-    do while (associated(ptr_node))
-        ptr_next => ptr_node%ptr_next
-        deallocate (ptr_node)
-        ptr_node => ptr_next
-    end do
-
-    nullify (self%ptr_first)
-    nullify (self%ptr_last)
-
-    self%n = 0
+    call self%clear ()
 end subroutine
 
 ! *****************************************************************************
