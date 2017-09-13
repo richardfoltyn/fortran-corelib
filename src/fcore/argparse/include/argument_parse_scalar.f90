@@ -12,6 +12,8 @@ if (self%is_present) then
     select case (self%action)
     case (ARGPARSE_ACTION_STORE_CONST)
         ptr_stored => self%const
+    case (ARGPARSE_ACTION_TOGGLE)
+        ptr_stored => self%const
     case default
         call self%passed_values(1)%parse (val, status)
 

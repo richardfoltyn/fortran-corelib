@@ -11,6 +11,7 @@ module fcore_argparse_argument
 
     use iso_fortran_env
     use fcore_common
+    use fcore_collections
     use fcore_argparse_actions
 
     implicit none
@@ -19,9 +20,12 @@ module fcore_argparse_argument
     public :: fcn_validator
     public :: dynamic_cast
 
+    character (*), parameter :: ARGUMENT_ACTION_TOGGLE_OFF_PREFIX = 'no'
+
     type, public :: argument
         private
-        type (str), public :: name, abbrev
+        type (linked_list), public :: names
+        type (linked_list), public :: abbrevs
         class (*), dimension(:), allocatable :: default
         class (*), dimension(:), allocatable :: const
         integer (FC_ENUM_KIND), public :: action = ARGPARSE_ACTION_STORE
@@ -38,6 +42,8 @@ module fcore_argparse_argument
         generic, public :: init => init_array
 
         procedure, public, pass :: reset => argument_reset
+
+        procedure, public, pass :: matches => argument_matches
 
         procedure, pass :: set_scalar => argument_set_scalar
         procedure, pass :: set_array => argument_set_array
@@ -112,12 +118,12 @@ contains
 ! ------------------------------------------------------------------------------
 ! Initialization
 
-subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
+subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
         help, status, default, const, validator, allow_empty)
 
     class (argument), intent(in out) :: self
-    class (str), intent(in) :: name
-    class (str), intent(in), optional :: abbrev
+    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:) :: names
+    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:), optional :: abbrevs
     integer (FC_ENUM_KIND), intent(in), optional :: action
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
@@ -128,6 +134,7 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     procedure (fcn_validator), optional :: validator
     logical, intent(in), optional :: allow_empty
 
+    type (str) :: noname
     integer :: laction, lnargs
     logical :: lrequired, supports_arg_values
 
@@ -141,6 +148,17 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     if (present(action)) laction = action
     if (present(nargs)) lnargs = nargs
     if (present(required)) lrequired = required
+
+    if (len(names) == 0) then
+        status = FC_STATUS_VALUE_ERROR
+        status%msg = "No argument name specified"
+        return
+    end if
+
+    call argument_init_check_names (names, status)
+    if (status /= FC_STATUS_OK) return
+    call argument_init_check_names (abbrevs, status)
+    if (status /= FC_STATUS_OK) return
 
     ! Whether action supports user-provided argument values
     supports_arg_values = (laction == ARGPARSE_ACTION_APPEND .or. &
@@ -171,8 +189,19 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
     if (laction == ARGPARSE_ACTION_STORE_CONST) then
         if (.not. present(const)) then
             status = FC_STATUS_VALUE_ERROR
-            status%msg = "Action " // get_action_label (ARGPARSE_ACTION_STORE_CONST) &
+            status%msg = "Action " &
+                // get_action_label (ARGPARSE_ACTION_STORE_CONST) &
                 // " requires 'const' argument"
+            return
+        end if
+    end if
+
+    if (laction == ARGPARSE_ACTION_TOGGLE .and. present(abbrevs)) then
+        if (len(abbrevs) > 0) then
+            status = FC_STATUS_VALUE_ERROR
+            status%msg = "Action " &
+                // get_action_label (ARGPARSE_ACTION_TOGGLE) &
+                // " does not support abbrev. names"
             return
         end if
     end if
@@ -191,6 +220,7 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
             status = FC_STATUS_VALUE_ERROR
             status%msg = "Must not specify 'allow_empty' with action " &
                 // get_action_label (ARGPARSE_ACTION_APPEND)
+            return
         end if
     end if
 
@@ -210,6 +240,14 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
         lnargs = 0
         call self%store_const (const)
         call self%store_default (default)
+    case (ARGPARSE_ACTION_TOGGLE)
+        lnargs = 0
+        ! initialize const value to default, if present
+        if (present(default)) then
+            call self%store_const (default)
+        else
+            call self%store_const (.true.)
+        end if
     case (ARGPARSE_ACTION_APPEND)
         ! this should be guaranteed by input checking above
         lnargs = 1
@@ -218,16 +256,90 @@ subroutine argument_init_array (self, name, abbrev, action, required, nargs, &
         call self%store_default (default)
     end select
 
-    self%name = name
+    call self%names%clear ()
+    call self%names%extend (names)
+
     self%action = laction
     self%nargs = lnargs
     self%required = lrequired
 
     ! Attributes that are independent of anything else
-    if (present(abbrev)) self%abbrev = abbrev
+    if (present(abbrevs)) then
+        call self%abbrevs%clear ()
+        call self%abbrevs%extend (aliases)
+    end if
+
     if (present(help)) self%help = help
     if (present(validator)) self%validator => validator
     if (present(allow_empty)) self%allow_empty = allow_empty
+
+end subroutine
+
+subroutine argument_init_check_args (names, abbrevs, action, required, nargs, &
+        help, status, default, const, validator, allow_empty)
+
+    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:) :: names
+    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:), optional :: abbrevs
+    integer (FC_ENUM_KIND), intent(in) :: action
+    logical, intent(in), optional :: required
+    integer, intent(in), optional :: nargs
+    class (str), intent(in), optional :: help
+    class (*), intent(in), dimension(:), optional :: default
+    type (status_t), intent(out) :: status
+    class (*), intent(in), dimension(:), optional :: const
+    procedure (fcn_validator), optional :: validator
+    logical, intent(in), optional :: allow_empty
+
+    type (str) :: invalid_arg
+    
+    status = FC_STATUS_VALUE_ERROR
+    
+    if (len(names) == 0) then
+        status = FC_STATUS_VALUE_ERROR
+        status%msg = "No argument name specified"
+        goto 100
+    end if
+
+    call argument_init_check_names (names, status)
+    if (status /= FC_STATUS_OK) goto 100
+    call argument_init_check_names (abbrevs, status)
+    if (status /= FC_STATUS_OK) goto 100
+
+    select case (action)
+    case (ARGPARSE_ACTION_STORE_TRUE)
+        if (present(nargs)) then
+            invalid_arg = "nargs"
+            goto 100
+        end if
+    end select
+
+    status = FC_STATUS_OK
+    return
+
+100 continue
+    
+
+end subroutine
+
+subroutine argument_init_assert_not_present (arg, 
+
+subroutine argument_init_check_names (names, status)
+    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:), optional :: names
+    type (status_t), intent(out) :: status
+
+    integer :: i
+
+    status = FC_STATUS_OK
+
+    if (present(names) then
+        do i = 1, size(names)
+            if (len(names(i)) == 0) then
+                status = FC_STATUS_VALUE_ERROR
+                status%msg = "Empty argument names not permitted"
+                return
+            end if
+        end do
+    end if
 
 end subroutine
 
@@ -294,11 +406,12 @@ end subroutine
 ! ------------------------------------------------------------------------------
 ! SET methods
 
-subroutine argument_set_scalar (self, val, status)
+subroutine argument_set_scalar (self, name, val, status)
     !*  ARGUMENT_SET_SCALAR is a wrapper around ARGUMENT_SET_ARRAY
     !   for scalar command line argument values.
 
     class (argument), intent(in out) :: self
+    type (str), intent(in) :: name
     type (str), intent(in) :: val
     type (status_t), intent(out), optional :: status
 
@@ -306,10 +419,10 @@ subroutine argument_set_scalar (self, val, status)
 
     allocate (work(1))
     work(1) = val
-    call self%set (work, status)
+    call self%set (name, work, status)
 end subroutine
 
-subroutine argument_set_array (self, val, status)
+subroutine argument_set_array (self, name, val, status)
     !*  ARGUMENT_SET_ARRAY stores any command line arguments passed
     !   in as values to this argument instance. Performs input
     !   validation if requested.
@@ -319,12 +432,35 @@ subroutine argument_set_array (self, val, status)
     !   not known at this point.
 
     class (argument), intent(in out) :: self
+    type (str), intent(in) :: name
     type (str), intent(in), dimension(:), optional :: val
     type (status_t), intent(out), optional :: status
 
+    type (str) :: noname
     type (status_t) :: lstatus
+    class (iterator), allocatable :: iter
+    class (str), pointer :: ptr_name
+    class (*), pointer :: ptr_item
 
     lstatus = FC_STATUS_OK
+
+    if (self%action == ARGPARSE_ACTION_TOGGLE) then
+        call self%names%get_iter (iter)
+        do while (iter%has_next())
+            ptr_item => iter%item()
+
+            call dynamic_cast (ptr_item, ptr_name)
+
+            noname = argument_get_toggle_off_name (ptr_name)
+            if (name == noname) then
+                call self%store_const (.false.)
+                exit
+            else if (name == ptr_name) then
+                call self%store_const (.true.)
+                exit
+            end if
+        end do
+    end if
 
     ! Note: no further code needed to deal with ACTION_STORE_CONST,
     ! will automatically read the default or stored const value when
@@ -415,8 +551,62 @@ subroutine argument_process_cmd_value (self, val, status)
 100 continue
 end subroutine
 
+
 ! ------------------------------------------------------------------------------
-! PARSE dispatched methods
+! MATCHES method
+
+function argument_matches (self, name, abbrev) result(res)
+    class (argument), intent(in) :: self
+    class (str), intent(in) :: name
+    logical, intent(in), optional :: abbrev
+    logical :: res
+
+    logical :: labbrev
+
+    class (iterator), allocatable :: iter
+    class (str), pointer :: ptr_str
+    class (*), pointer :: ptr_item
+
+    res = .false.
+
+    labbrev = .false.
+    if (present(abbrev)) labbrev = abbrev
+
+    call self%names%get_iter (iter)
+
+    do while (iter%has_next())
+        ptr_item => iter%item()
+        call dynamic_cast (ptr_item, ptr_str)
+
+        if (ptr_str == name) then
+            res = .true.
+            return
+        end if
+        nullify (ptr_item, ptr_str)
+    end do
+
+    deallocate (iter)
+
+    call self%abbrevs%get_iter (iter)
+
+    do while (iter%has_next())
+        ptr_item => iter%item()
+        call dynamic_cast (ptr_item, ptr_str)
+
+        if (ptr_str == name) then
+            res = .true.
+            return
+        end if
+        nullify (ptr_item, ptr_str)
+    end do
+
+    deallocate (iter)
+
+end function
+
+
+! ------------------------------------------------------------------------------
+! PARSE dispatch methods
 
 subroutine argument_parse_array (self, val, status)
     class (argument), intent(in) :: self
@@ -863,6 +1053,15 @@ pure function argument_get_nvals (self) result(res)
     else
         if (allocated (self%default)) res = size(self%default)
     end if
+end function
+
+
+function argument_get_toggle_off_name (name) result(res)
+    class (str), intent(in) :: name
+    type (str) :: res
+
+    res = ARGUMENT_ACTION_TOGGLE_OFF_PREFIX // '-' // name
+
 end function
 
 ! ------------------------------------------------------------------------------

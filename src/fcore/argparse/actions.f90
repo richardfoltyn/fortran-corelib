@@ -12,6 +12,7 @@ module fcore_argparse_actions
     integer (FC_ENUM_KIND), public, parameter :: ARGPARSE_ACTION_STORE_FALSE = 2
     integer (FC_ENUM_KIND), public, parameter :: ARGPARSE_ACTION_STORE_CONST = 4
     integer (FC_ENUM_KIND), public, parameter :: ARGPARSE_ACTION_APPEND = 8
+    integer (FC_ENUM_KIND), public, parameter :: ARGPARSE_ACTION_TOGGLE = 16
 
 contains
 
@@ -26,6 +27,8 @@ pure function get_action_label (code) result(res)
         res = "STORE_TRUE"
     case (ARGPARSE_ACTION_STORE_FALSE)
         res = "STORE_FALSE"
+    case (ARGPARSE_ACTION_TOGGLE)
+        res = "TOGGLE"
     case (ARGPARSE_ACTION_STORE_CONST)
         res = "STORE_CONST"
     case (ARGPARSE_ACTION_APPEND)
