@@ -11,6 +11,7 @@ module fcore_argparse_argument
 
     use iso_fortran_env
     use fcore_common
+    use fcore_common_input_validation
     use fcore_collections
     use fcore_argparse_actions
 
@@ -134,7 +135,6 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
     procedure (fcn_validator), optional :: validator
     logical, intent(in), optional :: allow_empty
 
-    type (str) :: noname
     integer :: laction, lnargs
     logical :: lrequired, supports_arg_values
 
@@ -149,7 +149,7 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
     if (present(nargs)) lnargs = nargs
     if (present(required)) lrequired = required
 
-    if (len(names) == 0) then
+    if (size(names) == 0) then
         status = FC_STATUS_VALUE_ERROR
         status%msg = "No argument name specified"
         return
@@ -197,7 +197,7 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
     end if
 
     if (laction == ARGPARSE_ACTION_TOGGLE .and. present(abbrevs)) then
-        if (len(abbrevs) > 0) then
+        if (size(abbrevs) > 0) then
             status = FC_STATUS_VALUE_ERROR
             status%msg = "Action " &
                 // get_action_label (ARGPARSE_ACTION_TOGGLE) &
@@ -266,7 +266,7 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
     ! Attributes that are independent of anything else
     if (present(abbrevs)) then
         call self%abbrevs%clear ()
-        call self%abbrevs%extend (aliases)
+        call self%abbrevs%extend (abbrevs)
     end if
 
     if (present(help)) self%help = help
@@ -275,53 +275,6 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
 
 end subroutine
 
-subroutine argument_init_check_args (names, abbrevs, action, required, nargs, &
-        help, status, default, const, validator, allow_empty)
-
-    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:) :: names
-    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:), optional :: abbrevs
-    integer (FC_ENUM_KIND), intent(in) :: action
-    logical, intent(in), optional :: required
-    integer, intent(in), optional :: nargs
-    class (str), intent(in), optional :: help
-    class (*), intent(in), dimension(:), optional :: default
-    type (status_t), intent(out) :: status
-    class (*), intent(in), dimension(:), optional :: const
-    procedure (fcn_validator), optional :: validator
-    logical, intent(in), optional :: allow_empty
-
-    type (str) :: invalid_arg
-    
-    status = FC_STATUS_VALUE_ERROR
-    
-    if (len(names) == 0) then
-        status = FC_STATUS_VALUE_ERROR
-        status%msg = "No argument name specified"
-        goto 100
-    end if
-
-    call argument_init_check_names (names, status)
-    if (status /= FC_STATUS_OK) goto 100
-    call argument_init_check_names (abbrevs, status)
-    if (status /= FC_STATUS_OK) goto 100
-
-    select case (action)
-    case (ARGPARSE_ACTION_STORE_TRUE)
-        if (present(nargs)) then
-            invalid_arg = "nargs"
-            goto 100
-        end if
-    end select
-
-    status = FC_STATUS_OK
-    return
-
-100 continue
-    
-
-end subroutine
-
-subroutine argument_init_assert_not_present (arg, 
 
 subroutine argument_init_check_names (names, status)
     _POLYMORPHIC_ARRAY(str), intent(in), dimension(:), optional :: names
@@ -331,7 +284,7 @@ subroutine argument_init_check_names (names, status)
 
     status = FC_STATUS_OK
 
-    if (present(names) then
+    if (present(names)) then
         do i = 1, size(names)
             if (len(names(i)) == 0) then
                 status = FC_STATUS_VALUE_ERROR

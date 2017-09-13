@@ -8,6 +8,7 @@ set(SOURCE_FILES
     common.f90
     constants.f90
     base_types.F90
+    input_validation.F90
 )
 
 include_directories(${${PROJECT_NAME}_MODDIR})
