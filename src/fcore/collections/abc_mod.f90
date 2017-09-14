@@ -6,6 +6,9 @@ module fcore_collections_abc_mod
     implicit none
     private
 
+    public :: collection, iterator
+    public :: len, size
+
     type, abstract :: collection
     contains
         procedure (iface_iter), deferred, public, pass :: get_iter
@@ -58,8 +61,9 @@ module fcore_collections_abc_mod
         module procedure len_collection
     end interface
 
-    public :: collection, iterator
-    public :: len
+    interface size
+        module procedure len_collection
+    end interface
 
 contains
 
