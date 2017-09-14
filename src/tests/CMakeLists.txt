@@ -4,6 +4,7 @@
 # Components which have unit tests
 list(APPEND COMPONENTS
     argparse
+    collections
     common
 )
 
