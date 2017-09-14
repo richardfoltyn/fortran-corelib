@@ -11,5 +11,6 @@ module fcore_common_constants
     integer (FC_ENUM_KIND), public, parameter :: FC_STATUS_INVALID_STATE = ishft(1, 13)
     integer (FC_ENUM_KIND), public, parameter :: FC_STATUS_TYPE_ERROR = ishft(1, 14)
     integer (FC_ENUM_KIND), public, parameter :: FC_STATUS_STORAGE_ERROR = ishft(1, 18)
+    integer (FC_ENUM_KIND), public, parameter :: FC_STATUS_NOT_ASSOCIATED = ishft(1, 19)
 
 end module

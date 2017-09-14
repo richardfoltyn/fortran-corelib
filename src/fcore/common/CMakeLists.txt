@@ -9,6 +9,7 @@ set(SOURCE_FILES
     constants.f90
     base_types.F90
     input_validation.F90
+    status_helpers.F90
 )
 
 include_directories(${${PROJECT_NAME}_MODDIR})
