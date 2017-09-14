@@ -38,10 +38,6 @@ module fcore_argparse_parser
     ! seperator used to split a list of arguments into individual tokens
     character (1), parameter :: LIST_SEP = ','
 
-    ! placeholder to be used if user does not specify an abbreviated argument name
-    ! Note that names and abbrevs are required to be alpha-numeric, so
-    ! this can never be a valid user-given value.
-    character (1), parameter :: UNDEFINED_ABBREV = '-'
     character (*), parameter :: UNMAPPED_ARG_NAME = '::UNMAPPED'
 
     character (*), parameter :: HELP_ARGNAME = "help"
@@ -76,6 +72,8 @@ module fcore_argparse_parser
 
         procedure, public, pass :: reset => argparser_reset
         procedure, pass :: reset_args => argparser_reset_args
+
+        procedure, pass :: check_arg_exists => argparser_check_arg_exists
 
         procedure, pass :: argparser_get_array_str
         procedure, pass :: argparser_get_scalar_str
@@ -132,6 +130,14 @@ module fcore_argparse_parser
         module procedure argparser_len
     end interface
 
+    interface sanitize_argument_text
+        module procedure sanitize_argument_text_str, sanitize_argument_text_char
+    end interface
+
+    interface sanitize_argument_data
+        module procedure sanitize_argument_data_array, sanitize_argument_data_scalar
+    end interface
+
     public :: len
 
 contains
@@ -151,6 +157,8 @@ subroutine argparser_init_str (self, description, progname)
     integer :: cmd_len, cmd_status
     character (:), allocatable :: cmd_value
     character (0) :: dummy
+
+    type (str), dimension(1) :: names, abbrevs
 
     call self%reset ()
 
@@ -173,16 +181,17 @@ subroutine argparser_init_str (self, description, progname)
 
     ! Add "fake" argument object that will be used to store all unmapped
     ! command line arguments.
-    name = str(UNMAPPED_ARG_NAME)
-    call arg%init (name=name, action=ARGPARSE_ACTION_APPEND, status=status, &
+    names(1) = str(UNMAPPED_ARG_NAME)
+    call arg%init (names, action=ARGPARSE_ACTION_APPEND, status=status, &
         allow_empty=.true.)
 
     call self%append (arg)
 
-    ! Add "built-in" argument --help that displays help text
+    ! Add "built-in" argument --help/-h that displays help text
     help_text = "Display this help message"
-    call arg%init (name=str(HELP_ARGNAME), abbrev=str(HELP_ABBREV), &
-        action=ARGPARSE_ACTION_STORE_TRUE, &
+    names(1) = HELP_ARGNAME
+    abbrevs(1) = HELP_ABBREV
+    call arg%init (names, abbrevs, action=ARGPARSE_ACTION_STORE_TRUE, &
         help=help_text, status=status)
     call self%append (arg)
 
@@ -275,19 +284,26 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     type (argument) :: arg
     type (status_t) :: lstatus
 
+    type (str), dimension(1) :: names
+    type (str), allocatable, dimension(:) :: abbrevs
+
     nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
-    call sanitize_argument_data_array (default, ptr_default)
+    call sanitize_argument_text (name, abbrev, help, names, abbrevs)
+    call sanitize_argument_data (default, ptr_default)
+
+    call self%check_arg_exists (names, abbrevs, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     if (present(const)) then
-        call sanitize_argument_data_array (const, ptr_const)
-        call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+        call sanitize_argument_data (const, ptr_const)
+        call arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
             ptr_default, ptr_const, validator=validator)
     else
-        call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+        call arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
             ptr_default, validator=validator)
     end if
 
@@ -322,10 +338,15 @@ subroutine argparser_add_argument_str (self, name, abbrev, &
     type (argument) :: arg
     type (status_t) :: lstatus
 
+    type (str), dimension(1) :: names
+    type (str), allocatable, dimension(:) :: abbrevs
+
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
-    call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+    call sanitize_argument_text (name, abbrev, help, names, abbrevs)
+
+    call arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
         validator=validator)
 
     call process_argument_status (name, lstatus)
@@ -358,19 +379,26 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     type (status_t) :: lstatus
     class (*), dimension(:), pointer :: ptr_default, ptr_const
 
+    type (str), dimension(1) :: names
+    type (str), allocatable, dimension(:) :: abbrevs
+
     nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
-    call sanitize_argument_data_scalar (default, ptr_default)
+    call sanitize_argument_text (name, abbrev, help, names, abbrevs)
+    call sanitize_argument_data (default, ptr_default)
+
+    call self%check_arg_exists (names, abbrevs, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     if (present(const)) then
-        call sanitize_argument_data_scalar (const, ptr_const)
-        call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+        call sanitize_argument_data (const, ptr_const)
+        call arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
             ptr_default, ptr_const, validator=validator)
     else
-        call arg%init (name, abbrev, action, required, nargs, help, lstatus, &
+        call arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
             ptr_default, validator=validator)
     end if
 
@@ -403,29 +431,35 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     class (*), intent(in) :: default
     class (*), intent(in), optional :: const
 
-    type (str) :: lhelp, labbrev, lname
+    type (str) :: lhelp
     type (argument) :: arg
     type (status_t) :: lstatus
     class (*), dimension(:), pointer :: ptr_const, ptr_default
+
+    type (str), dimension(1) :: names
+    type (str), allocatable, dimension(:) :: abbrevs
 
     nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
-    call char_to_str_input (name, abbrev, help, lname, labbrev, lhelp)
-    call sanitize_argument_data_scalar (default, ptr_default)
+    call sanitize_argument_text (name, abbrev, help, names, abbrevs, lhelp)
+    call sanitize_argument_data (default, ptr_default)
+
+    call self%check_arg_exists (names, abbrevs, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     if (present(const)) then
-        call sanitize_argument_data_scalar (const, ptr_const)
-        call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
+        call sanitize_argument_data (const, ptr_const)
+        call arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
             ptr_default, ptr_const, validator=validator)
     else
-        call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
+        call arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
             ptr_default, validator=validator)
     end if
 
-    call process_argument_status (lname, lstatus)
+    call process_argument_status (names(1), lstatus)
     if (lstatus == FC_STATUS_OK) call self%append (arg)
 
 100 continue
@@ -455,28 +489,34 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
 
     class (*), dimension(:), pointer :: ptr_default, ptr_const
 
-    type (str) :: lhelp, labbrev, lname
+    type (str) :: lhelp
     type (argument) :: arg
     type (status_t) :: lstatus
+
+    type (str), dimension(1) :: names
+    type (str), allocatable, dimension(:) :: abbrevs
 
     nullify (ptr_default, ptr_const)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
-    call char_to_str_input (name, abbrev, help, lname, labbrev, lhelp)
-    call sanitize_argument_data_array (default, ptr_default)
+    call sanitize_argument_text (name, abbrev, help, names, abbrevs, lhelp)
+    call sanitize_argument_data (default, ptr_default)
+
+    call self%check_arg_exists (names, abbrevs, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
 
     if (present(const)) then
-        call sanitize_argument_data_array (const, ptr_const)
-        call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
+        call sanitize_argument_data (const, ptr_const)
+        call arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
             ptr_default, ptr_const, validator=validator)
     else
-        call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
+        call arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
             ptr_default, validator=validator)
     end if
 
-    call process_argument_status (lname, lstatus)
+    call process_argument_status (names(1), lstatus)
     if (lstatus == FC_STATUS_OK) call self%append (arg)
 
 100 continue
@@ -504,19 +544,25 @@ subroutine argparser_add_argument_char (self, name, abbrev, action, &
     type (status_t), intent(out), optional :: status
     procedure (fcn_validator), optional :: validator
 
-    type (str) :: lhelp, labbrev, lname
+    type (str) :: lhelp
     type (argument) :: arg
     type (status_t) :: lstatus
+
+    type (str), dimension(1) :: names
+    type (str), allocatable, dimension(:) :: abbrevs
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
-    call char_to_str_input (name, abbrev, help, lname, labbrev, lhelp)
+    call sanitize_argument_text (name, abbrev, help, names, abbrevs, lhelp)
 
-    call arg%init (lname, labbrev, action, required, nargs, lhelp, lstatus, &
+    call self%check_arg_exists (names, abbrevs, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
+
+    call arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
         validator=validator)
 
-    call process_argument_status (lname, lstatus)
+    call process_argument_status (names(1), lstatus)
     if (lstatus == FC_STATUS_OK) call self%append (arg)
 
 100 continue
@@ -596,18 +642,52 @@ subroutine dealloc_argument_data_array (src, ptr)
 end subroutine
 
 
-subroutine char_to_str_input (cname, cabbrev, chelp, name, abbrev, help)
-    !*  CHAR_TO_STR_INPUT converts user-given character-type argument meta-data
-    !   name/abbrev/etc. to str values.
-    character (*), intent(in) :: cname
-    character (*), intent(in), optional :: cabbrev, chelp
-    type (str), intent(out) :: name, abbrev, help
+subroutine sanitize_argument_text_str (name, abbrev, help, names, abbrevs)
+    !*  SANITIZE_ARGUMENT_TEXT_STR converts user-provided text arguments
+    !   such as name, abbrev into data that can be passed to ARGUMENT's
+    !   INIT method.
+    class (str), intent(in) :: name
+    class (str), intent(in), optional :: abbrev
+    class (str), intent(in) :: help
+        !*  Help string. Unchanged for the 'str' routine, provided for 
+        !   API compatibility with 'character' routine.
+    type (str), intent(in out), dimension(:) :: names
+    type (str), intent(in out), dimension(:), allocatable :: abbrevs
 
-    name = trim(cname)
-    abbrev = str(UNDEFINED_ABBREV)
-    if (present(cabbrev)) abbrev = trim(cabbrev)
-    help = ""
-    if (present(chelp)) help = trim(chelp)
+    names(1) = name
+    if (allocated(abbrevs)) deallocate(abbrevs)
+    if (present(abbrev)) then
+        allocate (abbrevs(1))
+        abbrevs(1) = abbrev
+    else
+        allocate (abbrevs(0))
+    end if
+
+end subroutine
+
+
+subroutine sanitize_argument_text_char (name, abbrev, help, names, abbrevs, help_str)
+    !*  SANITIZE_ARGUMENT_TEXT_CHAR converts user-provided text arguments
+    !   such as name, abbrev into data that can be passed to ARGUMENT's
+    !   INIT method.
+    character (*), intent(in) :: name
+    character (*), intent(in), optional :: abbrev
+    type (str), intent(in out), dimension(:) :: names
+    type (str), intent(in out), dimension(:), allocatable :: abbrevs
+    character (*), intent(in), optional :: help
+    type (str), intent(out) :: help_str
+
+    names(1) = trim(name)
+    if (allocated(abbrevs)) deallocate(abbrevs)
+    if (present(abbrev)) then
+        allocate (abbrevs(1))
+        abbrevs(1) = trim(abbrev)
+    else
+        allocate (abbrevs(0))
+    end if
+
+    help_str = ""
+    if (present(help)) help_str = trim(help)
 
 end subroutine
 
@@ -773,6 +853,49 @@ subroutine validate_action (action, status)
     case default
         status = FC_STATUS_VALUE_ERROR
     end select
+end subroutine
+
+
+subroutine argparser_check_arg_exists (self, names, abbrevs, status)
+    !*  ARGPARSER_CHECK_ARG_EXISTS checks whether an argument with
+    !   given names or abbreviations is already defined.
+
+    class (argparser), intent(in) :: self
+    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:) :: names
+        !*  List of argument names to check
+    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:) :: abbrevs
+        !*  List of abbrev. argument names to check
+    type (status_t), intent(in out) :: status
+        !*  Status. If argument is not defined, status code is set to
+        !   FC_STATUS_OK, otherwise to FC_STATUS_INVALID_STATE.
+
+    integer :: i
+    class (argument), pointer :: ptr_arg
+
+    call status%init (FC_STATUS_OK)
+
+    do i = 1, size(names)
+        call self%find_arg (names(i), ptr_arg, status)
+        if (status == FC_STATUS_OK) then
+            status%msg = "Argument '--" // names(i) // "' already defined"
+            goto 100
+        end if
+    end do
+
+    do i = 1, size(abbrevs)
+        call self%find_arg (abbrevs(i), ptr_arg, status, is_abbrev=.true.)
+        if (status == FC_STATUS_OK) then
+            status%msg = "Argument '-" // abbrevs(i) // "' already defined"
+            goto 100
+        end if
+    end do
+
+    return
+
+100 continue
+
+    ! Error handling if argument already exists
+    status = FC_STATUS_INVALID_STATE
 end subroutine
 
 ! ------------------------------------------------------------------------------
@@ -987,7 +1110,7 @@ subroutine argparser_find_arg (self, name, ptr_arg, status, is_abbrev)
     class (iterator), allocatable :: iter
     class (*), pointer :: ptr_item
 
-    logical :: lis_abbrev
+    logical :: lis_abbrev, found
 
     lis_abbrev = .false.
     if (present(is_abbrev)) lis_abbrev = is_abbrev
@@ -1012,14 +1135,17 @@ subroutine argparser_find_arg (self, name, ptr_arg, status, is_abbrev)
         ! objects
         call dynamic_cast (ptr_item, ptr_arg)
 
-        if (lis_abbrev) then
-            if (ptr_arg%abbrev == name) exit
-        else
-            if (ptr_arg%name == name) exit
-        end if
+        ! If name or abbrev. matches, exit routine, leaving
+        ! ptr_arg pointing to current argument object
+        found = ptr_arg%matches (name, lis_abbrev)
+        if (found) goto 100
+
         nullify (ptr_arg)
     end do
 
+100 continue
+
+    ! Set status on exit
     if (present(status)) then
         call status%init (FC_STATUS_OK)
         if (.not. associated (ptr_arg)) then
@@ -1029,6 +1155,8 @@ subroutine argparser_find_arg (self, name, ptr_arg, status, is_abbrev)
     end if
 
 end subroutine
+
+
 
 ! ------------------------------------------------------------------------------
 ! IS_DEFINED method
@@ -1300,24 +1428,24 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
     ! At this point, this single value is stored in cmd_values(1).
     if (allocated (cmd_values) .and. ptr_arg%nargs /= 1) then
         status = ARGPARSE_STATUS_PARSE_ERROR
-        status%msg = "Argument '" // ptr_arg%name // &
+        status%msg = "Argument '" // cmd_name // &
             "': received one argument value, expected " // str(ptr_arg%nargs)
         goto 200
     end if
 
     ! store command line arguments in argument object
     if (allocated (cmd_values)) then
-        call ptr_arg%set (cmd_values, status)
+        call ptr_arg%set (cmd_name, cmd_values, status)
         if (status /= FC_STATUS_OK) goto 100
     else
         ! collect the number of requested arguments from the following commands
         ! This also supports collecting 0 values (e.g. if action is
         ! STORE_CONST), then cmd_values is allocated to cmd_values(1:0).
-        call self%collect_values (cmd_args, offset, ptr_arg, cmd_values, status)
+        call self%collect_values (cmd_name, cmd_args, offset, ptr_arg, cmd_values, status)
         if (status /= FC_STATUS_OK) goto 100
 
         ! store command line arguments in argument object
-        call ptr_arg%set (cmd_values, status)
+        call ptr_arg%set (cmd_name, cmd_values, status)
         if (status /= FC_STATUS_OK) goto 100
 
         ! skip the next nargs arguments, those were used as values
@@ -1371,22 +1499,22 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
             ! cannot satisfy any positive number of values for abbrev.
             ! arguments that are not the last character
             status = FC_STATUS_INVALID_STATE
-            status%msg = "Argument '" // ptr_arg%name  // "': expected " // &
+            status%msg = "Argument '" // cmd_name  // "': expected " // &
                 str(ptr_arg%nargs) // " arguments, found 0"
             goto 200
         else if (ptr_arg%nargs == 0) then
             ! can safely discard the status argument return value if
             ! no user-provided data is present, as nothing can go wrong.
-            call ptr_arg%set (status=status)
+            call ptr_arg%set (name=cmd_name, status=status)
             if (status /= FC_STATUS_OK) goto 100
         else if (ptr_arg%nargs > 0) then
             ! need to collect argument values
-            call self%collect_values (cmd_args, offset, ptr_arg, &
+            call self%collect_values (cmd_name, cmd_args, offset, ptr_arg, &
                 cmd_values, status)
             if (status /= FC_STATUS_OK) goto 100
 
             ! store command line arguments in argument object
-            call ptr_arg%set (cmd_values, status)
+            call ptr_arg%set (cmd_name, cmd_values, status)
             if (status /= FC_STATUS_OK) goto 100
 
             ! skip the next nargs arguments, those were used as values
@@ -1409,10 +1537,12 @@ subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
     ! Note: none required at this point.
 end subroutine
 
-subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
+subroutine argparser_collect_values (self, cmd_name, cmd_args, offset, ptr_arg, &
         cmd_values, status)
 
     class (argparser), intent(in out) :: self
+    class (str), intent(in) :: cmd_name
+        !*  Argument name, as specified by user on CLI
     _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
     integer, intent(in) :: offset
     class (argument), intent(in), pointer :: ptr_arg
@@ -1432,7 +1562,7 @@ subroutine argparser_collect_values (self, cmd_args, offset, ptr_arg, &
         ! check that the number of command line arguments is not too low
         if (offset + j > cmd_nargs) then
             status = FC_STATUS_INVALID_STATE
-            status%msg = "Argument '" // ptr_arg%name  // "': expected " // &
+            status%msg = "Argument '" // cmd_name  // "': expected " // &
                 str(ptr_arg%nargs) // " arguments, found " // str(j-1)
             return
         end if
@@ -1537,9 +1667,10 @@ subroutine argparser_print_help (self)
 
     class (argparser), intent(in) :: self
 
-    class (iterator), allocatable :: iter
-    class (*), pointer :: ptr_item
+    class (iterator), allocatable :: iter, iter_name
+    class (*), pointer :: ptr_item, ptr_name
     class (argument), pointer :: ptr_arg
+    class (str), pointer :: ptr_str
 
     type (str) :: progname, name, abbrev, help, line, help_line
     type (str) :: fmt_first_text, fmt_first_arg, fmt_cont, fmt_first_text_pos
@@ -1580,28 +1711,57 @@ subroutine argparser_print_help (self)
         ptr_item => iter%item ()
         call dynamic_cast (ptr_item, ptr_arg)
 
-        name = ptr_arg%name
-
+        name = ptr_arg%get_name ()
         if (name == UNMAPPED_ARG_NAME) cycle
 
-        abbrev = ptr_arg%abbrev
         help = ptr_arg%help
         nargs = ptr_arg%nargs
 
         line = ""
-        if (len(abbrev) > 0 .and. abbrev /= UNDEFINED_ABBREV) then
-            line = "-" // abbrev
-            if (nargs >= 1) then
-                line = line // " <value>"
+        call ptr_arg%abbrevs%get_iter (iter_name)
+        do while (iter_name%has_next())
+            ptr_name => iter%item ()
+            call dynamic_cast (ptr_name, ptr_str)
+
+            abbrev = ptr_str
+            if (len(abbrev) > 0) then
+                line = "-" // abbrev
+                if (nargs >= 1) then
+                    line = line // " <value>"
+                end if
+                line = line // ", "
             end if
-            line = line // ", "
-        end if
+            
+            nullify (ptr_name, ptr_str)
+        end do
 
-        line = line // "--" // name
-        if (nargs >= 1) then
-            line = line // "=<value>"
-        end if
+        deallocate (iter_name)
 
+        ! Append long names (incl. aliases)
+        call ptr_arg%abbrevs%get_iter (iter_name)
+        do while (iter_name%has_next())
+            ptr_name => iter%item ()
+            call dynamic_cast (ptr_name, ptr_str)
+
+            name = ptr_str
+            if (len(name) > 0) then
+                line = "--" // name
+                if (nargs >= 1) then
+                    line = line // "=<value>"
+                end if
+                line = line // ", "
+
+                ! Append TOGGLE prefix if applicable
+                if (ptr_arg%action == ARGPARSE_ACTION_TOGGLE) then
+                    name = ptr_arg%get_toggle_off_name (name)
+                    line = line // "--" // name // ", "
+                end if
+            end if
+            
+            nullify (ptr_name, ptr_str)
+        end do
+
+        ! Adjust text to desired line length
         if (len(line) < LINEWIDTH - INDENT - PAD_WIDTH - FIRST_MIN_TW) then
             ! Plot argument abbrev, name and (first fragment of) help text.
             ifrom = 1

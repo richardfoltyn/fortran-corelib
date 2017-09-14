@@ -100,6 +100,9 @@ module fcore_argparse_argument
 
         procedure, pass :: get_nvals => argument_get_nvals
 
+        procedure, public, pass :: get_name => argument_get_name
+        procedure, public, nopass :: get_toggle_off_name => argument_get_toggle_off_name
+
     end type
 
     interface dynamic_cast
@@ -136,7 +139,7 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
     logical, intent(in), optional :: allow_empty
 
     integer :: laction, lnargs
-    logical :: lrequired, supports_arg_values
+    logical :: lrequired
 
     ! default values
     call status%init (FC_STATUS_OK)
@@ -149,80 +152,11 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
     if (present(nargs)) lnargs = nargs
     if (present(required)) lrequired = required
 
-    if (size(names) == 0) then
-        status = FC_STATUS_VALUE_ERROR
-        status%msg = "No argument name specified"
-        return
-    end if
-
-    call argument_init_check_names (names, status)
-    if (status /= FC_STATUS_OK) return
-    call argument_init_check_names (abbrevs, status)
-    if (status /= FC_STATUS_OK) return
-
-    ! Whether action supports user-provided argument values
-    supports_arg_values = (laction == ARGPARSE_ACTION_APPEND .or. &
-        laction == ARGPARSE_ACTION_STORE)
-
-    ! Input validation: check before modifying argument object
-    if (present(nargs)) then
-        ! if action is APPEND we do not allow to specify number of nargs.
-        ! In this case nargs must be 1, as argument::set() is assumed to be
-        ! called for each instance of argument encountered.
-        if (laction == ARGPARSE_ACTION_APPEND) then
-            status = FC_STATUS_VALUE_ERROR
-            status%msg = "Must not specify 'nargs' with action " &
-                // get_action_label (ARGPARSE_ACTION_APPEND)
-            return
-        else if (present(default)) then
-            ! Consistency of nargs and length of default array: assert these are
-            ! of same length only if action is not APPEND
-            if (size(default) /= nargs) then
-                status = FC_STATUS_VALUE_ERROR
-                status%msg = "Default array size must be identical to nargs"
-                return
-            end if
-        end if
-    end if
-
-    ! require constant to be present and have the right array size
-    if (laction == ARGPARSE_ACTION_STORE_CONST) then
-        if (.not. present(const)) then
-            status = FC_STATUS_VALUE_ERROR
-            status%msg = "Action " &
-                // get_action_label (ARGPARSE_ACTION_STORE_CONST) &
-                // " requires 'const' argument"
-            return
-        end if
-    end if
-
-    if (laction == ARGPARSE_ACTION_TOGGLE .and. present(abbrevs)) then
-        if (size(abbrevs) > 0) then
-            status = FC_STATUS_VALUE_ERROR
-            status%msg = "Action " &
-                // get_action_label (ARGPARSE_ACTION_TOGGLE) &
-                // " does not support abbrev. names"
-            return
-        end if
-    end if
-
-    ! Validators are only supported for actions that let users actually pass
-    ! in user-generated input
-    if (.not. supports_arg_values) then
-        if (present(validator)) then
-            status = FC_STATUS_VALUE_ERROR
-            status%msg = "Action " // get_action_label (laction) &
-                // " does not support validators"
-            return
-        end if
-
-        if (present(allow_empty)) then
-            status = FC_STATUS_VALUE_ERROR
-            status%msg = "Must not specify 'allow_empty' with action " &
-                // get_action_label (ARGPARSE_ACTION_APPEND)
-            return
-        end if
-    end if
+    ! Validate input arguments. Permissible arguments vary by action!
+    ! Call with local action but user-provided nargs, default, const, ...
+    ! to properly handle default action.
+    call argument_init_validate_input (names, abbrevs, laction, required, nargs, &
+        help, default, const, validator, allow_empty, status)
 
     select case (laction)
     case (ARGPARSE_ACTION_STORE_TRUE)
@@ -230,30 +164,31 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
         laction = ARGPARSE_ACTION_STORE_CONST
         call self%store_const (.true.)
         call self%store_default (.false.)
+
     case (ARGPARSE_ACTION_STORE_FALSE)
         lnargs = 0
         laction = ARGPARSE_ACTION_STORE_CONST
         call self%store_const (.false.)
         call self%store_default (.true.)
+
     case (ARGPARSE_ACTION_STORE_CONST)
         ! no arguments expected when requested to store const
         lnargs = 0
         call self%store_const (const)
         call self%store_default (default)
+
     case (ARGPARSE_ACTION_TOGGLE)
         lnargs = 0
-        ! initialize const value to default, if present
-        if (present(default)) then
-            call self%store_const (default)
-        else
-            call self%store_const (.true.)
-        end if
+        call self%store_const (.true.)
+
     case (ARGPARSE_ACTION_APPEND)
-        ! this should be guaranteed by input checking above
+        ! NB: this should be guaranteed by input checking above
         lnargs = 1
         call self%store_default (default)
+
     case default
         call self%store_default (default)
+
     end select
 
     call self%names%clear ()
@@ -272,6 +207,125 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
     if (present(help)) self%help = help
     if (present(validator)) self%validator => validator
     if (present(allow_empty)) self%allow_empty = allow_empty
+
+end subroutine
+
+subroutine argument_init_validate_input (names, abbrevs, action, required, nargs, &
+        help, default, const, validator, allow_empty, status)
+    !*  ARGUMENT_INIT_VALIDATE_INPUT performs input validation for user-provided
+    !   subroutine arguments used to build argument object.
+
+    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:) :: names
+    _POLYMORPHIC_ARRAY(str), intent(in), dimension(:), optional :: abbrevs
+    integer (FC_ENUM_KIND), intent(in), optional :: action
+    logical, intent(in), optional :: required
+    integer, intent(in), optional :: nargs
+    class (str), intent(in), optional :: help
+    class (*), intent(in), dimension(:), optional :: default
+    type (status_t), intent(out) :: status
+    class (*), intent(in), dimension(:), optional :: const
+    procedure (fcn_validator), optional :: validator
+    logical, intent(in), optional :: allow_empty
+
+    type (str) :: argname
+
+    argname = ''
+
+    call status%init (FC_STATUS_VALUE_ERROR)
+
+    if (size(names) == 0) then
+        status%msg = "No argument name specified"
+        goto 100
+    end if
+
+    call argument_init_check_names (names, status)
+    if (status /= FC_STATUS_OK) goto 100
+    call argument_init_check_names (abbrevs, status)
+    if (status /= FC_STATUS_OK) goto 100
+
+    select case (action)
+    case (ARGPARSE_ACTION_STORE_TRUE)
+        argname = 'nargs'
+        if (present(nargs)) goto 10
+
+        argname = 'validator'
+        if (present(validator)) goto 10
+
+        argname = 'allow_empty'
+        if (present(allow_empty)) goto 10
+
+        argname = 'default'
+        if (present(default)) goto 10
+
+        argname = 'const'
+        if (present(const)) goto 10
+
+     case (ARGPARSE_ACTION_STORE_FALSE)
+        argname = 'nargs'
+        if (present(nargs)) goto 10
+
+        argname = 'validator'
+        if (present(validator)) goto 10
+
+        argname = 'allow_empty'
+        if (present(allow_empty)) goto 10
+
+        argname = 'default'
+        if (present(default)) goto 10
+
+        argname = 'const'
+        if (present(const)) goto 10
+
+    case (ARGPARSE_ACTION_STORE_CONST)
+        argname = 'nargs'
+        if (present(nargs)) goto 10
+
+        argname = 'validator'
+        if (present(validator)) goto 10
+
+        argname = 'allow_empty'
+        if (present(allow_empty)) goto 10
+
+    case (ARGPARSE_ACTION_TOGGLE)
+        ! Do not allow abbrev. with TOGGLE action, as turning switch off
+        ! would need to be called as a 'long' argument, ie. --no-x, 
+        ! which is inconsistent.
+        argname = 'abbrevs'
+        if (present(abbrevs)) goto 10
+
+        argname = 'nargs'
+        if (present(nargs)) goto 10
+
+        argname = 'validator'
+        if (present(validator)) goto 10
+
+        argname = 'allow_empty'
+        if (present(allow_empty)) goto 10
+
+        argname = 'default'
+        if (present(default)) goto 10
+
+        argname = 'const'
+        if (present(const)) goto 10
+
+    case (ARGPARSE_ACTION_APPEND)
+        argname = 'nargs'
+        if (present(nargs)) goto 10
+
+    end select
+
+
+    ! No errors encountered at this point, return
+    status = FC_STATUS_OK
+    return
+
+10  continue
+    ! Error handler for present argument when none is allows
+    status%msg = "Action " // get_action_label(action) &
+        // " does not support '" // argname // "' argument"
+    return
+
+100 continue
 
 end subroutine
 
@@ -508,13 +562,30 @@ end subroutine
 ! ------------------------------------------------------------------------------
 ! MATCHES method
 
-function argument_matches (self, name, abbrev) result(res)
+function argument_matches (self, name, is_abbrev) result(res)
     class (argument), intent(in) :: self
     class (str), intent(in) :: name
-    logical, intent(in), optional :: abbrev
+    logical, intent(in), optional :: is_abbrev
     logical :: res
 
-    logical :: labbrev
+    logical :: lis_abbrev
+
+    res = .false.
+
+    lis_abbrev = .false.
+    if (present(is_abbrev)) lis_abbrev = is_abbrev
+
+    if (lis_abbrev) then
+        res = has_name (self%abbrevs, name)
+    else
+        res = has_name (self%names, name)
+    end if
+end function
+
+function has_name (haystack, name) result(res)
+    class (linked_list), intent(in) :: haystack
+    class (str), intent(in) :: name
+    logical :: res
 
     class (iterator), allocatable :: iter
     class (str), pointer :: ptr_str
@@ -522,10 +593,7 @@ function argument_matches (self, name, abbrev) result(res)
 
     res = .false.
 
-    labbrev = .false.
-    if (present(abbrev)) labbrev = abbrev
-
-    call self%names%get_iter (iter)
+    call haystack%get_iter (iter)
 
     do while (iter%has_next())
         ptr_item => iter%item()
@@ -537,26 +605,8 @@ function argument_matches (self, name, abbrev) result(res)
         end if
         nullify (ptr_item, ptr_str)
     end do
-
-    deallocate (iter)
-
-    call self%abbrevs%get_iter (iter)
-
-    do while (iter%has_next())
-        ptr_item => iter%item()
-        call dynamic_cast (ptr_item, ptr_str)
-
-        if (ptr_str == name) then
-            res = .true.
-            return
-        end if
-        nullify (ptr_item, ptr_str)
-    end do
-
-    deallocate (iter)
 
 end function
-
 
 ! ------------------------------------------------------------------------------
 ! PARSE dispatch methods
@@ -1006,6 +1056,24 @@ pure function argument_get_nvals (self) result(res)
     else
         if (allocated (self%default)) res = size(self%default)
     end if
+end function
+
+!-------------------------------------------------------------------------------
+! Methods for getting argument name
+
+function argument_get_name (self) result(res)
+    !*  ARGUMENT_GET_NAME returns the first (and usualy only) name
+    !   associated with the argument object.
+    class (argument), intent(in) :: self
+    type (str) :: res
+
+    class (*), pointer :: ptr_item
+    class (str), pointer :: ptr_str
+
+    ptr_item => self%names%item(1)
+    call dynamic_cast (ptr_item, ptr_str)
+
+    res = ptr_str
 end function
 
 
