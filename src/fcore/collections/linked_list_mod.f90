@@ -48,7 +48,10 @@ module fcore_collections_linked_list_mod
         procedure, public, pass :: length => list_length
 
         procedure, public, pass :: append => list_append
-        procedure, public, pass :: extend => list_extend
+        
+        procedure, pass :: extend_array => list_extend_array
+        generic, public :: extend => extend_array
+
         procedure, public, pass :: remove => list_remove
         procedure, public, pass :: insert => list_insert
         procedure, public, pass :: clear => list_clear
@@ -303,9 +306,9 @@ subroutine list_append(self, item)
 end subroutine
 
 ! *****************************************************************************
-! EXTEND method
+! EXTEND methods
 
-subroutine list_extend (self, items)
+subroutine list_extend_array (self, items)
     class (linked_list), intent(in out) :: self
     class (*), intent(in), dimension(:) :: items
 
@@ -318,6 +321,7 @@ subroutine list_extend (self, items)
     end do
 
 end subroutine
+
 
 ! *****************************************************************************
 ! Remove methods
