@@ -1,22 +1,51 @@
 # src/tests/CMakeLists.txt
 # Build file for unit tests
 
-set(TEST_DIRS argparse strings)
-set(TEST_SOURCE_FILES_strings strings/test_str.f90)
-set(TEST_SOURCE_FILES_argparse argparse/test_argparse.f90)
+# Components which have unit tests
+list(APPEND COMPONENTS
+    argparse
+    common
+)
 
-foreach (dir IN LISTS TEST_DIRS)
+include_directories("${CMAKE_Fortran_MODULE_DIRECTORY}")
+
+foreach (_comp IN LISTS COMPONENTS)
+
+    unset(EXE_SOURCE_FILES)
+    unset(SHARED_SOURCE_FILES)
+    add_subdirectory(${_comp})
 
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY
-        "${${PROJECT_NAME}_TESTS_DIRECTORY}/${dir}")
+        "${${PROJECT_NAME}_TESTS_DIRECTORY}/${_comp}")
 
-    set(TEST_SOURCE_FILES ${TEST_SOURCE_FILES_${dir}})
+    # Collect additional source files for this component and prepend
+    # component directory
+    if (SHARED_SOURCE_FILES)
+        foreach (f IN LISTS SHARED_SOURCE_FILES)
+            list(APPEND SHARED_SOURCE_FILES_PREFIXED "${_comp}/${f}")
+        endforeach()
+    endif()
 
-    foreach (test_source IN LISTS TEST_SOURCE_FILES)
+    # Component-specific module directory to avoid any naming conflicts
+    set(CMAKE_Fortran_MODULE_DIRECTORY
+        "${${PROJECT_NAME}_MODDIR}/tests/${_comp}"
+    )
+    include_directories(BEFORE ${CMAKE_Fortran_MODULE_DIRECTORY})
+
+    foreach (test_source IN LISTS EXE_SOURCE_FILES)
         get_filename_component(exe_name "${test_source}" NAME_WE)
-    	add_executable(${exe_name} "${test_source}")
-    	target_link_libraries(${exe_name} ${LIBRARY_NAME}_static)
-    	add_test(NAME ${exe_name} COMMAND ${exe_name}
-            WORKING_DIRECTORY "${${PROJECT_NAME}_TESTS_DIRECTORY}/${dir}")
+        set(target_name  ${_comp}_${exe_name})
+        add_executable(${target_name}
+            "${_comp}/${test_source}"
+            ${SHARED_SOURCE_FILES_PREFIXED}
+        )
+        target_link_libraries(${target_name} ${LIBRARY_NAME}_static)
+        set_target_properties(${target_name} PROPERTIES
+            OUTPUT_NAME ${exe_name}
+        )
+
+        add_test(NAME ${exe_name} COMMAND ${exe_name}
+            WORKING_DIRECTORY "${${PROJECT_NAME}_TESTS_DIRECTORY}/${_comp}"
+        )
     endforeach()
 endforeach()
