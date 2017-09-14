@@ -1,9 +1,13 @@
 module fcore_collections_linked_list_mod
 
     use fcore_collections_abc_mod
+    use fcore_common_base
+    use fcore_common_status_helpers
 
     implicit none
     private
+
+    public :: linked_list
 
     type, extends(iterator) :: linked_list_iterator
         private
@@ -69,7 +73,13 @@ module fcore_collections_linked_list_mod
 
     end type
 
-    public :: linked_list
+    interface dynamic_cast
+        module procedure cast_any_to_list_node
+    end interface
+
+    interface dynamic_cast
+        module procedure cast_iterator_to_linked_list_iterator
+    end interface
 
 contains
 
@@ -128,63 +138,42 @@ end subroutine
 ! ******************************************************************************
 ! LIST_NODE casts
 
-function list_node_cast (base) result(res)
-    class (*), intent(in), target :: base
-    class (list_node), pointer :: res
+subroutine cast_any_to_list_node (obj, ptr, status)
+    class (*), intent(in), target :: obj
+    class (list_node), pointer, intent(out) :: ptr
+    type (status_t), intent(out), optional :: status
 
-    select type (obj => base)
+    call status_set_ok (status)
+
+    select type (obj)
     class is (list_node)
-        res => obj
+        ptr => obj
     class default
-        stop "Unsupported cast"
+        call status_set_cast_error (status, 'list_node')
     end select
-end function
+end subroutine
 
 ! *****************************************************************************
 ! LIST ASSIGNMENT
 
 subroutine list_assign (self, rhs)
     class (linked_list), intent(in out) :: self
-    class (linked_list), intent(in) :: rhs
-    class (list_node), pointer :: ptr_current, ptr_prev, ptr_current_rhs
+    class (collection), intent(in) :: rhs
 
     class (iterator), allocatable :: rhs_iter
+    class (*), pointer :: ptr_item
+
 
     ! get rid of whatever is contained in list at the moment
-    call list_finalize (self)
-
-    self%n = rhs%n
-
-    ! return if nothing else to do
-    if (self%n == 0) return
+    call self%clear ()
 
     ! obtain iterator for rhs list
     call rhs%get_iter (rhs_iter)
 
-    ptr_prev => null()
-
     do while (rhs_iter%has_next())
-
-        ! insert exlicit cast from class(*) to class (list_node) pointer,
-        ! other gfortran won't compile this.
-        ptr_current_rhs = list_node_cast (rhs_iter%item())
-        allocate (ptr_current, source=ptr_current_rhs)
-
-        ! make sure pointers do not point to whatever they were point to in rhs
-        ptr_current%ptr_prev => null()
-        ptr_current%ptr_next => null()
-
-        ! link to previous list element, if present
-        if (associated(ptr_prev)) then
-            ptr_prev%ptr_next => ptr_current
-        end if
-
-        ! handle first and last element in list
-        if (rhs_iter%counter() == 1) self%ptr_first => ptr_current
-        if (rhs_iter%counter() == self%n) self%ptr_last => ptr_current
-
-        ! assign pointers for next iteration
-        ptr_prev => ptr_current
+        ptr_item => rhs_iter%item ()
+    
+        call self%append (ptr_item)
     end do
 
 end subroutine
@@ -231,7 +220,7 @@ function list_get_node (self, i) result (res)
     ! obtain item iterator
     call self%get_iter (iter)
     ! cast to linked_list_iterator subtype to access attributes
-    ptr_iter => iterator_cast (iter)
+    call dynamic_cast (iter, ptr_iter)
 
     do while (iter%has_next())
         if (iter%counter() == i) then
@@ -468,14 +457,19 @@ function iterator_node (self) result(res)
     res => self%ptr_current
 end function
 
-function iterator_cast (base) result(res)
-    class (iterator), intent(in), target :: base
-    class (linked_list_iterator), pointer :: res
+subroutine cast_iterator_to_linked_list_iterator (obj, ptr, status)
+    class (iterator), intent(in), target :: obj
+    class (linked_list_iterator), pointer :: ptr
+    type (status_t), intent(out), optional :: status
 
-    select type (obj => base)
+    call status_set_ok (status)
+
+    select type (obj)
     class is (linked_list_iterator)
-        res => obj
+        ptr => obj
+    class default
+        call status_set_cast_error (status, 'linked_list_iterator')
     end select
-end function
+end subroutine
 
 end module
