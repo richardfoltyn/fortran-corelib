@@ -25,6 +25,9 @@ subroutine test_all()
     ! Test STORE_FALSE action
     call test_store_false (tests)
 
+    ! Test TOGGLE action
+    call test_toggle (tests)
+
     ! run individual test cases
     call test_append (tests)
 
@@ -405,6 +408,52 @@ subroutine test_store_false (tests)
 
 end subroutine
 
+
+subroutine test_toggle (tests)
+    class (test_suite) :: tests
+    class (test_case), pointer :: tc
+
+    type (argparser) :: parser
+    type (status_t) :: status
+    logical :: val
+
+    type (str), dimension(:), allocatable :: cmd_str
+
+    tc => tests%add_test ("argparse TOGGLE action")
+
+    call parser%init ()
+
+    ! Test with default settings for TOGGLE action, empty cmd. line
+    call parser%add_argument ("foo", action=ARGPARSE_ACTION_TOGGLE)
+    allocate (cmd_str(0))
+    call parser%parse (cmd_str, status)
+    call parser%get ("foo", val)
+
+    call tc%assert_true (val, "Default settings, empty cmd. line")
+    deallocate (cmd_str)
+
+    ! Test with default settings, toggle ON
+    allocate (cmd_str(1))
+    cmd_str(1) = "--foo"
+    call parser%parse (cmd_str, status)
+    call parser%get ("foo", val)
+    call tc%assert_true (val, "Default settings, toggle ON on cmd. line")
+
+    ! Test with default settings, toggle OFF
+    cmd_str(1) = "--no-foo"
+    call parser%parse (cmd_str, status)
+    call parser%get ("foo", val)
+    call tc%assert_false (val, "Default settings, toggle OFF on cmd. line")
+   
+    ! Try to add argument with name --no-foo, this should not be permitted
+    call parser%add_argument ("no-foo", status=status)
+    call tc%assert_true (status /= FC_STATUS_OK, &
+        "Attemping to add --no-foo when --foo defined")
+
+end subroutine
+
+
+ 
 
 subroutine test_unmapped (tests)
     class (test_suite) :: tests
