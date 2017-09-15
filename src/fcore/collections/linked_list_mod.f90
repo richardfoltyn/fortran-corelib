@@ -354,7 +354,7 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! CLEAR method
 
-recursive subroutine list_clear (self)
+pure recursive subroutine list_clear (self)
     !*  LIST_CLEAR removes all elements contained in the list, deallocating
     !   any memory used in the process. The list length is reset to zero.
 

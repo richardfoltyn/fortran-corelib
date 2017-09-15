@@ -14,11 +14,9 @@ module fcore_testing_test_suite_mod
         private
 
         type (str) :: label
-        type (linked_list), allocatable :: tests
+        type (linked_list) :: tests
 
     contains
-
-        procedure, pass :: check_init
 
         procedure, pass :: set_label_str
         procedure, pass :: set_label_char
@@ -70,11 +68,6 @@ pure subroutine ctor_impl (self, label)
     end if
 end subroutine
 
-subroutine check_init (self)
-    class (test_suite), intent(in out) :: self
-
-    if (.not. allocated(self%tests)) allocate (self%tests)
-end subroutine
 
 ! ******************************************************************************
 ! ADD_TEST method
@@ -86,9 +79,6 @@ function add_test_str (self, label) result (res)
     ! local copy of test case
     type (test_case) :: tc
     class (*), pointer :: ptr_item
-
-    ! check that tests list was allocated
-    call self%check_init ()
 
     if (present(label)) then
         call tc%set_label (label)

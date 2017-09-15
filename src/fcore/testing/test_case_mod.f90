@@ -14,11 +14,9 @@ module fcore_testing_test_case_mod
         private
 
         type (str) :: label
-        type (linked_list), allocatable :: tests
+        type (linked_list) :: tests
 
     contains
-
-        procedure, pass :: check_init
 
         procedure, pass :: set_label_str
         procedure, pass :: set_label_char
@@ -85,11 +83,6 @@ subroutine ctor_impl (self, label)
     end if
 end subroutine
 
-subroutine check_init (self)
-    class (test_case), intent(in out) :: self
-
-    if (.not. allocated(self%tests)) allocate (self%tests)
-end subroutine
 
 ! *****************************************************************************
 ! ATTRIBUTES
@@ -142,8 +135,6 @@ subroutine assert_true_str (self, condition, label)
     ! safe to allocate as local variable, will be copied into linked list
     type (assertion) :: assert_obj
     integer :: status
-
-    call self%check_init
 
     status = STATUS_FAILED
     if (condition) status = STATUS_PASSED
