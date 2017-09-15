@@ -35,7 +35,7 @@ foreach (_comp IN LISTS COMPONENTS)
 
     foreach (test_source IN LISTS EXE_SOURCE_FILES)
         get_filename_component(exe_name "${test_source}" NAME_WE)
-        set(target_name  ${_comp}_${exe_name})
+        set(target_name  "test_${_comp}_${exe_name}")
         add_executable(${target_name}
             "${_comp}/${test_source}"
             ${SHARED_SOURCE_FILES_PREFIXED}
