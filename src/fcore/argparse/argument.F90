@@ -207,7 +207,13 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
 
     case (ARGPARSE_ACTION_TOGGLE)
         lnargs = 0
-        call self%store_default (.true.)
+        ! If no default value specified, assume that switch
+        ! should be ON by default.
+        if (present(default)) then
+            call self%store_default (default)
+        else
+            call self%store_default (.true.)
+        end if
 
     case (ARGPARSE_ACTION_APPEND)
         ! NB: this should be guaranteed by input checking above
@@ -331,9 +337,6 @@ subroutine argument_init_validate_input (names, abbrevs, action, required, nargs
 
         argname = 'allow_empty'
         if (present(allow_empty)) goto 10
-
-        argname = 'default'
-        if (present(default)) goto 10
 
         argname = 'const'
         if (present(const)) goto 10
