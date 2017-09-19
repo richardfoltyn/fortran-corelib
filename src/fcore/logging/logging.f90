@@ -2,21 +2,27 @@ module fcore_logging
 
     use iso_fortran_env
     use fcore_datetime
+    use fcore_common_kinds
     use fcore_common
 
     implicit none
     private
-
-    enum, bind(c)
-        enumerator :: LEVEL_DEBUG = 1, LEVEL_INFO = 2, LEVEL_WARNING = 3, &
-            LEVEL_ERROR = 4, LEVEL_CRITICAL = 5
-    end enum
+    
+    public :: logger, get_logger
+    
+    integer (FC_ENUM_KIND), public, parameter :: FC_LOG_DEBUG = 0
+    integer (FC_ENUM_KIND), public, parameter :: FC_LOG_INFO = 1
+    integer (FC_ENUM_KIND), public, parameter :: FC_LOG_WARNING = ishft(1, 1)
+    integer (FC_ENUM_KIND), public, parameter :: FC_LOG_ERROR = ishft(1, 2)
+    integer (FC_ENUM_KIND), public, parameter :: FC_LOG_CRITICAL = ishft(1, 3)
 
     type (str) :: LEVEL_NAMES(5)
 
     type logger
         private
         type (system_time) :: t_created
+        integer :: line_length = 80
+        integer :: default_log_level = FC_LOG_INFO
     contains
         procedure, pass :: logger_debug_str
         procedure, pass :: logger_info_str
@@ -40,27 +46,29 @@ module fcore_logging
 
         generic, public :: log => logger_log_str, logger_log_char
 
+        procedure, pass :: logger_heading_char
+        procedure, pass :: logger_heading_str
+        
+        generic, public :: heading => logger_heading_char, logger_heading_str
     end type
 
-    public :: logger, get_logger
-    public :: LEVEL_DEBUG, LEVEL_INFO, LEVEL_WARNING, LEVEL_ERROR, LEVEL_CRITICAL
 
     contains
 
-pure function level_name (lvl) result (res)
-    integer, intent(in) :: lvl
+pure function level_name (level) result (res)
+    integer (FC_ENUM_KIND), intent(in) :: level
     type (str) :: res
 
-    select case (lvl)
-    case (LEVEL_DEBUG)
+    select case (level)
+    case (FC_LOG_DEBUG)
         res = "DEBUG"
-    case (LEVEL_INFO)
+    case (FC_LOG_INFO)
         res = "INFO"
-    case (LEVEL_WARNING)
+    case (FC_LOG_WARNING)
         res = "WARNING"
-    case (LEVEL_ERROR)
+    case (FC_LOG_ERROR)
         res = "ERROR"
-    case (LEVEL_CRITICAL)
+    case (FC_LOG_CRITICAL)
         res = "CRITICAL"
     end select
 end function
@@ -80,11 +88,44 @@ function get_logger () result(res)
     res => log
 end function
 
+!-------------------------------------------------------------------------------
+! HEADING routines
+
+subroutine logger_heading_char (self, text, level)
+    class (logger), intent(in) :: self
+    character (*), intent(in) :: text
+    integer (FC_ENUM_KIND), intent(in), optional :: level
+    
+    call self%heading (str(text), level)
+end subroutine
+
+
+subroutine logger_heading_str (self, text, level)
+    class (logger), intent(in) :: self
+    type (str), intent(in) :: text
+    integer (FC_ENUM_KIND), intent(in), optional :: level
+    
+    type (timedelta) :: td
+    type (str) :: td_str, msg, sep
+    integer :: n
+    
+    td = perf_counter () - self%t_created
+    td_str = td%strftime ("[%dd %h:%m:%s] ")
+    
+    n = self%line_length - len(td_str)
+    sep = td_str // repeat("=", n)
+    msg = td_str // " " // text
+    
+    write (unit=OUTPUT_UNIT, fmt='(a)') sep%to_char ()
+    write (unit=OUTPUT_UNIT, fmt='(a)') msg%to_char ()
+    write (unit=OUTPUT_UNIT, fmt='(a)') sep%to_char ()
+end subroutine
+
 ! ******************************************************************************
 ! LOGGING procedures
-subroutine logger_log_str (self, lvl, msg)
+subroutine logger_log_str (self, level, msg)
     class (logger), intent(in) :: self
-    integer, intent(in) :: lvl
+    integer (FC_ENUM_KIND), intent(in) :: level
     class (str), intent(in) :: msg
 
     type (timedelta) :: td
@@ -93,18 +134,18 @@ subroutine logger_log_str (self, lvl, msg)
     td = perf_counter() - self%t_created
     td_str = td%strftime("[%dd %h:%m:%s] ")
 
-    log_str = td_str // level_name (lvl) // ": " // msg
+    log_str = td_str // level_name (level) // ": " // msg
 
     write (unit=OUTPUT_UNIT, fmt="(a)") log_str%to_char()
 
 end subroutine
 
-subroutine logger_log_char (self, lvl, msg)
+subroutine logger_log_char (self, level, msg)
     class (logger), intent(in) :: self
-    integer, intent(in) :: lvl
+    integer (FC_ENUM_KIND), intent(in) :: level
     character (len=*), intent(in) :: msg
 
-    call self%log (lvl, str(msg))
+    call self%log (level, str(msg))
 end subroutine
 
 ! ******************************************************************************
@@ -112,14 +153,14 @@ subroutine logger_debug_str (self, msg)
     class (logger), intent(in) :: self
     class (str), intent(in) :: msg
 
-    call self%log (LEVEL_DEBUG, msg)
+    call self%log (FC_LOG_DEBUG, msg)
 end subroutine
 
 subroutine logger_debug_char (self, msg)
     class (logger), intent(in) :: self
     character (len=*), intent(in) :: msg
 
-    call self%log (LEVEL_DEBUG, str(msg))
+    call self%log (FC_LOG_DEBUG, str(msg))
 end subroutine
 
 ! ******************************************************************************
@@ -127,14 +168,14 @@ subroutine logger_info_str (self, msg)
     class (logger), intent(in) :: self
     class (str), intent(in) :: msg
 
-    call self%log (LEVEL_INFO, msg)
+    call self%log (FC_LOG_INFO, msg)
 end subroutine
 
 subroutine logger_info_char (self, msg)
     class (logger), intent(in) :: self
     character (len=*), intent(in) :: msg
 
-    call self%log (LEVEL_INFO, str(msg))
+    call self%log (FC_LOG_INFO, str(msg))
 end subroutine
 
 ! ******************************************************************************
@@ -142,14 +183,14 @@ subroutine logger_warning_str (self, msg)
     class (logger), intent(in) :: self
     class (str), intent(in) :: msg
 
-    call self%log (LEVEL_WARNING, msg)
+    call self%log (FC_LOG_WARNING, msg)
 end subroutine
 
 subroutine logger_warning_char (self, msg)
     class (logger), intent(in) :: self
     character (len=*), intent(in) :: msg
 
-    call self%log (LEVEL_WARNING, str(msg))
+    call self%log (FC_LOG_WARNING, str(msg))
 end subroutine
 
 ! ******************************************************************************
@@ -157,14 +198,14 @@ subroutine logger_error_str (self, msg)
     class (logger), intent(in) :: self
     class (str), intent(in) :: msg
 
-    call self%log (LEVEL_ERROR, msg)
+    call self%log (FC_LOG_ERROR, msg)
 end subroutine
 
 subroutine logger_error_char (self, msg)
     class (logger), intent(in) :: self
     character (len=*), intent(in) :: msg
 
-    call self%log (LEVEL_ERROR, str(msg))
+    call self%log (FC_LOG_ERROR, str(msg))
 end subroutine
 
 ! ******************************************************************************
@@ -172,14 +213,14 @@ subroutine logger_critical_str (self, msg)
     class (logger), intent(in) :: self
     class (str), intent(in) :: msg
 
-    call self%log (LEVEL_CRITICAL, msg)
+    call self%log (FC_LOG_CRITICAL, msg)
 end subroutine
 
 subroutine logger_critical_char (self, msg)
     class (logger), intent(in) :: self
     character (len=*), intent(in) :: msg
 
-    call self%log (LEVEL_CRITICAL, str(msg))
+    call self%log (FC_LOG_CRITICAL, str(msg))
 end subroutine
 
 
