@@ -11,6 +11,7 @@ module fcore_argparse_argument
 
     use iso_fortran_env
     use fcore_common
+    use fcore_common_status_helpers
     use fcore_common_input_validation
     use fcore_collections
     use fcore_argparse_actions
@@ -745,16 +746,18 @@ end subroutine
 ! NB: Handle str seperately as we want to be able to convert stored const or
 ! default values of type character
 subroutine argument_parse_array_str (self, val, status)
-    _POLYMORPHIC_ARRAY (str), intent(in out), dimension(:) :: val
-    _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
-
     class (argument), intent(in), target :: self
+    _POLYMORPHIC_ARRAY (str), intent(in out), dimension(:) :: val
     type (status_t), intent(out) :: status
+
+    _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
     class (*), dimension(:), pointer :: ptr_stored
 
     integer :: i
 
-    nullify (ptr_stored, ptr)
+    nullify (ptr_stored)
+    nullify (ptr)
+
     call status%init (FC_STATUS_OK)
 
     if (self%is_present) then
@@ -809,16 +812,18 @@ end subroutine
 ! NB: Handle str seperately as we want to be able to convert stored const or
 ! default values of type character
 subroutine argument_parse_array_char (self, val, status)
-    character (*), intent(out), dimension(:) :: val
-    character (len(val)), dimension(:), pointer :: ptr
-
     class (argument), intent(in), target :: self
+    character (*), intent(out), dimension(:) :: val
     type (status_t), intent(in out) :: status
+
+    character (len(val)), dimension(:), pointer :: ptr
     class (*), dimension(:), pointer :: ptr_stored
 
     integer :: i
 
-    nullify (ptr_stored, ptr)
+    nullify (ptr_stored)
+    nullify (ptr)
+
     call status%init (FC_STATUS_OK)
 
     if (self%is_present) then
@@ -909,14 +914,16 @@ end subroutine
 ! NB: Handle str seperately as we want to be able to convert stored const or
 ! default values of type character
 subroutine argument_parse_scalar_str (self, val, status)
-    class (str), intent(in out) :: val
-    _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
-
     class (argument), intent(in), target :: self
+    class (str), intent(in out) :: val
     type (status_t), intent(in out) :: status
+
+    _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
     class (*), dimension(:), pointer :: ptr_stored
 
     nullify (ptr_stored)
+    nullify (ptr)
+
     call status%init (FC_STATUS_OK)
 
     if (self%is_present) then
@@ -960,14 +967,16 @@ end subroutine
 ! NB: Handle char return values seperately so we can transparently convert
 ! const and default values stored as str if necessary.
 subroutine argument_parse_scalar_char (self, val, status)
+    class (argument), intent(in), target :: self
     character (*), intent(out) :: val
+    type (status_t), intent(out) :: status
+
+    class (*), dimension(:), pointer :: ptr_stored
     character (len(val)), dimension(:), pointer :: ptr
 
-    class (argument), intent(in), target :: self
-    type (status_t), intent(out) :: status
-    class (*), dimension(:), pointer :: ptr_stored
-
     nullify (ptr_stored)
+    nullify (ptr)
+
     call status%init (FC_STATUS_OK)
 
     if (self%is_present) then
@@ -1114,14 +1123,14 @@ subroutine cast_any_to_argument (tgt, ptr, status)
     class (argument), intent(out), pointer :: ptr
     type (status_t), intent(out), optional :: status
 
+    call status_set_ok (status)
+    nullify (ptr)
+
     select type (tgt)
     class is (argument)
         ptr => tgt
     class default
-        if (present(status)) then
-            status = FC_STATUS_UNSUPPORTED_OP
-            status%msg = "Casting to type(argument) not supported"
-        end if
+        call status_set_cast_error (status, "argument")
     end select
 end subroutine
 

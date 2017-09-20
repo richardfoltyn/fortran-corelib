@@ -144,6 +144,7 @@ subroutine cast_any_to_list_node (obj, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call status_set_ok (status)
+    nullify (ptr)
 
     select type (obj)
     class is (list_node)
@@ -463,6 +464,7 @@ subroutine cast_iterator_to_linked_list_iterator (obj, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call status_set_ok (status)
+    nullify (ptr)
 
     select type (obj)
     class is (linked_list_iterator)

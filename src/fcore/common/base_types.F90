@@ -1632,12 +1632,13 @@ subroutine cast_any_to_str (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     class is (str)
         ptr => tgt
     class default
-        call cast_status_error (status, "type(str)")
+        call cast_status_error (status, "str")
     end select
 end subroutine
 
@@ -1647,12 +1648,13 @@ subroutine cast_any_to_str_array (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     class is (str)
         ptr => tgt
     class default
-        call cast_status_error (status, "type(str)(:)")
+        call cast_status_error (status, "str(:)")
     end select
 end subroutine
 
@@ -1741,6 +1743,7 @@ subroutine cast_any_to_int32 (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (integer(INTSIZE))
@@ -1757,6 +1760,7 @@ subroutine cast_any_to_array_int32 (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (integer(INTSIZE))
@@ -1773,6 +1777,7 @@ subroutine cast_any_to_int64 (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (integer(INTSIZE))
@@ -1789,6 +1794,7 @@ subroutine cast_any_to_array_int64 (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (integer(INTSIZE))
@@ -1805,6 +1811,7 @@ subroutine cast_any_to_real32 (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (real(PREC))
@@ -1821,6 +1828,7 @@ subroutine cast_any_to_array_real32 (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (real(PREC))
@@ -1837,6 +1845,7 @@ subroutine cast_any_to_real64 (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (real(PREC))
@@ -1853,6 +1862,7 @@ subroutine cast_any_to_array_real64 (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (real(PREC))
@@ -1869,6 +1879,7 @@ subroutine cast_any_to_logical (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (logical)
@@ -1884,6 +1895,7 @@ subroutine cast_any_to_array_logical (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (logical)
@@ -1899,6 +1911,7 @@ subroutine cast_any_to_char (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (character (*))
@@ -1914,6 +1927,7 @@ subroutine cast_any_to_array_char (tgt, ptr, status)
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)
+    nullify (ptr)
 
     select type (tgt)
     type is (character (*))

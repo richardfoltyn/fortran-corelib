@@ -148,7 +148,7 @@ subroutine argparser_init_str (self, description, progname)
     class (str), intent(in), optional :: description
     class (str), intent(in), optional :: progname
 
-    type (str) :: name, help_text
+    type (str) :: help_text
     type (status_t) :: status
 
     class (argument), pointer :: ptr_arg
