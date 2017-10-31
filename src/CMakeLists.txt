@@ -19,7 +19,7 @@ endif (NOT CMAKE_BUILD_TYPE)
 if (WIN32)
     option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 else()
-    option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+    option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 endif()
 
 # If enabled, pass -assume std_mod_proc_name to ifort such that module
@@ -29,8 +29,8 @@ endif()
 option(IFORT_STD_MOD_PROC_NAME
     "Assume standard-compliant name mangling for module procedures" OFF
 )
-option(BUILD_TESTS "Build unit tests" ON)
-option(BUILD_EXAMPLES "Build example code" ON)
+option(BUILD_TESTS "Build unit tests" OFF)
+option(BUILD_EXAMPLES "Build example code" OFF)
 
 ###############################################################################
 # Version
