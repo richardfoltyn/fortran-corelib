@@ -26,7 +26,6 @@ module fcore_common_base
     public :: operator(==), operator(/=)
     public :: operator(.in.), operator(.notin.)
     public :: operator(//)
-    public :: operator (*)
 
     public :: status_t
     public :: char, size
@@ -136,24 +135,9 @@ module fcore_common_base
         module procedure assign_str_char, assign_char_str, assign_str_str
     end interface
 
-    ! interface assignment (=)
-    !     module procedure assign_base_str, assign_str_base
-    ! end interface
-
     ! concatenation // with character as lhs operand
     interface operator (//)
         module procedure concat_str_str, concat_char_str, concat_str_char
-    end interface
-
-    ! addition with character as lhs operand
-    interface operator (+)
-        module procedure concat_str_str, concat_char_str, concat_str_char
-    end interface
-
-    ! multiply by integers to minic what repeat() does
-    interface operator (*)
-        module procedure repeat_str_int64, repeat_str_int32, repeat_int32_str, &
-            repeat_int64_str
     end interface
 
     ! equality

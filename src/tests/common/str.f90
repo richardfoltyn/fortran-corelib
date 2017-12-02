@@ -9,7 +9,8 @@ program test_strings
     ! Some test data used to build strings
     character (len=*), parameter :: CHAR_VALUE1 = "test string"
     character (len=*), parameter :: CHAR_VALUE2 = "foo bar 123"
-    character (len=*), parameter :: CHAR_VALUE3 = "The quick brown fox jumps over the lazy dog"
+    character (len=*), parameter :: &
+        CHAR_VALUE3 = "The quick brown fox jumps over the lazy dog"
 
     real (real64), parameter :: REAL_VALUE1 = 123.456
     integer, parameter :: INT_VALUE1 = 123
@@ -22,7 +23,7 @@ subroutine test_all()
 
     type (test_suite) :: tests
 
-    call tests%set_label ("fcore_strings::str unit tests")
+    call tests%set_label ("fcore_common STR unit tests")
 
     ! run individual test cases
     call test_init (tests)
@@ -348,33 +349,18 @@ subroutine test_concat (tests)
 
     tc => tests%add_test("String concatenation")
 
-    ! concatenate str and character
-    s1 = CHAR_VALUE1
-    s2 = s1 + CHAR_VALUE2
-    ! manually compute result
-    allocate (character (len=len(CHAR_VALUE1) + len(CHAR_VALUE2)) :: ch1)
-    ch1 = CHAR_VALUE1 // CHAR_VALUE2
-    call tc%assert_true (s2 == ch1, "str + character")
-
     ! concatenate using //
     s2 = s1 // CHAR_VALUE2
-    call tc%assert_true (s2 == ch1, "str // character")
-
-    ! concatenate str + str
-    s2 = CHAR_VALUE2
-    s3 = s1 + s2
-    call tc%assert_true (s3 == ch1, "str + str")
-
-    s3 = s1 // s2
-    call tc%assert_true (s3 == ch1, "str // str")
+    call tc%assert_true (s2 == CHAR_VALUE2, "str // character, LHS not initialized")
+    
+    s2 = CHAR_VALUE2 // s1
+    call tc%assert_true (s2 == CHAR_VALUE2, "character // str, RHS not initialized")
 
     ! use CHARACTER as lhs operand
+    s1 = CHAR_VALUE1
     s2 = CHAR_VALUE2 // s1
     ch1 = CHAR_VALUE2 // CHAR_VALUE1
     call tc%assert_true (s2 == ch1, "character // str")
-
-    s2 = CHAR_VALUE2 + s1
-    call tc%assert_true (s2 == ch1, "character + str")
 
     ! concatenate non-initialized string
     s1 = CHAR_VALUE1
@@ -569,38 +555,31 @@ subroutine test_repeat (tests)
     tc => tests%add_test ("String repeat()")
 
     ! repeat not initialized str
-    s2 = s99 * 0
-    call tc%assert_true (s2 == "", "str == str * 0, rhs not initialized")
+    s2 = repeat(s99, 0)
+    call tc%assert_true (s2 == "", "str == repeat(str,0), rhs not initialized")
 
     ! repeat zero-length str 0 times
     s1 = ""
-    s2 = s1 * 0
-    call tc%assert_true (s2 == "", "str == str * 0, rhs zero-length")
+    s2 = repeat(s1, 0)
+    call tc%assert_true (s2 == "", "str == repeat(str,0), rhs zero-length")
 
     ! repeat str 0 times
     s1 = CHAR_VALUE1
-    s2 = s1 * 0
-    call tc%assert_true (s2 == "", "str == str * 0")
+    s2 = repeat(s1, 0)
+    call tc%assert_true (s2 == "", "str == repeat(str, 0)")
 
     ! repeat once
     s1 = CHAR_VALUE1
-    s2 = s1 * 1
-    call tc%assert_true (s2 == s1, "str = str * 1")
+    s2 = repeat(s1, 1)
+    call tc%assert_true (s2 == s1, "str = repeat(str, 1)")
 
     ! repeat n times
     n = 7
     s1 = CHAR_VALUE1
-    s2 = s1 * n
-    ch1 = repeat(CHAR_VALUE1, n)
-    call tc%assert_true (s2 == ch1, "str = str * n")
-
-    ! repeat() generic for str
-    s1 = CHAR_VALUE1
-    n = 10
     s2 = repeat(s1, n)
-    if (allocated(ch1)) deallocate (ch1)
     ch1 = repeat(CHAR_VALUE1, n)
     call tc%assert_true (s2 == ch1, "str = repeat(str, n)")
+
 
 end subroutine
 
@@ -610,7 +589,7 @@ subroutine test_startswith (tests)
 
     type (str) :: s1, s2, s99
     logical :: res
-    
+
     tc => tests%add_test ("str::startswith method")
 
     ! str argument
@@ -623,7 +602,7 @@ subroutine test_startswith (tests)
     res = s2%startswith (s1)
     call tc%assert_false (res, &
         "str::startswith(str): regular obj and arg, len(arg)>len(obj)")
-    
+
     ! obj and arg are identical
     res = s1%startswith (s1)
     call tc%assert_true (res, "str::startswith(str): obj == arg")
@@ -638,25 +617,25 @@ subroutine test_startswith (tests)
     s2 = ""
     res = s1%startswith (s2)
     call tc%assert_true (res, "str::startswith(str): zero-length arg")
-    
+
     ! Zero-length argument, zero-length object
     s1 = ""
     res = s1%startswith (s2)
     call tc%assert_true (res, "str::startswith(str): zero-length obj and arg")
-    
+
     ! Uninitialized object, zero-length argument
     res = s99%startswith (s1)
     call tc%assert_true (res, "str::startswith(str): uninit. obj, zero-length arg")
-    
+
     ! Uninitialized object, regular argument
     s1 = CHAR_VALUE1
     res = s99%startswith (s1)
     call tc%assert_false (res, "str::startswith(str): uninit. obj, regular arg")
-    
+
     ! Regular object, uninit. argument
     res = s1%startswith (s99)
     call tc%assert_true (res, "str::startswith(str): regular obj, uninit. arg")
-    
+
     ! Uninitialized object and argument
     res = s99%startswith (s99)
     call tc%assert_true (res, "str::startswith(str): uninit. obj and arg")
@@ -668,12 +647,12 @@ subroutine test_endswith (tests)
 
     type (str) :: s1, s2, s99
     logical :: res
-    
+
     tc => tests%add_test ("str::endswith method")
 
     s1 = CHAR_VALUE1
     s2 = CHAR_VALUE1(2:len(CHAR_VALUE1))
-    
+
     res = s1%endswith (s2)
     call tc%assert_true (res, &
         "str::endswith(str): regular obj and arg, obj(n:-1) == arg")
@@ -681,7 +660,7 @@ subroutine test_endswith (tests)
     res = s2%endswith (s1)
     call tc%assert_false (res, &
         "str::endswith(str): regular obj and arg, len(arg)>len(obj)")
-    
+
     ! obj and arg are identical
     res = s1%endswith (s1)
     call tc%assert_true (res, "str::endswith(str): obj == arg")
@@ -696,25 +675,25 @@ subroutine test_endswith (tests)
     s2 = ""
     res = s1%endswith (s2)
     call tc%assert_true (res, "str::endswith(str): zero-length arg")
-    
+
     ! Zero-length argument, zero-length object
     s1 = ""
     res = s1%endswith (s2)
     call tc%assert_true (res, "str::endswith(str): zero-length obj and arg")
-    
+
     ! Uninitialized object, zero-length argument
     res = s99%endswith (s1)
     call tc%assert_true (res, "str::endswith(str): uninit. obj, zero-length arg")
-    
+
     ! Uninitialized object, regular argument
     s1 = CHAR_VALUE1
     res = s99%endswith (s1)
     call tc%assert_false (res, "str::endswith(str): uninit. obj, regular arg")
-    
+
     ! Regular object, uninit. argument
     res = s1%endswith (s99)
     call tc%assert_true (res, "str::endswith(str): regular obj, uninit. arg")
-    
+
     ! Uninitialized object and argument
     res = s99%endswith (s99)
     call tc%assert_true (res, "str::endswith(str): uninit. obj and arg")
