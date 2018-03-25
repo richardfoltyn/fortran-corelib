@@ -26,6 +26,7 @@ module fcore_common_base
     public :: str, str_array, len, len_trim, repeat, index, trim
     public :: is_alnum, is_alpha, is_digit
     public :: dynamic_cast
+    public :: copy_alloc
 
 
     !---------------------------------------------------------------------------
@@ -130,17 +131,17 @@ module fcore_common_base
     end interface
 
     ! concatenation // with character as lhs operand
-    interface operator (//)
-        module procedure concat_str_str, concat_char_str, concat_str_char
+    interface operator( // )
+        procedure concat_str_str, concat_char_str, concat_str_char
     end interface
 
     ! equality
-    interface operator (==)
+    interface operator( == )
         module procedure eq_str_str, eq_str_char, eq_char_str
     end interface
 
-    interface operator (/=)
-        module procedure neq_str_str, neq_str_char, neq_char_str
+    interface operator( /= )
+        procedure neq_str_str, neq_str_char, neq_char_str
     end interface
 
     ! overload instrinsic len()
@@ -180,6 +181,10 @@ module fcore_common_base
 
     interface dynamic_cast
         module procedure cast_any_to_str, cast_any_to_str_array
+    end interface
+
+    interface copy_alloc
+        procedure copy_alloc_str_array
     end interface
 
     !---------------------------------------------------------------------------
@@ -223,7 +228,7 @@ module fcore_common_base
         module procedure equal_status_status, equal_status_int, equal_int_status
     end interface
 
-    interface operator (/=)
+    interface operator ( /= )
         module procedure nequal_status_status, nequal_status_int, nequal_int_status
     end interface
 
@@ -1915,5 +1920,35 @@ subroutine cast_any_to_array_char (tgt, ptr, status)
     end select
 end subroutine
 
+
+subroutine copy_alloc_str_array (src, dst)
+    !*  COPY_ALLOC copies the contents of one STR array to another. If the
+    !   destination is not allocated, or allocated but or wrong size, the
+    !   destination array is first (re)allocated.
+    type (str), intent(in), dimension(:), allocatable :: src
+    type (str), intent(inout), dimension(:), allocatable :: dst
+
+    integer :: n, i
+
+    if (.not. allocated(src)) then
+        if (allocated(dst)) deallocate (dst)
+        return
+    end if
+
+    ! At this point SRC is allocated
+    n = size(src)
+
+    if (allocated (dst)) then
+        if (size(src) /= size(dst)) deallocate (dst)
+    end if
+
+    if (.not. allocated(dst)) then
+        allocate (dst(n))
+    end if
+
+    do i = 1, n
+        dst(i) = src(i)
+    end do
+end subroutine
 
 end module

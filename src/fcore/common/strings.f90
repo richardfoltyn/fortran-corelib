@@ -18,6 +18,7 @@ module fcore_strings
         is_alpha, &
         is_digit, &
         dynamic_cast, &
+        copy_alloc, &
         assignment(=), &
         operator (==), &
         operator (//)
