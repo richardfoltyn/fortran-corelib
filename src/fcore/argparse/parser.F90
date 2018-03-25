@@ -131,10 +131,6 @@ module fcore_argparse_parser
         generic, public :: assignment(=) => argparser_assign
     end type
 
-    interface size
-        procedure argparser_get_nargs
-    end interface
-
     interface sanitize_argument_text
         procedure sanitize_argument_text_str, sanitize_argument_text_char
     end interface
@@ -148,8 +144,6 @@ module fcore_argparse_parser
         procedure sanitize_argument_data_array
     end interface
 #endif
-
-    public :: len
 
 contains
 
