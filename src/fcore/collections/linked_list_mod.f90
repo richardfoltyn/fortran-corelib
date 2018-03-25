@@ -315,7 +315,7 @@ end subroutine
 
 ! *****************************************************************************
 ! Remove methods
-subroutine list_remove(self, i)
+recursive subroutine list_remove (self, i)
     class (linked_list), intent(in out) :: self
     integer, intent(in) :: i
 
@@ -362,6 +362,8 @@ pure recursive subroutine list_clear (self)
     class (linked_list), intent(in out) :: self
 
     type (list_node), pointer :: ptr_node, ptr_next
+
+    nullify (ptr_node, ptr_next)
 
     ! traverse linked list, deallocate each element in turn
     ptr_node => self%ptr_first
