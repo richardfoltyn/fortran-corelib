@@ -104,7 +104,7 @@ elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
         if (NOT IFORT_STD_MOD_PROC_NAME)
             set(_FFLAGS "${_FFLAGS} -assume nostd_mod_proc_name")
         endif ()
-        set(_FFLAGS_DEBUG "-check all")
+        set(_FFLAGS_DEBUG "-check all -O0")
     endif (WIN32)
 endif ()
 
