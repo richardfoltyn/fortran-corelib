@@ -5,4 +5,7 @@ build*/
 *.mod
 *.o
 tags
+.idea/
+.kdev4/
+src.kdev4
 
