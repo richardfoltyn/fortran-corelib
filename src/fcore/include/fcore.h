@@ -4,13 +4,18 @@
  * is polymorphic; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60322
  */
 
+#ifndef __FCORE_H__
+#define __FCORE_H__
+
 #if __GFORTRAN__ && (__GNUC__  < 6)
-
 #define __FCORE_POLY_ARRAY(t) type (t)
-
 #else
-
 #define __FCORE_POLY_ARRAY(t) class (t)
-
 #endif
 
+
+#define __IDENTITY(x) x
+#define __APPEND(s1,s2) __IDENTITY(__IDENTITY(s1)_)s2
+#define __APPEND2(s1,s2,s3) __IDENTITY(__APPEND(s1,s2)_)s3
+
+#endif

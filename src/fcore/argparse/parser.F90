@@ -81,6 +81,28 @@ module fcore_argparse_parser
         procedure, pass :: argparser_get_array_str
         generic, public :: get => argparser_get_array_str, &
             argparser_get_array_char
+#else
+        procedure, pass :: argparser_get_array_str_str
+        procedure, pass :: argparser_get_array_str_int32
+        procedure, pass :: argparser_get_array_str_int64
+        procedure, pass :: argparser_get_array_str_real32
+        procedure, pass :: argparser_get_array_str_real64
+        procedure, pass :: argparser_get_array_char_str
+        procedure, pass :: argparser_get_array_char_int32
+        procedure, pass :: argparser_get_array_char_int64
+        procedure, pass :: argparser_get_array_char_real32
+        procedure, pass :: argparser_get_array_char_real64
+        generic, public :: get => &
+            argparser_get_array_str_str, &
+            argparser_get_array_str_int32, &
+            argparser_get_array_str_int64, &
+            argparser_get_array_str_real32, &
+            argparser_get_array_str_real64, &
+            argparser_get_array_char_str, &
+            argparser_get_array_char_int32, &
+            argparser_get_array_char_int64, &
+            argparser_get_array_char_real32, &
+            argparser_get_array_char_real64
 #endif
 
         procedure, pass :: argparser_get_unmapped_scalar
@@ -959,7 +981,7 @@ subroutine argparser_get_array_str (self, name, val, status)
 
     ! at this point ptr_arg points to the argument identified by name.
     ! Retrieve stored argument value
-    call ptr_arg%parse (val, lstatus)
+    call ptr_arg%poly_parse (val, lstatus)
 
     call process_argument_status (name, lstatus)
 
@@ -968,6 +990,52 @@ subroutine argparser_get_array_str (self, name, val, status)
 end subroutine
 #endif
 
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
+subroutine argparser_get_array_char (self, name, val, status)
+    class (argparser), intent(inout) :: self
+    character (*), intent(in) :: name
+    class (*), intent(out), dimension(:) :: val
+    type (status_t), intent(out), optional :: status
+
+    call self%get (str(name), val, status)
+end subroutine
+#endif
+
+
+#ifdef __FCORE_GFORTRAN_POLY_ARRAY_BUG
+
+#define __TYPE_SUFFIX int32
+#define __TYPE integer (int32)
+#include "parser_nonpoly_get_impl.F90"
+#undef __TYPE_SUFFIX
+#undef __TYPE
+
+#define __TYPE_SUFFIX int64
+#define __TYPE integer (int64)
+#include "parser_nonpoly_get_impl.F90"
+#undef __TYPE_SUFFIX
+#undef __TYPE
+
+#define __TYPE_SUFFIX real32
+#define __TYPE real (real32)
+#include "parser_nonpoly_get_impl.F90"
+#undef __TYPE_SUFFIX
+#undef __TYPE
+
+#define __TYPE_SUFFIX real64
+#define __TYPE real (real64)
+#include "parser_nonpoly_get_impl.F90"
+#undef __TYPE_SUFFIX
+#undef __TYPE
+
+#define __TYPE_SUFFIX str
+#define __TYPE type (str)
+#include "parser_nonpoly_get_impl.F90"
+#undef __TYPE_SUFFIX
+#undef __TYPE
+
+#endif
 
 
 subroutine argparser_get_scalar_str (self, name, val, status)
@@ -992,7 +1060,7 @@ subroutine argparser_get_scalar_str (self, name, val, status)
 
     ! at this point ptr_arg points to the argument identified by name.
     ! Retrieve stored argument value
-    call ptr_arg%parse (val, lstatus)
+    call ptr_arg%poly_parse (val, lstatus)
 
     call process_argument_status (name, lstatus)
 
@@ -1000,16 +1068,6 @@ subroutine argparser_get_scalar_str (self, name, val, status)
     if (present(status)) status = lstatus
 end subroutine
 
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
-subroutine argparser_get_array_char (self, name, val, status)
-    class (argparser), intent(inout) :: self
-    character (*), intent(in) :: name
-    class (*), intent(out), dimension(:) :: val
-    type (status_t), intent(out), optional :: status
-
-    call self%get (str(name), val, status)
-end subroutine
-#endif
 
 subroutine argparser_get_scalar_char (self, name, val, status)
     class (argparser), intent(inout) :: self
@@ -1059,7 +1117,7 @@ subroutine argparser_get_unmapped_array (self, val, status)
         goto 100
     end if
 
-    call ptr_arg%parse (val, lstatus)
+    call ptr_arg%poly_parse (val, lstatus)
 
     ! Note: do not post-process error message, as this would prepend
     ! internal argument name.
@@ -1101,7 +1159,7 @@ subroutine argparser_get_unmapped_scalar (self, val, status)
         goto 100
     end if
 
-    call ptr_arg%parse (val, lstatus)
+    call ptr_arg%poly_parse (val, lstatus)
 
 100 continue
     if (present(status)) status = lstatus
@@ -1878,6 +1936,8 @@ subroutine argparser_assign (self, rhs)
 
         nullify (ptr_item, ptr_arg_rhs, ptr_arg_lhs)
     end do
+
+    if (allocated(iter)) deallocate (iter)
 
 end subroutine
 

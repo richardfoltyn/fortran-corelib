@@ -71,7 +71,7 @@ module fcore_argparse_argument
         procedure, pass :: argument_parse_scalar_logical
         procedure, pass :: argument_parse_scalar_str
         procedure, pass :: argument_parse_scalar_char
-        generic :: parse_impl => argument_parse_array_int32, &
+        generic :: parse => argument_parse_array_int32, &
             argument_parse_array_int64, &
             argument_parse_array_real32, &
             argument_parse_array_real64, &
@@ -86,9 +86,10 @@ module fcore_argparse_argument
             argument_parse_scalar_str, &
             argument_parse_scalar_char
 
-        procedure, pass :: argument_parse_array
-        procedure, pass :: argument_parse_scalar
-        generic, public :: parse => argument_parse_scalar, argument_parse_array
+        procedure, pass :: argument_poly_parse_array
+        procedure, pass :: argument_poly_parse_scalar
+        generic, public :: poly_parse => argument_poly_parse_scalar, &
+            argument_poly_parse_array
 
         procedure, pass :: argument_parse_check_input_scalar
         procedure, pass :: argument_parse_check_input_array
@@ -640,7 +641,7 @@ end function
 ! ------------------------------------------------------------------------------
 ! PARSE dispatch methods
 
-subroutine argument_parse_array (self, val, status)
+subroutine argument_poly_parse_array (self, val, status)
     class (argument), intent(in) :: self
     class (*), intent(out), dimension(:), target :: val
     type (status_t), intent(out) :: status
@@ -652,19 +653,19 @@ subroutine argument_parse_array (self, val, status)
 
     select type (val)
     type is (integer(int32))
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     type is (integer(int64))
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     type is (real(real32))
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     type is (real(real64))
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     type is (logical)
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     type is (character (*))
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     class is (str)
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     class default
         status = FC_STATUS_VALUE_ERROR
         status%msg = "Unsupported argument type"
@@ -672,7 +673,7 @@ subroutine argument_parse_array (self, val, status)
 
 end subroutine
 
-subroutine argument_parse_scalar (self, val, status)
+subroutine argument_poly_parse_scalar (self, val, status)
     class (argument), intent(in) :: self
     class (*), intent(out), target :: val
     type (status_t), intent(out) :: status
@@ -684,19 +685,19 @@ subroutine argument_parse_scalar (self, val, status)
 
     select type (val)
     type is (integer(int32))
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     type is (integer(int64))
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     type is (real(real32))
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     type is (real(real64))
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     type is (logical)
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     type is (character (*))
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     class is (str)
-        call self%parse_impl (val, status)
+        call self%parse (val, status)
     class default
         status = FC_STATUS_VALUE_ERROR
         status%msg = "Unsupported argument type"
@@ -810,7 +811,7 @@ subroutine argument_parse_array_str (self, val, status)
     end if
 end subroutine
 
-! NB: Handle str seperately as we want to be able to convert stored const or
+! NB: Handle str separately as we want to be able to convert stored const or
 ! default values of type character
 subroutine argument_parse_array_char (self, val, status)
     class (argument), intent(in), target :: self

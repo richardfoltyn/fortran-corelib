@@ -10,6 +10,8 @@ set(SOURCE_FILES
     validators.f90
 )
 
-include_directories(${${PROJECT_NAME}_MODDIR})
+include_directories(${${PROJECT_NAME}_MODDIR}
+    ${CMAKE_CURRENT_LIST_DIR}/include
+)
 add_library(${COMPONENT_NAME} OBJECT ${SOURCE_FILES})
 add_dependencies(${COMPONENT_NAME} common collections)
