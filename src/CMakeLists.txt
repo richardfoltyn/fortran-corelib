@@ -83,9 +83,15 @@ unset(_FFLAGS_DEBUG)
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     # explicitly add -cpp to run C preprocessor if required
     set(GNU_WARN "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure \
-      -Warray-temporaries -Wrealloc-lhs -pedantic")
-    set(_FFLAGS "${GNU_WARN} -std=f2008")
-    set(_FFLAGS_DEBUG "-fcheck=all -ggdb")
+      -Warray-temporaries -Wrealloc-lhs")
+    set(_FFLAGS "${GNU_WARN} -std=f2008 -pedantic")
+    set(_FFLAGS_DEBUG "-fcheck=all -ggdb -O0")
+
+    # Disable "surprising" warnings for older GFORTRAN version as this
+    # produces endless warnings about array finalizers
+    if (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 7)
+        set(_FFLAGS "${_FFLAGS} -Wno-surprising")
+    endif()
 elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
     if (WIN32)
         set(_FFLAGS "/warn:all /standard-semantics /stand:f08 /auto")
