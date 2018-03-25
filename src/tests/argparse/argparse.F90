@@ -650,37 +650,132 @@ subroutine test_copy (tests)
     class (test_suite) :: tests
 
     class (test_case), pointer :: tc
-    type (argparser), allocatable :: parser, parser2
+    type (argparser), allocatable :: parser1, parser2
     type (status_t) :: status
     type (str), dimension(:), allocatable :: cmd_args
+    integer, parameter :: value1_cmd = 123, value1_default = 2346
+    logical :: is_defined1, is_defined2
+    logical :: is_present1, is_present2
+    integer :: ivalue1, ivalue2
+    logical :: lvalue1, lvalue2
 
     tc => tests%add_test ("argparse copy test")
 
-    allocate (parser)
+    allocate (parser1)
 
-    call parser%init (description="argparse copy test")
+    call parser1%init (description="argparse copy test")
 
-    call parser%add_argument ("arg-value", &
-        default=1, &
+    call parser1%add_argument ("arg-value", &
+        default=value1_default, &
+        required=.false., &
         help="Help text for argument with value", &
         status=status)
 
-    call parser%add_argument ("arg-const", &
+    call parser1%add_argument ("arg-const", &
         action=ARGPARSE_ACTION_STORE_CONST, &
         default=1, &
         const=2, &
+        required=.false., &
         help="Help text for storing constant")
 
-    call parser%add_argument ("arg-toggle", &
+    call parser1%add_argument ("arg-toggle", &
         action=ARGPARSE_ACTION_TOGGLE, &
         default=.true., &
+        required=.false., &
         help="Help text for toggle argument")
 
-    allocate (parser2)
-    parser2 = parser
+    allocate (cmd_args(2))
+!    cmd_args(1) = "--arg-value=" // str(value1_cmd, 'i0')
+    cmd_args(1) = "--arg-const"
+    cmd_args(2) = "--no-arg-toggle"
 
-    deallocate (parser)
+    ! Check that applicable data is identical before parsing
+    allocate (parser2)
+    parser2 = parser1
+
+    is_defined1 = parser1%is_defined ('arg-value')
+    is_defined2 = parser2%is_defined ('arg-value')
+    call tc%assert_true (is_defined1 .eqv. is_defined2, &
+        'Pre-parsing: Checking IS_DEFINED for action STORE')
+
+    is_defined1 = parser1%is_defined ('arg-const')
+    is_defined2 = parser2%is_defined ('arg-const')
+    call tc%assert_true (is_defined1 .eqv. is_defined2, &
+        'Pre-parsing: Checking IS_DEFINED for action STORE_CONST')
+
+    is_defined1 = parser1%is_defined ('arg-toggle')
+    is_defined2 = parser2%is_defined ('arg-toggle')
+    call tc%assert_true (is_defined1 .eqv. is_defined2, &
+        'Pre-parsing: Checking IS_DEFINED for action TOGGLE')
+
     deallocate (parser2)
+
+    ! Check that copied values are identical after parsing
+    call parser1%parse (cmd_args, status)
+
+    allocate (parser2)
+    parser2 = parser1
+
+    ! Check argument presence
+    is_present1 = parser1%is_present ('arg-value')
+    is_present2 = parser2%is_present ('arg-value')
+    call tc%assert_true (is_present1 .eqv. is_present2, &
+        'Checking IS_PRESENT for action STORE')
+
+    is_present1 = parser1%is_present ('arg-const')
+    is_present2 = parser2%is_present ('arg-const')
+    call tc%assert_true (is_present1 .eqv. is_present2, &
+        'Checking IS_PRESENT for action STORE_CONST')
+
+    is_present1 = parser1%is_present ('arg-toggle')
+    is_present2 = parser2%is_present ('arg-toggle')
+    call tc%assert_true (is_present1 .eqv. is_present2, &
+        'Checking IS_PRESENT for action TOGGLE')
+
+    ! Check argument values
+    call parser1%get ('arg-value', ivalue1, status)
+    call parser2%get ('arg-value', ivalue2, status)
+    call tc%assert_true (ivalue1 == ivalue2, &
+        'Checking arg. value for action STORE')
+
+    call parser1%get ('arg-const', ivalue1, status)
+    call parser2%get ('arg-const', ivalue2, status)
+    call tc%assert_true (ivalue1 == ivalue2, &
+        'Checking arg. value for action STORE_CONST')
+
+    call parser1%get ('arg-toggle', lvalue1, status)
+    call parser2%get ('arg-toggle', lvalue2, status)
+    call tc%assert_true (lvalue1 .eqv. lvalue2, &
+        'Checking arg. value for action TOGGLE')
+
+    deallocate (parser2)
+
+    ! Check that values in parser1 are unaffected by deallocating PARSER2
+    is_present1 = parser1%is_present ('arg-value')
+    call tc%assert_true (.not. is_present1, &
+        'Post-dealloc: Checking IS_PRESENT on PARSER1 for action STORE')
+
+    is_present1 = parser1%is_present ('arg-const')
+    call tc%assert_true (is_present1, &
+        'Post-dealloc: Checking IS_PRESENT on PARSER1 for action STORE_CONST')
+
+    is_present1 = parser1%is_present ('arg-toggle')
+    call tc%assert_true (is_present1, &
+        'Post-dealloc: Checking IS_PRESENT on PARSER1 for action TOGGLE')
+
+    call parser1%get ('arg-value', ivalue1, status)
+    call tc%assert_true (ivalue1 == value1_default, &
+        'Post-dealloc: Checking value on PARSER1 for action STORE')
+
+    call parser1%get ('arg-const', ivalue1, status)
+    call tc%assert_true (ivalue1 == 2, &
+        'Post-dealloc: Checking value on PARSER1 for action STORE_CONST')
+
+    call parser1%get ('arg-toggle', lvalue1, status)
+    call tc%assert_true (.not. lvalue1, &
+        'Post-dealloc: Checking value on PARSER1 for action TOGGLE')
+
+    deallocate (parser1)
 
 end subroutine
 

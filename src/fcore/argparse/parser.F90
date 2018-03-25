@@ -101,7 +101,7 @@ module fcore_argparse_parser
         procedure, pass :: parse_abbrev => argparser_parse_abbrev
         procedure, pass :: parse_unmapped => argparser_parse_unmapped
         procedure, pass :: collect_values => argparser_collect_values
-        procedure, pass :: length => argparser_length
+        procedure, pass :: get_nargs => argparser_get_nargs
 
         procedure, pass :: argparser_check_input_str
         procedure, pass :: argparser_check_input_char
@@ -126,10 +126,13 @@ module fcore_argparse_parser
         procedure, pass :: help_present => argparser_help_present
 
         procedure, public, pass :: print_help => argparser_print_help
+
+        procedure, pass :: argparser_assign
+        generic, public :: assignment(=) => argparser_assign
     end type
 
-    interface len
-        procedure argparser_len
+    interface size
+        procedure argparser_get_nargs
     end interface
 
     interface sanitize_argument_text
@@ -233,17 +236,11 @@ end subroutine
 ! ------------------------------------------------------------------------------
 ! Length method, len() generic
 
-pure function argparser_length (self) result(res)
+pure function argparser_get_nargs (self) result(res)
     class (argparser), intent(in) :: self
     integer :: res
     res = 0
     if (allocated(self%args)) res = len(self%args)
-end function
-
-pure function argparser_len (obj) result(res)
-    class (argparser), intent(in) :: obj
-    integer :: res
-    res = obj%length ()
 end function
 
 ! ------------------------------------------------------------------------------
@@ -1123,7 +1120,7 @@ subroutine argparser_get_check_state (self, status)
 
     call status%init (FC_STATUS_OK)
 
-    if (len(self) == 0) then
+    if (self%get_nargs() == 0) then
         status = FC_STATUS_INVALID_STATE
         status%msg = "No arguments defined"
         return
@@ -1158,7 +1155,7 @@ subroutine argparser_find_arg (self, name, ptr_arg, status, is_abbrev)
 
     nullify (ptr_arg)
 
-    if (len(self) == 0) then
+    if (self%get_nargs() == 0) then
         if (present(status)) then
             status = FC_STATUS_INVALID_STATE
             status%msg = "No arguments defined"
@@ -1350,7 +1347,7 @@ subroutine argparser_parse_array (self, cmd_args, status)
         goto 100
     end if
 
-    if (len(self) == 0) then
+    if (self%get_nargs() == 0) then
         lstatus = FC_STATUS_INVALID_STATE
         lstatus%msg = "Need to define arguments before parsing"
         goto 100
@@ -1841,6 +1838,53 @@ contains
             end do
         end if
     end subroutine
+end subroutine
+
+
+! ------------------------------------------------------------------------------
+! Operators
+
+subroutine argparser_assign (self, rhs)
+    class (argparser), intent(inout) :: self
+    class (argparser), intent(in) :: rhs
+
+    class (iterator), allocatable :: iter
+    class (*), pointer :: ptr_item
+    class (argument), pointer :: ptr_arg_lhs, ptr_arg_rhs
+    type (argument) :: arg
+
+    self%progname = rhs%progname
+    self%description = rhs%description
+    self%status = rhs%status
+
+    if (allocated(self%args)) deallocate (self%args)
+    if (.not. allocated(rhs%args)) return
+
+    ! At this point RHS%ARGS is allocated
+    ! Ideally we would use LINKED_LIST's defined assignment to just copy
+    ! over all ARGUMENT object, but this crashes with IFORT, so we do it
+    ! manually.
+    allocate (self%args)
+
+    call rhs%args%get_iter (iter)
+
+    do while (iter%has_next())
+        ptr_item => iter%item ()
+        call dynamic_cast (ptr_item, ptr_arg_rhs)
+
+        ! Append "emtpy" ARGUMENT object that will be populated later.
+        ! Note that this creates a copy of ARG within the linked list.
+        call self%args%append (arg)
+        ! Get pointer to last inserted ARGUMENT object
+        ptr_item => self%args%item(size(self%args))
+        call dynamic_cast (ptr_item, ptr_arg_lhs)
+
+        ! Populate attributes using polymorphic defined assignment
+        ptr_arg_lhs = ptr_arg_rhs
+
+        nullify (ptr_item, ptr_arg_rhs, ptr_arg_lhs)
+    end do
+
 end subroutine
 
 end module
