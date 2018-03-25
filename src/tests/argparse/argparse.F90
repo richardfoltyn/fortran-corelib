@@ -1,3 +1,4 @@
+
 program test_strings
 
     use iso_fortran_env
@@ -28,15 +29,21 @@ subroutine test_all()
     ! Test TOGGLE action
     call test_toggle (tests)
 
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     ! run individual test cases
     call test_append (tests)
+#endif
 
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     ! Test handling of cmd. arguments that are not mapped to any argument object
     call test_unmapped (tests)
+#endif
 
     call test_validators (tests)
 
     call test_help (tests)
+
+    call test_copy (tests)
 
     ! print test statistics
     call tests%print ()
@@ -52,13 +59,12 @@ subroutine test_integer (tests)
     type (status_t) :: status
 
     ! emulated command line arguments
-    type (str), dimension(:), allocatable :: cmd, val_list
+    type (str), dimension(:), allocatable :: cmd
     logical :: is_present
-    integer (int32), parameter :: input1_32 = 123, input2_32 = -123, input3_32 = huge(1_int32)
-    integer (int64), parameter :: input1_64 = 123, input2_64 = -123, input3_64 = huge(1_int64)
+    integer (int32), parameter :: input1_32 = 123, input2_32 = -123
+    integer (int64), parameter :: input1_64 = 123, input2_64 = -123
     integer (int32) :: val32
     integer (int64) :: val64
-    integer :: nvals
 
     tc => tests%add_test("argparse integer tests")
 
@@ -113,6 +119,8 @@ subroutine test_integer (tests)
 
 end subroutine
 
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine test_append (tests)
     class (test_suite) :: tests
     class (test_case), pointer :: tc
@@ -120,7 +128,7 @@ subroutine test_append (tests)
     type (argparser) :: parser
     type (status_t) :: status
 
-    type (str) :: name, val
+    type (str) :: val
     ! emulated command line arguments
     type (str), dimension(:), allocatable :: cmd, val_list
     integer :: nvals
@@ -236,6 +244,8 @@ subroutine test_append (tests)
     deallocate (cmd, val_list)
 
 end subroutine
+#endif
+
 
 subroutine test_validators (tests)
     class (test_suite) :: tests
@@ -454,7 +464,7 @@ end subroutine
 
 
  
-
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine test_unmapped (tests)
     class (test_suite) :: tests
     class (test_case), pointer :: tc
@@ -560,7 +570,7 @@ subroutine test_unmapped (tests)
         "Attempt to retrieve scalar unmapped arg if none present")
 
 end subroutine
-
+#endif
 
 
 subroutine test_help (tests)
@@ -633,6 +643,44 @@ subroutine test_help (tests)
         "Three arguments incl. user-provided value; args. defined ex ante")
     deallocate (cmd_args)
 
+end subroutine
+
+
+subroutine test_copy (tests)
+    class (test_suite) :: tests
+
+    class (test_case), pointer :: tc
+    type (argparser), allocatable :: parser, parser2
+    type (status_t) :: status
+    type (str), dimension(:), allocatable :: cmd_args
+
+    tc => tests%add_test ("argparse copy test")
+
+    allocate (parser)
+
+    call parser%init (description="argparse copy test")
+
+    call parser%add_argument ("arg-value", &
+        default=1, &
+        help="Help text for argument with value", &
+        status=status)
+
+    call parser%add_argument ("arg-const", &
+        action=ARGPARSE_ACTION_STORE_CONST, &
+        default=1, &
+        const=2, &
+        help="Help text for storing constant")
+
+    call parser%add_argument ("arg-toggle", &
+        action=ARGPARSE_ACTION_TOGGLE, &
+        default=.true., &
+        help="Help text for toggle argument")
+
+    allocate (parser2)
+    parser2 = parser
+
+    deallocate (parser)
+    deallocate (parser2)
 
 end subroutine
 

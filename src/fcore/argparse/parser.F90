@@ -1,12 +1,5 @@
-! gfortran up to v5.x incorrectly processes procedure calls if the actual argument
-! is a temporary array of user-derived type, and the dummy argument is
-! polymorphic; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60322
-#if __GFORTRAN__ && (__GNUC__  < 6)
-#define _POLYMORPHIC_ARRAY(t) type (t)
-#else
-#define _POLYMORPHIC_ARRAY(t) class (t)
-#endif
 
+#include <fcore.h>
 
 module fcore_argparse_parser
 
@@ -45,6 +38,7 @@ module fcore_argparse_parser
     integer, parameter :: LINEWIDTH = 80
         !*  Linewidth when printing diagnostic messages, e.g. help text.
 
+
     type, public :: argparser
         private
 
@@ -54,17 +48,21 @@ module fcore_argparse_parser
         integer :: status = ARGPARSE_STATUS_INIT
     contains
         procedure, pass :: argparser_add_argument_str
-        procedure, pass :: argparser_add_argument_array_default_str
         procedure, pass :: argparser_add_argument_scalar_default_str
         procedure, pass :: argparser_add_argument_char
-        procedure, pass :: argparser_add_argument_array_default_char
         procedure, pass :: argparser_add_argument_scalar_default_char
         generic, public :: add_argument => argparser_add_argument_str, &
-            argparser_add_argument_array_default_str, &
             argparser_add_argument_scalar_default_str, &
-            argparser_add_argument_array_default_char, &
             argparser_add_argument_char, &
             argparser_add_argument_scalar_default_char
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
+        procedure, pass :: argparser_add_argument_array_default_str
+        procedure, pass :: argparser_add_argument_array_default_char
+        generic, public :: add_argument => &
+            argparser_add_argument_array_default_str, &
+            argparser_add_argument_array_default_char
+#endif
 
         procedure, pass :: init_str => argparser_init_str
         procedure, pass :: init_char => argparser_init_char
@@ -73,19 +71,25 @@ module fcore_argparse_parser
         procedure, public, pass :: reset => argparser_reset
         procedure, pass :: reset_args => argparser_reset_args
 
-        procedure, pass :: argparser_get_array_str
         procedure, pass :: argparser_get_scalar_str
-        procedure, pass :: argparser_get_array_char
         procedure, pass :: argparser_get_scalar_char
-        generic, public :: get => argparser_get_array_str, &
-            argparser_get_scalar_str, &
-            argparser_get_array_char, &
+        generic, public :: get => argparser_get_scalar_str, &
             argparser_get_scalar_char
 
-        procedure, pass :: argparser_get_unmapped_array
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
+        procedure, pass :: argparser_get_array_char
+        procedure, pass :: argparser_get_array_str
+        generic, public :: get => argparser_get_array_str, &
+            argparser_get_array_char
+#endif
+
         procedure, pass :: argparser_get_unmapped_scalar
-        generic, public :: get_unmapped => argparser_get_unmapped_array, &
-            argparser_get_unmapped_scalar
+        generic, public :: get_unmapped => argparser_get_unmapped_scalar
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
+        procedure, pass :: argparser_get_unmapped_array
+        generic, public :: get_unmapped => argparser_get_unmapped_array
+#endif
 
         procedure, pass :: argparser_parse_array
         procedure, pass :: argparser_parse_cmd
@@ -125,16 +129,22 @@ module fcore_argparse_parser
     end type
 
     interface len
-        module procedure argparser_len
+        procedure argparser_len
     end interface
 
     interface sanitize_argument_text
-        module procedure sanitize_argument_text_str, sanitize_argument_text_char
+        procedure sanitize_argument_text_str, sanitize_argument_text_char
     end interface
 
     interface sanitize_argument_data
-        module procedure sanitize_argument_data_array, sanitize_argument_data_scalar
+        procedure sanitize_argument_data_scalar
     end interface
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
+    interface sanitize_argument_data
+        procedure sanitize_argument_data_array
+    end interface
+#endif
 
     public :: len
 
@@ -262,6 +272,8 @@ end function
 ! Additionally, attempting to copy character data into character arrays
 ! crashes when code was compiled with gfortran.
 
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
         action, nargs, required, help, status, validator, default, const)
     !*  Add argument definition using the following interface:
@@ -322,6 +334,8 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
         nullify (ptr_arg)
     end if
 end subroutine
+#endif
+
 
 subroutine argparser_add_argument_str (self, name, abbrev, &
         action, nargs, required, help, status, validator)
@@ -489,6 +503,8 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     end if
 end subroutine
 
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine argparser_add_argument_array_default_char (self, name, abbrev, action, &
         nargs, required, help, status, validator, default, const)
     !*  Add argument definition using the following interface:
@@ -551,6 +567,9 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
         nullify (ptr_arg)
     end if
 end subroutine
+#endif
+
+
 
 subroutine argparser_add_argument_char (self, name, abbrev, action, &
         nargs, required, help, status, validator)
@@ -624,6 +643,8 @@ subroutine sanitize_argument_data_scalar (src, ptr)
 
 end subroutine
 
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine sanitize_argument_data_array (src, ptr)
     !*  SANITIZE_ARGUMENT_DATA_ARRAY returns a pointer to a valid representation
     !   of the data contained in src. For all types other than character,
@@ -653,7 +674,10 @@ subroutine sanitize_argument_data_array (src, ptr)
         ptr => src
     end select
 end subroutine
+#endif
 
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine dealloc_argument_data_array (src, ptr)
     !*  DEALLOC_ARGUMENT_DATA_ARRAY conditionally deallocates the memory
     !   pointed to by ptr if: (1) src is present; and (2) ptr is
@@ -670,6 +694,7 @@ subroutine dealloc_argument_data_array (src, ptr)
     end if
 
 end subroutine
+#endif
 
 
 subroutine sanitize_argument_text_str (name, abbrev, help, names, abbrevs)
@@ -919,6 +944,8 @@ end function
 ! ------------------------------------------------------------------------------
 ! GET methods
 
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine argparser_get_array_str (self, name, val, status)
     class (argparser), intent(inout) :: self
     type (str), intent(in) :: name
@@ -948,6 +975,9 @@ subroutine argparser_get_array_str (self, name, val, status)
 100 continue
     if (present(status)) status = lstatus
 end subroutine
+#endif
+
+
 
 subroutine argparser_get_scalar_str (self, name, val, status)
     class (argparser), intent(inout) :: self
@@ -979,6 +1009,7 @@ subroutine argparser_get_scalar_str (self, name, val, status)
     if (present(status)) status = lstatus
 end subroutine
 
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine argparser_get_array_char (self, name, val, status)
     class (argparser), intent(inout) :: self
     character (*), intent(in) :: name
@@ -987,6 +1018,7 @@ subroutine argparser_get_array_char (self, name, val, status)
 
     call self%get (str(name), val, status)
 end subroutine
+#endif
 
 subroutine argparser_get_scalar_char (self, name, val, status)
     class (argparser), intent(inout) :: self
@@ -997,6 +1029,8 @@ subroutine argparser_get_scalar_char (self, name, val, status)
     call self%get (str(name), val, status)
 end subroutine
 
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine argparser_get_unmapped_array (self, val, status)
     !*  GET_UNMAPPED_ARRAY returns an array of command line arguments
     !   that could not be mapped to any named argument.
@@ -1041,7 +1075,7 @@ subroutine argparser_get_unmapped_array (self, val, status)
 100 continue
     if (present(status)) status = lstatus
 end subroutine
-
+#endif
 
 subroutine argparser_get_unmapped_scalar (self, val, status)
     !*  GET_UNMAPPED_SCALAR returns the command line argument that
@@ -1293,7 +1327,7 @@ end subroutine
 
 subroutine argparser_parse_array (self, cmd_args, status)
     class (argparser), intent(inout) :: self
-    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: cmd_args
     type (status_t), intent(out), optional :: status
 
     integer :: i, cmd_nargs
@@ -1384,7 +1418,7 @@ end subroutine
 
 subroutine argparser_parse_long (self, cmd_args, offset, status)
     class (argparser), intent(inout) :: self
-    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: cmd_args
     integer, intent(inout) :: offset
     type (status_t), intent(out) :: status
 
@@ -1474,7 +1508,7 @@ end subroutine
 
 subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
     class (argparser), intent(inout) :: self
-    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: cmd_args
     integer, intent(inout) :: offset
     type (status_t), intent(out) :: status
 
@@ -1550,7 +1584,7 @@ subroutine argparser_collect_values (self, cmd_name, cmd_args, offset, ptr_arg, 
     class (argparser), intent(inout) :: self
     class (str), intent(in) :: cmd_name
         !*  Argument name, as specified by user on CLI
-    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: cmd_args
     integer, intent(in) :: offset
     class (argument), intent(in), pointer :: ptr_arg
     type (str), intent(out), dimension(:), allocatable :: cmd_values
@@ -1618,7 +1652,7 @@ function argparser_help_present (self, cmd_args) result(res)
     !   parsing other arguments that might be present are ignored.
 
     class (argparser), intent(inout) :: self
-    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: cmd_args
     logical :: res
         !*  On exit this value is set to true if --help/-h was passed,
         !   and to false otherwise.

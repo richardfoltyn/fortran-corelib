@@ -6,7 +6,21 @@ set(FCORE_COMPONENTS argparse common collections datetime
     io logging testing
 )
 
-include_directories("${${PROJECT_NAME}_MODDIR}")
+include_directories("${${PROJECT_NAME}_MODDIR}"
+    "${CMAKE_CURRENT_LIST_DIR}/include"
+)
+
+# Set CPP definitions that help navigate around compiler bugs
+unset(COMPILER_BUG_DEFINITIONS)
+if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU" AND
+    CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 6)
+    list(APPEND COMPILER_BUG_DEFINITIONS -D__FCORE_GFORTRAN_POLY_ARRAY_BUG)
+endif()
+
+if (COMPILER_BUG_DEFINITIONS)
+    add_definitions(${COMPILER_BUG_DEFINITIONS})
+    message(STATUS "Compiler bugs: ${COMPILER_BUG_DEFINITIONS}")
+endif()
 
 # Update fcore module
 configure_file(fcore.f90.in
@@ -42,10 +56,23 @@ set_target_properties(${LIBRARY_NAME} PROPERTIES
     VERSION ${FCORE_VERSION}
 )
 
-# build static library so tests can link against it
-if (BUILD_TESTS OR BUILD_EXAMPLES)
-    add_library(${LIBRARY_NAME}_static STATIC ${SOURCE_FILES} ${COMPONENT_OBJECTS})
+# Add compiler definitions to public interface so that they are automatically
+# propagated to unit tests, examples, etc.
+if (COMPILER_BUG_DEFINITIONS)
+    target_compile_definitions(${LIBRARY_NAME} PUBLIC
+        ${COMPILER_BUG_DEFINITIONS}
+    )
 endif()
+
+# build static library so tests can link against it
+add_library(${LIBRARY_NAME}_static STATIC ${SOURCE_FILES} ${COMPONENT_OBJECTS})
+
+if (COMPILER_BUG_DEFINITIONS)
+    target_compile_definitions(${LIBRARY_NAME}_static PUBLIC
+        ${COMPILER_BUG_DEFINITIONS}
+    )
+endif()
+
 
 ##########################################################################################
 # INSTALLATION

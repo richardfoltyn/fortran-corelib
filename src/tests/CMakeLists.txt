@@ -8,7 +8,9 @@ list(APPEND COMPONENTS
     common
 )
 
-include_directories("${CMAKE_Fortran_MODULE_DIRECTORY}")
+include_directories("${CMAKE_Fortran_MODULE_DIRECTORY}"
+    "${CMAKE_CURRENT_LIST_DIR}/../fcore/include"
+    )
 
 foreach (_comp IN LISTS COMPONENTS)
 

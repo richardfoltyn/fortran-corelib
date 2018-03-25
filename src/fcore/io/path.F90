@@ -1,11 +1,5 @@
-! gfortran up to v5.x incorrectly processes procedure calls if the actual argument
-! is a temporary array of user-derived type, and the dummy argument is
-! polymorphic; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60322
-#if __GFORTRAN__ && (__GNUC__  < 6)
-#define _POLYMORPHIC_ARRAY(t) type (t)
-#else
-#define _POLYMORPHIC_ARRAY(t) class (t)
-#endif
+
+#include <fcore.h>
 
 module fcore_io_path
 
@@ -28,7 +22,7 @@ contains
 ! JOIN_PATH functions
 
 pure subroutine join_path_impl (str_list, res)
-    _POLYMORPHIC_ARRAY (str), dimension(:), intent(in) :: str_list
+    __FCORE_POLY_ARRAY (str), dimension(:), intent(in) :: str_list
     type (str), intent(in out) :: res
 
     class (str), dimension(:), allocatable :: components
@@ -62,7 +56,7 @@ pure subroutine join_path_impl (str_list, res)
 end subroutine
 
 pure function join_path_array_str (str_list) result(res)
-    _POLYMORPHIC_ARRAY (str), dimension(:), intent(in) :: str_list
+    __FCORE_POLY_ARRAY (str), dimension(:), intent(in) :: str_list
     type (str) :: res
 
     call join_path_impl (str_list, res)

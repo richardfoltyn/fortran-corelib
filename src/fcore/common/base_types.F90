@@ -1,16 +1,10 @@
+
+#include <fcore.h>
+
 ! define implementation-indep. function to determine whether string
 ! has been initialized with some value
 #define _VALID(obj) allocated(obj%value)
 #define _CLEAR(obj) if (allocated(obj%value)) deallocate(obj%value)
-
-! gfortran up to v5.x incorrectly processes procedure calls if the actual argument
-! is a temporary array of user-derived type, and the dummy argument is
-! polymorphic; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60322
-#if __GFORTRAN__ && (__GNUC__  < 6)
-#define _POLYMORPHIC_ARRAY(t) type (t)
-#else
-#define _POLYMORPHIC_ARRAY(t) class (t)
-#endif
 
 
 module fcore_common_base
@@ -1063,7 +1057,7 @@ end function
 
 pure function join_str(self, str_list) result(res)
     class (str), intent(in) :: self
-    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: str_list
+    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: str_list
     type (str) :: res
 
     call join_impl(self, str_list, res)
@@ -1099,7 +1093,7 @@ end function
 
 pure subroutine join_impl(self, str_list, res)
     class (str), intent(in) :: self
-    _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: str_list
+    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: str_list
     type (str), intent(out) :: res
 
     ! automatically deallocated on subroutine exit
@@ -1628,7 +1622,7 @@ end subroutine
 
 subroutine cast_any_to_str_array (tgt, ptr, status)
     class (*), intent(in), dimension(:), target :: tgt
-    _POLYMORPHIC_ARRAY (str), intent(out), dimension(:), pointer :: ptr
+    __FCORE_POLY_ARRAY (str), intent(out), dimension(:), pointer :: ptr
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)

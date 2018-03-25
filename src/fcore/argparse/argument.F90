@@ -1,11 +1,6 @@
-! gfortran up to v5.x incorrectly processes procedure calls if the actual argument
-! is a temporary array of user-derived type, and the dummy argument is
-! polymorphic; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60322
-#if __GFORTRAN__ && (__GNUC__  < 6)
-#define _POLYMORPHIC_ARRAY(t) type (t)
-#else
-#define _POLYMORPHIC_ARRAY(t) class (t)
-#endif
+
+#include <fcore.h>
+
 
 module fcore_argparse_argument
 
@@ -750,10 +745,10 @@ end subroutine
 ! default values of type character
 subroutine argument_parse_array_str (self, val, status)
     class (argument), intent(in), target :: self
-    _POLYMORPHIC_ARRAY (str), intent(inout), dimension(:) :: val
+    __FCORE_POLY_ARRAY (str), intent(inout), dimension(:) :: val
     type (status_t), intent(out) :: status
 
-    _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
+    __FCORE_POLY_ARRAY (str), dimension(:), pointer :: ptr
     class (*), dimension(:), pointer :: ptr_stored
 
     integer :: i
@@ -921,7 +916,7 @@ subroutine argument_parse_scalar_str (self, val, status)
     class (str), intent(inout) :: val
     type (status_t), intent(inout) :: status
 
-    _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
+    __FCORE_POLY_ARRAY (str), dimension(:), pointer :: ptr
     class (*), dimension(:), pointer :: ptr_stored
 
     nullify (ptr_stored)
