@@ -100,6 +100,9 @@ module fcore_argparse_argument
         procedure, public, pass :: get_name => argument_get_name
         procedure, public, nopass :: get_toggle_off_name => argument_get_toggle_off_name
 
+        procedure, pass :: argument_assign
+        generic, public :: assignment(=) => argument_assign
+
     end type
 
     interface dynamic_cast
@@ -1112,6 +1115,46 @@ function argument_get_toggle_off_name (name) result(res)
     res = ARGUMENT_ACTION_TOGGLE_OFF_PREFIX // '-' // name
 
 end function
+
+! ------------------------------------------------------------------------------
+! Operators
+
+subroutine argument_assign (self, rhs)
+    !*  ARGUMENT_ASSIGN implements the assignment operator for ARGUMENT
+    !   objects.
+    class (argument), intent(inout) :: self
+    class (argument), intent(in) :: rhs
+
+    integer :: n
+
+    call copy_alloc (rhs%names, self%names)
+    call copy_alloc (rhs%abbrevs, self%abbrevs)
+
+    if (allocated(self%default)) deallocate (self%default)
+    if (allocated(rhs%default)) then
+        n = size(rhs%default)
+        allocate (self%default(n), source=rhs%default)
+    end if
+
+    if (allocated(self%const)) deallocate (self%const)
+    if (allocated(rhs%const)) then
+        n = size(rhs%const)
+        allocate (self%const(n), source=rhs%const)
+    end if
+
+    call copy_alloc (rhs%passed_values, self%passed_values)
+
+    self%action = rhs%action
+    self%nargs = rhs%nargs
+    self%is_present = rhs%is_present
+    self%required = rhs%required
+    self%allow_empty = rhs%allow_empty
+    self%help = rhs%help
+
+    self%validator => rhs%validator
+
+end subroutine
+
 
 ! ------------------------------------------------------------------------------
 ! Casts
