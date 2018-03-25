@@ -128,7 +128,7 @@ subroutine argument_init_default (self)
     !*  ARGUMENT_INIT_DEFAULT initializes argument objects to its pristine
     !   state.
 
-    class (argument), intent(in out) :: self
+    class (argument), intent(inout) :: self
 
     if (allocated (self%passed_values)) deallocate (self%passed_values)
     if (allocated (self%default)) deallocate (self%default)
@@ -150,7 +150,7 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
     !*  ARGUMENT_INIT_ARRAY initializes argument object from user-provided data.
     !   Accepts default and const arguments as arrays.
 
-    class (argument), intent(in out) :: self
+    class (argument), intent(inout) :: self
     type(str), intent(in), dimension(:) :: names
     type(str), intent(in), dimension(:), optional :: abbrevs
     integer (FC_ENUM_KIND), intent(in), optional :: action
@@ -393,7 +393,7 @@ subroutine argument_reset (self)
     !   Note: Does not reset instance to its initial state, ie. the setup
     !   performed by INIT() remains unchanged.
 
-    class (argument), intent(in out) :: self
+    class (argument), intent(inout) :: self
 
     if (allocated (self%passed_values)) deallocate (self%passed_values)
 
@@ -404,7 +404,7 @@ end subroutine
 ! Routines to store const and default values
 
 subroutine argument_store_const_array (self, val)
-    class (argument), intent(in out) :: self
+    class (argument), intent(inout) :: self
     class (*), intent(in), dimension(:), optional :: val
 
     integer :: n
@@ -417,7 +417,7 @@ subroutine argument_store_const_array (self, val)
 end subroutine
 
 subroutine argument_store_const_scalar (self, val)
-    class (argument), intent(in out) :: self
+    class (argument), intent(inout) :: self
     class (*), intent(in) :: val
 
     class (*), dimension(:), allocatable :: work
@@ -427,7 +427,7 @@ subroutine argument_store_const_scalar (self, val)
 end subroutine
 
 subroutine argument_store_default_array (self, val)
-    class (argument), intent(in out) :: self
+    class (argument), intent(inout) :: self
     class (*), intent(in), dimension(:), optional :: val
 
     integer :: n
@@ -440,7 +440,7 @@ subroutine argument_store_default_array (self, val)
 end subroutine
 
 subroutine argument_store_default_scalar (self, val)
-    class (argument), intent(in out) :: self
+    class (argument), intent(inout) :: self
     class (*), intent(in) :: val
 
     class (*), dimension(:), allocatable :: work
@@ -456,7 +456,7 @@ subroutine argument_set_scalar (self, name, val, status)
     !*  ARGUMENT_SET_SCALAR is a wrapper around ARGUMENT_SET_ARRAY
     !   for scalar command line argument values.
 
-    class (argument), intent(in out) :: self
+    class (argument), intent(inout) :: self
     type (str), intent(in) :: name
     type (str), intent(in) :: val
     type (status_t), intent(out), optional :: status
@@ -477,7 +477,7 @@ subroutine argument_set_array (self, name, val, status)
     !   as the eventual data type that the user will request is
     !   not known at this point.
 
-    class (argument), intent(in out) :: self
+    class (argument), intent(inout) :: self
     type (str), intent(in) :: name
     type (str), intent(in), dimension(:), optional :: val
     type (status_t), intent(out), optional :: status
@@ -532,7 +532,7 @@ subroutine argument_process_cmd_value (self, val, status)
     !   ACTION_STORE and ACTION_APPEND, as none of the other actions
     !   accepts user-provided arguments.
 
-    class (argument), intent(in out) :: self
+    class (argument), intent(inout) :: self
     type (str), intent(in), dimension(:) :: val
     type (status_t), intent(out) :: status
 
@@ -750,7 +750,7 @@ end subroutine
 ! default values of type character
 subroutine argument_parse_array_str (self, val, status)
     class (argument), intent(in), target :: self
-    _POLYMORPHIC_ARRAY (str), intent(in out), dimension(:) :: val
+    _POLYMORPHIC_ARRAY (str), intent(inout), dimension(:) :: val
     type (status_t), intent(out) :: status
 
     _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
@@ -817,7 +817,7 @@ end subroutine
 subroutine argument_parse_array_char (self, val, status)
     class (argument), intent(in), target :: self
     character (*), intent(out), dimension(:) :: val
-    type (status_t), intent(in out) :: status
+    type (status_t), intent(inout) :: status
 
     character (len(val)), dimension(:), pointer :: ptr
     class (*), dimension(:), pointer :: ptr_stored
@@ -918,8 +918,8 @@ end subroutine
 ! default values of type character
 subroutine argument_parse_scalar_str (self, val, status)
     class (argument), intent(in), target :: self
-    class (str), intent(in out) :: val
-    type (status_t), intent(in out) :: status
+    class (str), intent(inout) :: val
+    type (status_t), intent(inout) :: status
 
     _POLYMORPHIC_ARRAY (str), dimension(:), pointer :: ptr
     class (*), dimension(:), pointer :: ptr_stored

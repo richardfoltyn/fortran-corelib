@@ -144,7 +144,7 @@ contains
 ! Initialization
 
 subroutine argparser_init_str (self, description, progname)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     class (str), intent(in), optional :: description
     class (str), intent(in), optional :: progname
 
@@ -199,7 +199,7 @@ subroutine argparser_init_str (self, description, progname)
 end subroutine
 
 subroutine argparser_init_char (self, description, progname)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     character (*), intent(in) :: description
     character (*), intent(in), optional :: progname
 
@@ -212,7 +212,7 @@ subroutine argparser_init_char (self, description, progname)
 end subroutine
 
 pure subroutine argparser_reset (self)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
 
     if (allocated(self%args)) deallocate(self%args)
 
@@ -269,7 +269,7 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     !       2. array values
     !       3. mandatory 'default', optional 'const'
 
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
     integer (FC_ENUM_KIND), intent(in), optional :: action
@@ -330,7 +330,7 @@ subroutine argparser_add_argument_str (self, name, abbrev, &
     !       2. array values
     !       3. no 'default', no 'const'
 
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
     integer (FC_ENUM_KIND), intent(in), optional :: action
@@ -376,7 +376,7 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
     !       2. scalar values
     !       3. mandatory 'default', optional 'const'
 
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     class (str), intent(in) :: name
     class (str), intent(in), optional :: abbrev
     integer (FC_ENUM_KIND), intent(in), optional :: action
@@ -436,7 +436,7 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     !       2. scalar values
     !       3. mandatory 'default', optional 'const'
 
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
     integer (FC_ENUM_KIND), intent(in), optional :: action
@@ -496,7 +496,7 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
     !       2. array values
     !       3. mandatory 'default', optional 'const'
 
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
     integer (FC_ENUM_KIND), intent(in), optional :: action
@@ -559,7 +559,7 @@ subroutine argparser_add_argument_char (self, name, abbrev, action, &
     !       2. array values
     !       3. no 'default', no 'const'
 
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
     integer (FC_ENUM_KIND), intent(in), optional :: action
@@ -681,8 +681,8 @@ subroutine sanitize_argument_text_str (name, abbrev, help, names, abbrevs)
     class (str), intent(in) :: help
         !*  Help string. Unchanged for the 'str' routine, provided for 
         !   API compatibility with 'character' routine.
-    type (str), intent(in out), dimension(:) :: names
-    type (str), intent(in out), dimension(:), allocatable :: abbrevs
+    type (str), intent(inout), dimension(:) :: names
+    type (str), intent(inout), dimension(:), allocatable :: abbrevs
 
     names(1) = name
     if (allocated(abbrevs)) deallocate(abbrevs)
@@ -702,8 +702,8 @@ subroutine sanitize_argument_text_char (name, abbrev, help, names, abbrevs, help
     !   INIT method.
     character (*), intent(in) :: name
     character (*), intent(in), optional :: abbrev
-    type (str), intent(in out), dimension(:) :: names
-    type (str), intent(in out), dimension(:), allocatable :: abbrevs
+    type (str), intent(inout), dimension(:) :: names
+    type (str), intent(inout), dimension(:), allocatable :: abbrevs
     character (*), intent(in), optional :: help
     type (str), intent(out) :: help_str
 
@@ -900,7 +900,7 @@ function argparser_create_arg (self) result(res)
     !*  ARGPARSER_APPEND adds an empty argument object to the collection of
     !   arguments and returns a pointer to it.
 
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     class (argument), pointer :: res
 
     class (*), pointer :: ptr_item
@@ -920,9 +920,9 @@ end function
 ! GET methods
 
 subroutine argparser_get_array_str (self, name, val, status)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     type (str), intent(in) :: name
-    class (*), intent(in out), dimension(:) :: val
+    class (*), intent(inout), dimension(:) :: val
     type (status_t), intent(out), optional :: status
 
     class (argument), pointer :: ptr_arg
@@ -950,9 +950,9 @@ subroutine argparser_get_array_str (self, name, val, status)
 end subroutine
 
 subroutine argparser_get_scalar_str (self, name, val, status)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     type (str), intent(in) :: name
-    class (*), intent(in out) :: val
+    class (*), intent(inout) :: val
     type (status_t), intent(out), optional :: status
 
     class (argument), pointer :: ptr_arg
@@ -980,7 +980,7 @@ subroutine argparser_get_scalar_str (self, name, val, status)
 end subroutine
 
 subroutine argparser_get_array_char (self, name, val, status)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     character (*), intent(in) :: name
     class (*), intent(out), dimension(:) :: val
     type (status_t), intent(out), optional :: status
@@ -989,7 +989,7 @@ subroutine argparser_get_array_char (self, name, val, status)
 end subroutine
 
 subroutine argparser_get_scalar_char (self, name, val, status)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     character (*), intent(in) :: name
     class (*), intent(out) :: val
     type (status_t), intent(out), optional :: status
@@ -1006,7 +1006,7 @@ subroutine argparser_get_unmapped_array (self, val, status)
     !   the argument object that stores unmapped values was chosen to be
     !   an invalid value by design.
     class (argparser), intent(in) :: self
-    class (*), intent(in out), dimension(:) :: val
+    class (*), intent(inout), dimension(:) :: val
     type (status_t), intent(out), optional :: status
 
     class (argument), pointer :: ptr_arg
@@ -1048,7 +1048,7 @@ subroutine argparser_get_unmapped_scalar (self, val, status)
     !   could not be mapped to any named argument.
     !   Returns an error if there is not exactly one unnamed argument.
     class (argparser), intent(in) :: self
-    class (*), intent(in out) :: val
+    class (*), intent(inout) :: val
     type (status_t), intent(out), optional :: status
 
     class (argument), pointer :: ptr_arg
@@ -1267,7 +1267,7 @@ end function
 ! ------------------------------------------------------------------------------
 ! RESET_ARGS method
 subroutine argparser_reset_args (self)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
 
     ! deallocated automatically on subroutine exit
     class (iterator), allocatable :: iter
@@ -1292,7 +1292,7 @@ end subroutine
 ! PARSE method
 
 subroutine argparser_parse_array (self, cmd_args, status)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
     type (status_t), intent(out), optional :: status
 
@@ -1362,7 +1362,7 @@ end subroutine
 
 subroutine argparser_parse_cmd (self, status)
     !*  ARGPARSE_PARSE_CMD parses arguments provided at the command line
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     type (status_t), intent(out), optional :: status
 
     character (CMD_BUFFER_SIZE) :: buf
@@ -1383,9 +1383,9 @@ subroutine argparser_parse_cmd (self, status)
 end subroutine
 
 subroutine argparser_parse_long (self, cmd_args, offset, status)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
-    integer, intent(in out) :: offset
+    integer, intent(inout) :: offset
     type (status_t), intent(out) :: status
 
     type (str) :: cmd_name, str_value, cmd_arg
@@ -1473,9 +1473,9 @@ subroutine argparser_parse_long (self, cmd_args, offset, status)
 end subroutine
 
 subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
-    integer, intent(in out) :: offset
+    integer, intent(inout) :: offset
     type (status_t), intent(out) :: status
 
     type (str) :: cmd_name, cmd_arg
@@ -1547,7 +1547,7 @@ end subroutine
 subroutine argparser_collect_values (self, cmd_name, cmd_args, offset, ptr_arg, &
         cmd_values, status)
 
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     class (str), intent(in) :: cmd_name
         !*  Argument name, as specified by user on CLI
     _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
@@ -1581,7 +1581,7 @@ subroutine argparser_collect_values (self, cmd_name, cmd_args, offset, ptr_arg, 
 end subroutine
 
 subroutine argparser_parse_unmapped (self, cmd_arg, status)
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     class (str), intent(in) :: cmd_arg
 
     type (str) :: cmd_name
@@ -1601,7 +1601,7 @@ end subroutine
 
 pure subroutine process_argument_status (name, status)
     type (str), intent(in) :: name
-    type (status_t), intent(in out) :: status
+    type (status_t), intent(inout) :: status
 
     ! prepend argument name to any non-empty error message received
     ! from argument type.
@@ -1617,7 +1617,7 @@ function argparser_help_present (self, cmd_args) result(res)
     !   whether the HELP argument is present. Errors encountered while
     !   parsing other arguments that might be present are ignored.
 
-    class (argparser), intent(in out) :: self
+    class (argparser), intent(inout) :: self
     _POLYMORPHIC_ARRAY (str), intent(in), dimension(:) :: cmd_args
     logical :: res
         !*  On exit this value is set to true if --help/-h was passed,
@@ -1796,7 +1796,7 @@ contains
         type (str), intent(in) :: s
         integer, intent(in) :: ifrom
         integer, intent(in) :: max_len
-        integer, intent(in out) :: ito
+        integer, intent(inout) :: ito
 
         if (len(s) - ifrom + 1 <= max_len) then
             ito = len(s)
