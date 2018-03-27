@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.1)
 
-project(fcore Fortran)
+project(fcore C Fortran)
 # name used for library files, include directory, etc.
 set(LIBRARY_NAME fcore)
 
@@ -80,6 +80,12 @@ endif()
 
 unset(_FFLAGS)
 unset(_FFLAGS_DEBUG)
+
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    set(_CFLAGS_DEBUG "-ggdb -O0")
+    set(_CFLAGS "-Wall -Wextra")
+endif()
+
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     # explicitly add -cpp to run C preprocessor if required
     set(GNU_WARN "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure \
@@ -113,6 +119,9 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${_FFLAGS}")
 # set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} ${_FFLAGS}")
 set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${_FFLAGS_DEBUG}")
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_CFLAGS}")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${_CFLAGS_DEBUG}")
+
 ###############################################################################
 # Report options and settings
 if (BUILD_SHARED_LIBS)
@@ -126,6 +135,9 @@ message(STATUS "Fortran compiler flags: ${CMAKE_Fortran_FLAGS}")
 # Make sure build type is upper case, otherwise the wrong flags will be shown
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _BUILD_TYPE)
 message(STATUS "Additional Fortran compiler flags for ${CMAKE_BUILD_TYPE}: ${CMAKE_Fortran_FLAGS_${_BUILD_TYPE}}")
+
+message(STATUS "C compiler flags: ${CMAKE_C_FLAGS}")
+message(STATUS "Additional C compiler flags for ${CMAKE_BUILD_TYPE}: ${CMAKE_C_FLAGS_${_BUILD_TYPE}}")
 
 message(STATUS "Library install directory: ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
 message(STATUS "MOD file install directory: ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}")
