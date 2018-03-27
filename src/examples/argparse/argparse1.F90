@@ -7,14 +7,18 @@ program argparse1
     type (argparser) :: parser
     type (status_t) :: status
 
-    integer :: i, n
     type (str) :: name, opt
+    logical :: flag1, flag2
+    integer :: const
+    character (10) :: opt_char
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
+    integer :: i, n
     type (str), dimension(:), allocatable :: str_arr
     integer, dimension(:), allocatable :: int_arr
     type (str), dimension(2) :: str_arr_default
-    character (10) :: opt_char, opt_array(2)
-    logical :: flag1, flag2
-    integer :: const
+    character (10) :: opt_array(2)
+#endif
 
     call parser%init ("argparse example 1")
 
@@ -37,21 +41,26 @@ program argparse1
         const=123, default=0, status=status)
     call status%print ()
 
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     print *, "Adding argument opt-char-arr"
     call parser%add_argument ("opt-char-arr", nargs=2, default=["foo", "baz"], &
         status=status)
     call status%print ()
+#endif
 
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     print *, "Adding argument opt-int-arr"
     call parser%add_argument ("opt-int-arr", nargs=2, default=[123, 456], &
         status=status)
     call status%print ()
+#endif
 
     print *, "Adding argument opt-str"
     call parser%add_argument ("opt-str", nargs=1, default=str("opt-str default"), &
         status=status)
     call status%print ()
 
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     ! Note: using temporary str(:) array for default values crashes with gfortran
     ! and returns junk default values with ifort
     print *, "Adding argument opt-str-arr"
@@ -60,6 +69,7 @@ program argparse1
     call parser%add_argument ("opt-str-arr", nargs=2, &
         default=str_arr_default, status=status)
     call status%print ()
+#endif
 
     print *, "Adding argument opt"
     call parser%add_argument ("opt", "o", default="Default opt", status=status)
@@ -88,11 +98,15 @@ program argparse1
     print *, "Argument 'flag2': ", flag2
     call status%print ()
 
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     opt_array = ""
     call parser%get ("opt-char-arr", opt_array, status)
     print '(tr1, a, *(a,:,", "))', "Argument 'opt-char-arr': ",  opt_array
     call status%print ()
+#endif
 
+
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     ! Test retrieving as str array. This makes more sense as str array
     ! does not impose requiredment that all elements are the same length.
     allocate (str_arr(2))
@@ -105,7 +119,9 @@ program argparse1
         end do
     end if
     deallocate (str_arr)
+#endif
 
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     ! Test retrieving integer array value
     print *, "== Argument 'opt-int-arr' =="
     n = parser%get_nvals ("opt-int-arr")
@@ -116,7 +132,9 @@ program argparse1
     end if
     call status%print ()
     deallocate (int_arr)
+#endif
 
+#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     ! Retrieve opt-str-arr
     allocate (str_arr(2))
     call parser%get ("opt-str-arr", str_arr, status)
@@ -128,6 +146,7 @@ program argparse1
         end do
     end if
     deallocate (str_arr)
+#endif
 
     call parser%get ("opt", opt, status)
     print *, "Argument 'opt': ", opt%to_char()
