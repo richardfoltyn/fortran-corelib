@@ -133,33 +133,29 @@ end subroutine
 
 
 subroutine print (self, lun, indent)
-
     class (assertion), intent(in) :: self
-    integer, intent(in), optional :: lun, indent
-    integer :: llun, lindent, len_label, n
+    integer, intent(in), optional :: lun
+    integer, intent(in), optional :: indent
 
+    integer :: llun, lindent, max_len_label, n
     integer, parameter :: LINEWIDTH = 80
     character (len=*), parameter :: STR_PASSED = "PASSED", STR_FAILED = "FAILED"
 
-    character (len=:), allocatable :: str_indent
-    character (len=:), allocatable :: llabel
+    integer :: nfill
     character (len=10) :: str_status
     character (len=100) :: fmt_str
+    type (str) :: label
 
     llun = OUTPUT_UNIT
     lindent = 2
-
-    allocate (character (len=lindent) :: str_indent)
-    str_indent = ""
 
     if (present(lun)) llun = lun
     if (present(indent)) lindent = indent
     n = len(self%label)
     if (n > 0) then
-        allocate (character (len=n) :: llabel)
-        llabel = self%label
+        label = self%label
     else
-        allocate (llabel, source="[unlabeled assertion]")
+        label = "[unlabeled assertion]"
     end if
 
     if (self%get_status() == STATUS_PASSED) then
@@ -168,14 +164,20 @@ subroutine print (self, lun, indent)
         str_status = STR_FAILED
     end if
 
-
-    ! deduct space for status message
-    len_label = LINEWIDTH - lindent - max(len(STR_PASSED), len(STR_FAILED)) - 2
+    ! deduct space for status message, separator between label and status
+    ! message, and indentation
+    max_len_label = LINEWIDTH - lindent - max(len(STR_PASSED), len(STR_FAILED)) - 2
     fmt_str = ""
-    write (unit=fmt_str, fmt="('(tr ', i0, ', a, tr ', i0, ', a, tr 2, a)')") &
-            lindent, max(len_label - len(llabel), 0)
+    if (max_len_label > len(label)) then
+        ! Need to left-adjust label
+        nfill = max_len_label - len(label)
+        label = label // repeat(' ', nfill)
+    end if
 
-    write (unit=llun, fmt=fmt_str) llabel, str_status
+    write (unit=fmt_str, fmt="('(tr ', i0, ', a', i0, ', tr2, a)')") &
+            lindent, max_len_label
+
+    write (unit=llun, fmt=fmt_str) label%to_char(), str_status
 
 end subroutine
 
