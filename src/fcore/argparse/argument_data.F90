@@ -21,6 +21,7 @@ module fcore_argparse_argument_data
     public :: argument_data_alloc_char
     public :: argument_data_get_nvals
     public :: argument_data_reset
+    public :: assignment (=)
 
     type :: argument_data
         class (*), dimension(:), allocatable :: data_array
@@ -31,6 +32,9 @@ module fcore_argparse_argument_data
         procedure argument_data_alloc_array, argument_data_alloc_scalar
     end interface
 
+    interface assignment (=)
+        procedure argument_data_assign
+    end interface
 
     contains
 
@@ -123,5 +127,27 @@ pure subroutine argument_data_reset (self)
     if (allocated(self%data_array)) deallocate (self%data_array)
     if (allocated(self%data_scalar)) deallocate (self%data_scalar)
 end subroutine
+
+
+elemental subroutine argument_data_assign (lhs, rhs)
+    type (argument_data), intent(inout) :: lhs
+    type (argument_data), intent(in) :: rhs
+
+    integer :: n
+
+    if (allocated(lhs%data_array)) deallocate (lhs%data_array)
+    if (allocated(lhs%data_scalar)) deallocate (lhs%data_scalar)
+
+    if (allocated(rhs%data_array)) then
+        n = size(rhs%data_array)
+        allocate (lhs%data_array(n), source=rhs%data_array)
+    end if
+
+    if (allocated(rhs%data_scalar)) then
+        allocate (lhs%data_scalar, source=rhs%data_scalar)
+    end if
+
+end subroutine
+
 
 end module
