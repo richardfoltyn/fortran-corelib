@@ -217,7 +217,7 @@ module fcore_common_base
     end interface
 
     interface assignment (=)
-        module procedure assign_int_status, assign_status_int
+        procedure assign_int_status, assign_status_int, assign_status
     end interface
 
     ! interface assignment (=)
@@ -420,6 +420,19 @@ elemental subroutine assign_status_int (lhs, rhs)
     type (status_t), intent(out) :: lhs
     integer (FC_ENUM_KIND), intent(in) :: rhs
     lhs%code = rhs
+end subroutine
+
+elemental subroutine assign_status (lhs, rhs)
+    !*  ASSIGN_STATUS copies data from one STATUS_T instance to
+    !   another. 
+    !   Note: The default assignment operator works just as well,
+    !   but generates warnings about uninitialized momery access
+    !   in certain analysis tools.
+    type (status_t), intent(inout) :: lhs
+    type (status_t), intent(in) :: rhs
+
+    lhs%code = rhs%code
+    lhs%msg = rhs%msg
 end subroutine
 
 elemental function equal_status_status (lhs, rhs) result(res)
