@@ -496,137 +496,62 @@ end function
 ! Initialization
 
 elemental function ctor_char (ch) result(res)
+    !*  Create string from character value.
     character (len=*), intent(in) :: ch
     type (str) :: res
 
-    call res%alloc (ch)
-
+    res = ch
 end function
 
-elemental function ctor_real64 (from_real, fmt) result(res)
-    real (real64), intent(in) :: from_real
-    character (len=*), intent(in), optional :: fmt
-    type (str) :: res
 
-    integer, parameter :: LEN_BUFFER = 100
-    character (len=LEN_BUFFER) :: buf
-
-    if (present(fmt)) then
-        write (unit=buf, fmt=pad_format(fmt)) from_real
-    else
-        write (buf, *) from_real
-    end if
-
-    call res%alloc (trim(buf))
+elemental function ctor_real64 (val, fmt) result(res)
+    !*  Create string from double-precision floating-point value.
+    real (real64), intent(in) :: val
+    logical, parameter :: IS_INTEGER = .false.
+#include "str_ctor_impl.F90"
 end function
 
-elemental function ctor_real32 (from_real, fmt) result(res)
-    real (real32), intent(in) :: from_real
-    character (len=*), intent(in), optional :: fmt
-    type (str) :: res
 
-    integer, parameter :: LEN_BUFFER = 100
-    character (len=LEN_BUFFER) :: buf
-
-    if (present(fmt)) then
-        write (unit=buf, fmt=pad_format(fmt)) from_real
-    else
-        write (buf, *) from_real
-    end if
-
-    call res%alloc (trim(buf))
+elemental function ctor_real32 (val, fmt) result(res)
+    !*  Create string from single-precision floating-point value.
+    logical, parameter :: IS_INTEGER = .false.
+    real (real32), intent(in) :: val
+#include "str_ctor_impl.F90"
 end function
 
-elemental function ctor_int64 (from_int, fmt) result(res)
-    integer (int64), intent(in) :: from_int
-    character (len=*), intent(in), optional :: fmt
-    type (str) :: res
 
-    integer, parameter :: LEN_BUFFER = 100
-    character (len=:), allocatable :: buf
-
-    allocate (character (len=LEN_BUFFER) :: buf)
-
-    if (present(fmt)) then
-        write (unit=buf, fmt=pad_format(fmt)) from_int
-    else
-        write (unit=buf, fmt="(i0)") from_int
-    end if
-
-    call res%alloc (trim(buf))
+elemental function ctor_int64 (val, fmt) result(res)
+    !*  Create string from 64-bit integer value.
+    integer (int64), intent(in) :: val
+    logical, parameter :: IS_INTEGER = .true.
+#include "str_ctor_impl.F90"
 end function
 
-elemental function ctor_int8 (from_int, fmt) result(res)
-    integer, parameter :: INTSIZE = int8
 
-    integer (INTSIZE), intent(in) :: from_int
-    character (len=*), intent(in), optional :: fmt
-    type (str) :: res
-
-    integer, parameter :: LEN_BUFFER = 100
-    character (len=:), allocatable :: buf
-
-    allocate (character (len=LEN_BUFFER) :: buf)
-
-    if (present(fmt)) then
-        write (unit=buf, fmt=pad_format(fmt)) from_int
-    else
-        write (unit=buf, fmt=*) from_int
-    end if
-
-    call res%alloc (trim(buf))
+elemental function ctor_int32 (val, fmt) result(res)
+    !*  Create string from 32-bit integer value.
+    integer (int32), intent(in) :: val
+    logical, parameter :: IS_INTEGER = .true.
+#include "str_ctor_impl.F90"
 end function
 
-elemental function ctor_int32 (from_int, fmt) result(res)
-    integer, parameter :: INTSIZE = int32
 
-    integer (INTSIZE), intent(in) :: from_int
-    character (len=*), intent(in), optional :: fmt
-    type (str) :: res
-
-    integer, parameter :: LEN_BUFFER = 100
-    character (len=:), allocatable :: buf
-
-    allocate (character (len=LEN_BUFFER) :: buf)
-
-    if (present(fmt)) then
-        write (unit=buf, fmt=pad_format(fmt)) from_int
-    else
-        write (unit=buf, fmt="(i0)") from_int
-    end if
-
-    call res%alloc (trim(buf))
+elemental function ctor_int8 (val, fmt) result(res)
+    !*  Create string from 8-bit integer value.
+    integer (int8), intent(in) :: val
+    logical, parameter :: IS_INTEGER = .true.
+#include "str_ctor_impl.F90"
 end function
 
-elemental function ctor_logical (x) result(res)
-    logical, intent(in) :: x
-    type (str) :: res
 
-    integer, parameter :: LEN_BUFFER = 10
-    character (len=LEN_BUFFER) :: buf
+elemental function ctor_logical (val, fmt) result(res)
+    logical, parameter :: IS_INTEGER = .false.
+    !*  Creates a string from logical value.
+    logical, intent(in) :: val
 
-    write (unit=buf, fmt=*) x
-    call res%alloc (trim(buf))
-
+#include "str_ctor_impl.F90"
 end function
 
-pure function pad_format (fmt) result(res)
-    character (len=*), intent(in) :: fmt
-    character (len=len(fmt) + 2) :: res
-
-    integer :: n
-
-    res = adjustl (fmt)
-
-    if (res(1:1) /= "(") then
-        res = "(" // res
-    end if
-
-    n = len_trim (res)
-    if (res(n:n) /= ")") then
-        res = trim(res) // ")"
-    end if
-end function
 
 ! *****************************************************************************
 ! String representations of arrays
