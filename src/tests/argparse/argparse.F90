@@ -29,15 +29,11 @@ subroutine test_all()
     ! Test TOGGLE action
     call test_toggle (tests)
 
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     ! run individual test cases
     call test_append (tests)
-#endif
 
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
     ! Test handling of cmd. arguments that are not mapped to any argument object
     call test_unmapped (tests)
-#endif
 
     call test_validators (tests)
 
@@ -120,7 +116,6 @@ subroutine test_integer (tests)
 end subroutine
 
 
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine test_append (tests)
     class (test_suite) :: tests
     class (test_case), pointer :: tc
@@ -244,7 +239,6 @@ subroutine test_append (tests)
     deallocate (cmd, val_list)
 
 end subroutine
-#endif
 
 
 subroutine test_validators (tests)
@@ -464,7 +458,6 @@ end subroutine
 
 
  
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine test_unmapped (tests)
     class (test_suite) :: tests
     class (test_case), pointer :: tc
@@ -570,7 +563,6 @@ subroutine test_unmapped (tests)
         "Attempt to retrieve scalar unmapped arg if none present")
 
 end subroutine
-#endif
 
 
 subroutine test_help (tests)
