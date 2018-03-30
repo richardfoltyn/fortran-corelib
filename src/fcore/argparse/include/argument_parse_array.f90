@@ -13,7 +13,7 @@ status = FC_STATUS_OK
 if (self%is_present) then
     select case (self%action)
     case (ARGPARSE_ACTION_STORE_CONST)
-        ptr_stored => self%const
+        ptr_stored => self%const%data_array
     case default
 
         if (size(val) < self%get_nvals()) then
@@ -32,8 +32,8 @@ if (self%is_present) then
         end do
         return
     end select
-else if (allocated (self%default)) then
-    ptr_stored => self%default
+else if (allocated (self%default%data_array)) then
+    ptr_stored => self%default%data_array
 end if
 
 if (.not. associated(ptr_stored)) then

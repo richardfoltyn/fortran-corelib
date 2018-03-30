@@ -2,7 +2,7 @@
 
 class (argument), intent(in), target :: self
 type (status_t), intent(out) :: status
-class (*), dimension(:), pointer :: ptr_stored
+class (*), pointer :: ptr_stored
 
 nullify (ptr, ptr_stored)
 call status%clear ()
@@ -11,9 +11,9 @@ status = FC_STATUS_OK
 if (self%is_present) then
     select case (self%action)
     case (ARGPARSE_ACTION_STORE_CONST)
-        ptr_stored => self%const
+        ptr_stored => self%const%data_scalar
     case (ARGPARSE_ACTION_TOGGLE)
-        ptr_stored => self%const
+        ptr_stored => self%const%data_scalar
     case default
         call self%passed_values(1)%parse (val, status)
 
@@ -25,8 +25,8 @@ if (self%is_present) then
 
         return
     end select
-else if (allocated (self%default)) then
-    ptr_stored => self%default
+else if (allocated (self%default%data_scalar)) then
+    ptr_stored => self%default%data_scalar
 end if
 
 if (.not. associated(ptr_stored)) then
@@ -39,7 +39,7 @@ end if
 ! const or default
 call dynamic_cast (ptr_stored, ptr, status)
 if (status == FC_STATUS_OK) then
-    val = ptr(1)
+    val = ptr
 else
     status = FC_STATUS_UNSUPPORTED_OP
     status%msg = "Argument type incompatible with stored value"

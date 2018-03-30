@@ -10,21 +10,24 @@ module fcore_argparse_argument
     use fcore_common_input_validation
     use fcore_collections
     use fcore_argparse_actions
+    use fcore_argparse_argument_data
 
     implicit none
     private
 
     public :: fcn_validator
     public :: dynamic_cast
+    public :: argument_data_alloc
 
     character (*), parameter :: ARGUMENT_ACTION_TOGGLE_OFF_PREFIX = 'no'
+
 
     type, public :: argument
         private
         type (str), dimension(:), allocatable, public :: names
         type (str), dimension(:), allocatable, public :: abbrevs
-        class (*), dimension(:), allocatable :: default
-        class (*), dimension(:), allocatable :: const
+        type (argument_data) :: default
+        type (argument_data) :: const
         integer (FC_ENUM_KIND), public :: action = ARGPARSE_ACTION_STORE
         logical :: required = .false.
         logical, public :: is_present = .false.
@@ -35,9 +38,9 @@ module fcore_argparse_argument
         type (str), public :: help
         procedure (fcn_validator), nopass, pointer :: validator => null()
     contains
-        procedure, pass :: init_array => argument_init_array
+        procedure, pass :: init_data => argument_init_data
         procedure, pass :: init_default => argument_init_default
-        generic, public :: init => init_array, init_default
+        generic, public :: init => init_data, init_default
 
         procedure, public, pass :: reset => argument_reset
 
@@ -46,14 +49,6 @@ module fcore_argparse_argument
         procedure, pass :: set_scalar => argument_set_scalar
         procedure, pass :: set_array => argument_set_array
         generic, public :: set => set_scalar, set_array
-
-        procedure, pass :: store_const_scalar => argument_store_const_scalar
-        procedure, pass :: store_const_array => argument_store_const_array
-        generic :: store_const => store_const_scalar, store_const_array
-
-        procedure, pass :: store_default_array => argument_store_default_array
-        procedure, pass :: store_default_scalar => argument_store_default_scalar
-        generic :: store_default => store_default_array, store_default_scalar
 
         procedure, pass :: process_cmd_value => argument_process_cmd_value
 
@@ -118,7 +113,7 @@ module fcore_argparse_argument
         end subroutine
     end interface
 
-contains
+    contains
 
 ! ------------------------------------------------------------------------------
 ! Initialization
@@ -130,10 +125,11 @@ subroutine argument_init_default (self)
     class (argument), intent(inout) :: self
 
     if (allocated (self%passed_values)) deallocate (self%passed_values)
-    if (allocated (self%default)) deallocate (self%default)
-    if (allocated (self%const)) deallocate (self%const)
     if (allocated (self%names)) deallocate (self%names)
     if (allocated (self%abbrevs)) deallocate (self%abbrevs)
+
+    call argument_data_reset (self%default)
+    call argument_data_reset (self%const)
 
     self%action = ARGPARSE_ACTION_STORE
     self%is_present = .false.
@@ -144,10 +140,9 @@ subroutine argument_init_default (self)
 end subroutine
 
 
-subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
+subroutine argument_init_data (self, names, abbrevs, action, required, nargs, &
         help, status, default, const, validator, allow_empty)
-    !*  ARGUMENT_INIT_ARRAY initializes argument object from user-provided data.
-    !   Accepts default and const arguments as arrays.
+    !*  ARGUMENT_INIT_DATA initializes argument object from user-provided data.
 
     class (argument), intent(inout) :: self
     type(str), intent(in), dimension(:) :: names
@@ -156,9 +151,9 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
     class (str), intent(in), optional :: help
-    class (*), intent(in), dimension(:), optional :: default
+    type (argument_data), intent(in), optional :: default
     type (status_t), intent(out) :: status
-    class (*), intent(in), dimension(:), optional :: const
+    type (argument_data), intent(in), optional :: const
     procedure (fcn_validator), optional :: validator
     logical, intent(in), optional :: allow_empty
 
@@ -190,38 +185,40 @@ subroutine argument_init_array (self, names, abbrevs, action, required, nargs, &
     case (ARGPARSE_ACTION_STORE_TRUE)
         lnargs = 0
         laction = ARGPARSE_ACTION_STORE_CONST
-        call self%store_const (.true.)
-        call self%store_default (.false.)
+        call argument_data_alloc (self%const, .true.)
+        call argument_data_alloc (self%default, .false.)
 
     case (ARGPARSE_ACTION_STORE_FALSE)
         lnargs = 0
         laction = ARGPARSE_ACTION_STORE_CONST
-        call self%store_const (.false.)
-        call self%store_default (.true.)
+        call argument_data_alloc (self%const, .false.)
+        call argument_data_alloc (self%default, .true.)
 
     case (ARGPARSE_ACTION_STORE_CONST)
-        ! no arguments expected when requested to store const
+        ! no user-provided CLI arguments expected when requested to store const
         lnargs = 0
-        call self%store_const (const)
-        call self%store_default (default)
+        ! Note: we check above that DEFAULT and CONST are present for this
+        ! action type.
+        self%default = default
+        self%const = const
 
     case (ARGPARSE_ACTION_TOGGLE)
         lnargs = 0
         ! If no default value specified, assume that switch
         ! should be ON by default.
         if (present(default)) then
-            call self%store_default (default)
+            self%default = default
         else
-            call self%store_default (.true.)
+            call argument_data_alloc (self%default, .true.)
         end if
 
     case (ARGPARSE_ACTION_APPEND)
         ! NB: this should be guaranteed by input checking above
         lnargs = 1
-        call self%store_default (default)
+        if (present(default)) self%default = default
 
     case default
-        call self%store_default (default)
+        if (present(default)) self%default = default
 
     end select
 
@@ -257,9 +254,9 @@ subroutine argument_init_validate_input (names, abbrevs, action, required, nargs
     logical, intent(in), optional :: required
     integer, intent(in), optional :: nargs
     class (str), intent(in), optional :: help
-    class (*), intent(in), dimension(:), optional :: default
+    type (argument_data), intent(in), optional :: default
     type (status_t), intent(out) :: status
-    class (*), intent(in), dimension(:), optional :: const
+    type (argument_data), intent(in), optional :: const
     procedure (fcn_validator), optional :: validator
     logical, intent(in), optional :: allow_empty
 
@@ -322,6 +319,12 @@ subroutine argument_init_validate_input (names, abbrevs, action, required, nargs
         argname = 'allow_empty'
         if (present(allow_empty)) goto 10
 
+        argname = 'default'
+        if (.not. present(default)) goto 20
+
+        argname = 'const'
+        if (.not. present(const)) goto 20
+
     case (ARGPARSE_ACTION_TOGGLE)
         ! Do not allow abbrev. with TOGGLE action, as turning switch off
         ! would need to be called as a 'long' argument, ie. --no-x, 
@@ -347,15 +350,20 @@ subroutine argument_init_validate_input (names, abbrevs, action, required, nargs
 
     end select
 
-
     ! No errors encountered at this point, return
     status = FC_STATUS_OK
     return
 
 10  continue
     ! Error handler for present argument when none is allows
-    status%msg = "Action " // get_action_label(action) &
+    status%msg = "Action " // get_action_label (action) &
         // " does not support '" // argname // "' argument"
+    return
+
+20 continue
+    ! Error handler for missing argument that is required for particular action.
+    status%msg = "Argument " // argname // " required for action " &
+            // get_action_label (action)
     return
 
 100 continue
@@ -400,55 +408,6 @@ subroutine argument_reset (self)
 end subroutine
 
 ! ------------------------------------------------------------------------------
-! Routines to store const and default values
-
-subroutine argument_store_const_array (self, val)
-    class (argument), intent(inout) :: self
-    class (*), intent(in), dimension(:), optional :: val
-
-    integer :: n
-
-    if (present(val)) then
-        n = size(val)
-        if (allocated(self%const)) deallocate (self%const)
-        allocate (self%const(n), source=val)
-    end if
-end subroutine
-
-subroutine argument_store_const_scalar (self, val)
-    class (argument), intent(inout) :: self
-    class (*), intent(in) :: val
-
-    class (*), dimension(:), allocatable :: work
-
-    allocate (work(1), source=val)
-    call self%store_const (work)
-end subroutine
-
-subroutine argument_store_default_array (self, val)
-    class (argument), intent(inout) :: self
-    class (*), intent(in), dimension(:), optional :: val
-
-    integer :: n
-
-    if (present(val)) then
-        n = size(val)
-        if (allocated(self%default)) deallocate (self%default)
-        allocate (self%default(n), source=val)
-    end if
-end subroutine
-
-subroutine argument_store_default_scalar (self, val)
-    class (argument), intent(inout) :: self
-    class (*), intent(in) :: val
-
-    class (*), dimension(:), allocatable :: work
-
-    allocate (work(1), source=val)
-    call self%store_default (work)
-end subroutine
-
-! ------------------------------------------------------------------------------
 ! SET methods
 
 subroutine argument_set_scalar (self, name, val, status)
@@ -465,6 +424,8 @@ subroutine argument_set_scalar (self, name, val, status)
     allocate (work(1))
     work(1) = val
     call self%set (name, work, status)
+    deallocate (work)
+
 end subroutine
 
 subroutine argument_set_array (self, name, val, status)
@@ -493,10 +454,10 @@ subroutine argument_set_array (self, name, val, status)
             alias = self%names(i)
             noname = argument_get_toggle_off_name (alias)
             if (name == noname) then
-                call self%store_const (.false.)
+                call argument_data_alloc (self%const, .false.)
                 exit
             else if (name == alias) then
-                call self%store_const (.true.)
+                call argument_data_alloc (self%const, .true.)
                 exit
             end if
         end do
@@ -643,7 +604,7 @@ end function
 
 subroutine argument_poly_parse_array (self, val, status)
     class (argument), intent(in) :: self
-    class (*), intent(out), dimension(:), target :: val
+    class (*), intent(inout), dimension(:), target :: val
     type (status_t), intent(out) :: status
 
     call status%init (FC_STATUS_OK)
@@ -675,7 +636,7 @@ end subroutine
 
 subroutine argument_poly_parse_scalar (self, val, status)
     class (argument), intent(in) :: self
-    class (*), intent(out), target :: val
+    class (*), intent(inout), target :: val
     type (status_t), intent(out) :: status
 
     call status%init (FC_STATUS_OK)
@@ -709,7 +670,7 @@ end subroutine
 ! PARSE implementation
 
 subroutine argument_parse_array_int32 (self, val, status)
-    integer (int32), intent(out), dimension(:) :: val
+    integer (int32), intent(inout), dimension(:) :: val
     integer (int32), dimension(:), pointer :: ptr
 
     include "include/argument_parse_array.f90"
@@ -717,7 +678,7 @@ end subroutine
 
 subroutine argument_parse_array_int64 (self, val, status)
     integer, parameter :: INTSIZE = int64
-    integer (INTSIZE), intent(out), dimension(:) :: val
+    integer (INTSIZE), intent(inout), dimension(:) :: val
     integer (INTSIZE), dimension(:), pointer :: ptr
 
     include "include/argument_parse_array.f90"
@@ -725,7 +686,7 @@ end subroutine
 
 subroutine argument_parse_array_real32 (self, val, status)
     integer, parameter :: PREC = real32
-    real (PREC), intent(out), dimension(:) :: val
+    real (PREC), intent(inout), dimension(:) :: val
     real (PREC), dimension(:), pointer :: ptr
 
     include "include/argument_parse_array.f90"
@@ -733,14 +694,14 @@ end subroutine
 
 subroutine argument_parse_array_real64 (self, val, status)
     integer, parameter :: PREC = real64
-    real (PREC), intent(out), dimension(:) :: val
+    real (PREC), intent(inout), dimension(:) :: val
     real (PREC), dimension(:), pointer :: ptr
 
     include "include/argument_parse_array.f90"
 end subroutine
 
 subroutine argument_parse_array_logical (self, val, status)
-    logical, intent(out), dimension(:) :: val
+    logical, intent(inout), dimension(:) :: val
     logical, dimension(:), pointer :: ptr
     include "include/argument_parse_array.f90"
 end subroutine
@@ -765,7 +726,7 @@ subroutine argument_parse_array_str (self, val, status)
     if (self%is_present) then
         select case (self%action)
         case (ARGPARSE_ACTION_STORE_CONST)
-            ptr_stored => self%const
+            ptr_stored => self%const%data_array
         case default
 
             if (size(val) < self%get_nvals()) then
@@ -786,8 +747,8 @@ subroutine argument_parse_array_str (self, val, status)
 
             return
         end select
-    else if (allocated (self%default)) then
-        ptr_stored => self%default
+    else if (allocated (self%default%data_array)) then
+        ptr_stored => self%default%data_array
     end if
 
     if (.not. associated(ptr_stored)) then
@@ -815,7 +776,7 @@ end subroutine
 ! default values of type character
 subroutine argument_parse_array_char (self, val, status)
     class (argument), intent(in), target :: self
-    character (*), intent(out), dimension(:) :: val
+    character (*), intent(inout), dimension(:) :: val
     type (status_t), intent(inout) :: status
 
     character (len(val)), dimension(:), pointer :: ptr
@@ -831,7 +792,7 @@ subroutine argument_parse_array_char (self, val, status)
     if (self%is_present) then
         select case (self%action)
         case (ARGPARSE_ACTION_STORE_CONST)
-            ptr_stored => self%const
+            ptr_stored => self%const%data_array
         case default
 
             if (size(val) < self%get_nvals()) then
@@ -851,8 +812,8 @@ subroutine argument_parse_array_char (self, val, status)
 
             return
         end select
-    else if (allocated (self%default)) then
-        ptr_stored => self%default
+    else if (allocated (self%default%data_array)) then
+        ptr_stored => self%default%data_array
     end if
 
     if (.not. associated(ptr_stored)) then
@@ -877,8 +838,9 @@ subroutine argument_parse_array_char (self, val, status)
 end subroutine
 
 subroutine argument_parse_scalar_int32 (self, val, status)
-    integer (int32), intent(out) :: val
-    integer (int32), dimension(:), pointer :: ptr
+    integer, parameter :: INTSIZE = int32
+    integer (INTSIZE), intent(out) :: val
+    integer (INTSIZE), pointer :: ptr
 
     include "include/argument_parse_scalar.f90"
 end subroutine
@@ -886,7 +848,7 @@ end subroutine
 subroutine argument_parse_scalar_int64 (self, val, status)
     integer, parameter :: INTSIZE = int64
     integer (INTSIZE), intent(out) :: val
-    integer (INTSIZE), dimension(:), pointer :: ptr
+    integer (INTSIZE), pointer :: ptr
 
     include "include/argument_parse_scalar.f90"
 end subroutine
@@ -894,7 +856,7 @@ end subroutine
 subroutine argument_parse_scalar_real32 (self, val, status)
     integer, parameter :: PREC = real32
     real (PREC), intent(out) :: val
-    real (PREC), dimension(:), pointer :: ptr
+    real (PREC), pointer :: ptr
 
     include "include/argument_parse_scalar.f90"
 end subroutine
@@ -902,14 +864,14 @@ end subroutine
 subroutine argument_parse_scalar_real64 (self, val, status)
     integer, parameter :: PREC = real64
     real (PREC), intent(out) :: val
-    real (PREC), dimension(:), pointer :: ptr
+    real (PREC), pointer :: ptr
 
     include "include/argument_parse_scalar.f90"
 end subroutine
 
 subroutine argument_parse_scalar_logical (self, val, status)
     logical, intent(out) :: val
-    logical, dimension(:), pointer :: ptr
+    logical, pointer :: ptr
     include "include/argument_parse_scalar.f90"
 end subroutine
 
@@ -920,8 +882,8 @@ subroutine argument_parse_scalar_str (self, val, status)
     class (str), intent(inout) :: val
     type (status_t), intent(inout) :: status
 
-    __FCORE_POLY_ARRAY (str), dimension(:), pointer :: ptr
-    class (*), dimension(:), pointer :: ptr_stored
+    class (str), pointer :: ptr
+    class (*), pointer :: ptr_stored
 
     nullify (ptr_stored)
     nullify (ptr)
@@ -931,13 +893,13 @@ subroutine argument_parse_scalar_str (self, val, status)
     if (self%is_present) then
         select case (self%action)
         case (ARGPARSE_ACTION_STORE_CONST)
-            ptr_stored => self%const
+            ptr_stored => self%const%data_scalar
         case default
             val = self%passed_values(1)
             return
         end select
-    else if (allocated (self%default)) then
-        ptr_stored => self%default
+    else if (allocated (self%default%data_scalar)) then
+        ptr_stored => self%default%data_scalar
     end if
 
     if (.not. associated(ptr_stored)) then
@@ -950,13 +912,13 @@ subroutine argument_parse_scalar_str (self, val, status)
     ! const or default
     call dynamic_cast (ptr_stored, ptr, status)
     if (status == FC_STATUS_OK) then
-        val = ptr(1)
+        val = ptr
     else
         ! in case stored data is of type character and return value is of type str,
         ! cast will fail and we convert the character data to str
         select type (ptr_stored)
         type is (character (*))
-            val = ptr_stored(1)
+            val = ptr_stored
             status = FC_STATUS_OK
         class default
             status = FC_STATUS_INVALID_STATE
@@ -973,8 +935,8 @@ subroutine argument_parse_scalar_char (self, val, status)
     character (*), intent(out) :: val
     type (status_t), intent(out) :: status
 
-    class (*), dimension(:), pointer :: ptr_stored
-    character (len(val)), dimension(:), pointer :: ptr
+    class (*), pointer :: ptr_stored
+    character (len(val)), pointer :: ptr
 
     nullify (ptr_stored)
     nullify (ptr)
@@ -984,13 +946,13 @@ subroutine argument_parse_scalar_char (self, val, status)
     if (self%is_present) then
         select case (self%action)
         case (ARGPARSE_ACTION_STORE_CONST)
-            ptr_stored => self%const
+            ptr_stored => self%const%data_scalar
         case default
             val = self%passed_values(1)
             return
         end select
-    else if (allocated (self%default)) then
-        ptr_stored => self%default
+    else if (allocated (self%default%data_scalar)) then
+        ptr_stored => self%default%data_scalar
     end if
 
     if (.not. associated(ptr_stored)) then
@@ -1003,13 +965,13 @@ subroutine argument_parse_scalar_char (self, val, status)
     ! const or default
     call dynamic_cast (ptr_stored, ptr, status)
     if (status == FC_STATUS_OK) then
-        val = ptr(1)
+        val = ptr
     else
         ! in case stored data is of type character and return value is of type str,
         ! cast will fail and we convert the character data to str
         select type (ptr_stored)
         class is (str)
-            val = ptr_stored(1)
+            val = ptr_stored
             status = FC_STATUS_OK
         class default
             status = FC_STATUS_INVALID_STATE
@@ -1030,7 +992,7 @@ pure subroutine argument_parse_check_input_scalar (self, val, status)
     call status%init (FC_STATUS_OK)
 
     if (self%action == ARGPARSE_ACTION_STORE_CONST) then
-        if (size(self%const) > 1) then
+        if (.not. allocated (self%const%data_scalar)) then
             status = FC_STATUS_VALUE_ERROR
             status%msg = "Array size insufficient to store constant"
             return
@@ -1044,15 +1006,19 @@ pure subroutine argument_parse_check_input_scalar (self, val, status)
     end if
 end subroutine
 
+
 pure subroutine argument_parse_check_input_array (self, val, status)
     class (argument), intent(in) :: self
     class (*), intent(in), dimension(:) :: val
     type (status_t), intent(out) :: status
 
+    integer :: n
+
     call status%init (FC_STATUS_OK)
 
     if (self%action == ARGPARSE_ACTION_STORE_CONST) then
-        if (size(val) < size(self%const)) then
+        n = argument_data_get_nvals (self%const)
+        if (size(val) < n) then
             status = FC_STATUS_VALUE_ERROR
             status%msg = "Array size insufficient to store constant"
             return
@@ -1087,12 +1053,12 @@ pure function argument_get_nvals (self) result(res)
     if (self%is_present) then
         select case (self%action)
         case (ARGPARSE_ACTION_STORE_CONST)
-            res = size(self%const)
+            res = argument_data_get_nvals (self%const)
         case default
             if (allocated (self%passed_values)) res = size(self%passed_values)
         end select
     else
-        if (allocated (self%default)) res = size(self%default)
+        res = argument_data_get_nvals (self%default)
     end if
 end function
 
@@ -1126,22 +1092,11 @@ subroutine argument_assign (self, rhs)
     class (argument), intent(inout) :: self
     class (argument), intent(in) :: rhs
 
-    integer :: n
-
     call copy_alloc (rhs%names, self%names)
     call copy_alloc (rhs%abbrevs, self%abbrevs)
 
-    if (allocated(self%default)) deallocate (self%default)
-    if (allocated(rhs%default)) then
-        n = size(rhs%default)
-        allocate (self%default(n), source=rhs%default)
-    end if
-
-    if (allocated(self%const)) deallocate (self%const)
-    if (allocated(rhs%const)) then
-        n = size(rhs%const)
-        allocate (self%const(n), source=rhs%const)
-    end if
+    self%default = rhs%default
+    self%const = rhs%const
 
     call copy_alloc (rhs%passed_values, self%passed_values)
 

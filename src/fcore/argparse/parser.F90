@@ -8,6 +8,7 @@ module fcore_argparse_parser
     use fcore_collections
 
     use fcore_argparse_argument
+    use fcore_argparse_argument_data
     use fcore_argparse_actions
 
     implicit none
@@ -51,18 +52,14 @@ module fcore_argparse_parser
         procedure, pass :: argparser_add_argument_scalar_default_str
         procedure, pass :: argparser_add_argument_char
         procedure, pass :: argparser_add_argument_scalar_default_char
+        procedure, pass :: argparser_add_argument_array_default_str
+        procedure, pass :: argparser_add_argument_array_default_char
         generic, public :: add_argument => argparser_add_argument_str, &
             argparser_add_argument_scalar_default_str, &
             argparser_add_argument_char, &
-            argparser_add_argument_scalar_default_char
-
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
-        procedure, pass :: argparser_add_argument_array_default_str
-        procedure, pass :: argparser_add_argument_array_default_char
-        generic, public :: add_argument => &
+            argparser_add_argument_scalar_default_char, &
             argparser_add_argument_array_default_str, &
             argparser_add_argument_array_default_char
-#endif
 
         procedure, pass :: init_str => argparser_init_str
         procedure, pass :: init_char => argparser_init_char
@@ -73,45 +70,18 @@ module fcore_argparse_parser
 
         procedure, pass :: argparser_get_scalar_str
         procedure, pass :: argparser_get_scalar_char
-        generic, public :: get => argparser_get_scalar_str, &
-            argparser_get_scalar_char
-
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
         procedure, pass :: argparser_get_array_char
         procedure, pass :: argparser_get_array_str
-        generic, public :: get => argparser_get_array_str, &
+        generic, public :: get => argparser_get_scalar_str, &
+            argparser_get_scalar_char, &
+            argparser_get_array_str, &
             argparser_get_array_char
-#else
-        procedure, pass :: argparser_get_array_str_str
-        procedure, pass :: argparser_get_array_str_int32
-        procedure, pass :: argparser_get_array_str_int64
-        procedure, pass :: argparser_get_array_str_real32
-        procedure, pass :: argparser_get_array_str_real64
-        procedure, pass :: argparser_get_array_char_str
-        procedure, pass :: argparser_get_array_char_int32
-        procedure, pass :: argparser_get_array_char_int64
-        procedure, pass :: argparser_get_array_char_real32
-        procedure, pass :: argparser_get_array_char_real64
-        generic, public :: get => &
-            argparser_get_array_str_str, &
-            argparser_get_array_str_int32, &
-            argparser_get_array_str_int64, &
-            argparser_get_array_str_real32, &
-            argparser_get_array_str_real64, &
-            argparser_get_array_char_str, &
-            argparser_get_array_char_int32, &
-            argparser_get_array_char_int64, &
-            argparser_get_array_char_real32, &
-            argparser_get_array_char_real64
-#endif
 
         procedure, pass :: argparser_get_unmapped_scalar
+        procedure, pass :: argparser_get_unmapped_array
         generic, public :: get_unmapped => argparser_get_unmapped_scalar
 
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
-        procedure, pass :: argparser_get_unmapped_array
         generic, public :: get_unmapped => argparser_get_unmapped_array
-#endif
 
         procedure, pass :: argparser_parse_array
         procedure, pass :: argparser_parse_cmd
@@ -157,15 +127,6 @@ module fcore_argparse_parser
         procedure sanitize_argument_text_str, sanitize_argument_text_char
     end interface
 
-    interface sanitize_argument_data
-        procedure sanitize_argument_data_scalar
-    end interface
-
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
-    interface sanitize_argument_data
-        procedure sanitize_argument_data_array
-    end interface
-#endif
 
 contains
 
@@ -286,7 +247,6 @@ end function
 ! crashes when code was compiled with gfortran.
 
 
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
         action, nargs, required, help, status, validator, default, const)
     !*  Add argument definition using the following interface:
@@ -303,51 +263,40 @@ subroutine argparser_add_argument_array_default_str (self, name, abbrev, &
     class (str), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
     procedure (fcn_validator), optional :: validator
-    class (*), intent(in), dimension(:), target :: default
-    class (*), intent(in), dimension(:), optional, target :: const
+    class (*), intent(in), dimension(:) :: default
+    class (*), intent(in), dimension(:), optional :: const
 
-    class (*), dimension(:), pointer :: ptr_default, ptr_const
     type (status_t) :: lstatus
+    type (argument_data) :: default_data, const_data
 
     class (argument), pointer :: ptr_arg
     type (str), dimension(1) :: names
     type (str), allocatable, dimension(:) :: abbrevs
 
-    nullify (ptr_default, ptr_const)
     nullify (ptr_arg)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
     call sanitize_argument_text (name, abbrev, help, names, abbrevs)
-    call sanitize_argument_data (default, ptr_default)
+    call argument_data_alloc (default_data, default)
+    if (present(const)) call argument_data_alloc (const_data, const)
 
     ptr_arg => self%create_arg ()
 
-    if (present(const)) then
-        call sanitize_argument_data (const, ptr_const)
-        call ptr_arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
-            ptr_default, ptr_const, validator=validator)
-    else
-        call ptr_arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
-            ptr_default, validator=validator)
-    end if
+    call ptr_arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
+        default_data, const_data, validator=validator)
 
     call process_argument_status (name, lstatus)
 
 100 continue
     if (present(status)) status = lstatus
-    ! Clean up memory that was potentially allocated to copy character-type
-    ! default/const data into str
-    call dealloc_argument_data_array (default, ptr_default)
-    call dealloc_argument_data_array (const, ptr_const)
     ! Clean up argument object in case initialization failed
     if (associated(ptr_arg) .and. lstatus /= FC_STATUS_OK) then
         call self%args%remove (size(self%args))
         nullify (ptr_arg)
     end if
 end subroutine
-#endif
 
 
 subroutine argparser_add_argument_str (self, name, abbrev, &
@@ -417,37 +366,29 @@ subroutine argparser_add_argument_scalar_default_str (self, name, abbrev, action
 
     class (argument), pointer :: ptr_arg
     type (status_t) :: lstatus
-    class (*), dimension(:), pointer :: ptr_default, ptr_const
+    type (argument_data) :: default_data, const_data
 
     type (str), dimension(1) :: names
     type (str), allocatable, dimension(:) :: abbrevs
 
-    nullify (ptr_default, ptr_const)
     nullify (ptr_arg)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
     call sanitize_argument_text (name, abbrev, help, names, abbrevs)
-    call sanitize_argument_data (default, ptr_default)
+    call argument_data_alloc (default_data, default)
+    if (present(const)) call argument_data_alloc (const_data, const)
 
     ptr_arg => self%create_arg ()
 
-    if (present(const)) then
-        call sanitize_argument_data (const, ptr_const)
-        call ptr_arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
-            ptr_default, ptr_const, validator=validator)
-    else
-        call ptr_arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
-            ptr_default, validator=validator)
-    end if
+    call ptr_arg%init (names, abbrevs, action, required, nargs, help, lstatus, &
+        default_data, const_data, validator=validator)
 
     call process_argument_status (name, lstatus)
 
 100 continue
     if (present(status)) status = lstatus
-    if (associated(ptr_default)) deallocate (ptr_default)
-    if (associated(ptr_const)) deallocate (ptr_const)
     ! Clean up argument object in case initialization failed
     if (associated(ptr_arg) .and. lstatus /= FC_STATUS_OK) then
         call self%args%remove (size(self%args))
@@ -478,37 +419,29 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
     type (str) :: lhelp
     class (argument), pointer :: ptr_arg
     type (status_t) :: lstatus
-    class (*), dimension(:), pointer :: ptr_const, ptr_default
+    type (argument_data) :: default_data, const_data
 
     type (str), dimension(1) :: names
     type (str), allocatable, dimension(:) :: abbrevs
 
-    nullify (ptr_default, ptr_const)
     nullify (ptr_arg)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
     call sanitize_argument_text (name, abbrev, help, names, abbrevs, lhelp)
-    call sanitize_argument_data (default, ptr_default)
+    call argument_data_alloc (default_data, default)
+    if (present(const)) call argument_data_alloc (const_data, const)
 
     ptr_arg => self%create_arg ()
 
-    if (present(const)) then
-        call sanitize_argument_data (const, ptr_const)
-        call ptr_arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
-            ptr_default, ptr_const, validator=validator)
-    else
-        call ptr_arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
-            ptr_default, validator=validator)
-    end if
+    call ptr_arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
+        default_data, const_data, validator=validator)
 
     call process_argument_status (names(1), lstatus)
 
 100 continue
     if (present(status)) status = lstatus
-    if (associated(ptr_default)) deallocate (ptr_default)
-    if (associated(ptr_const)) deallocate (ptr_const)
     ! Clean up argument object in case initialization failed
     if (associated(ptr_arg) .and. lstatus /= FC_STATUS_OK) then
         call self%args%remove (size(self%args))
@@ -517,7 +450,6 @@ subroutine argparser_add_argument_scalar_default_char (self, name, abbrev, actio
 end subroutine
 
 
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine argparser_add_argument_array_default_char (self, name, abbrev, action, &
         nargs, required, help, status, validator, default, const)
     !*  Add argument definition using the following interface:
@@ -534,53 +466,55 @@ subroutine argparser_add_argument_array_default_char (self, name, abbrev, action
     character (*), intent(in), optional :: help
     type (status_t), intent(out), optional :: status
     procedure (fcn_validator), optional :: validator
-    class (*), intent(in), dimension(:), target :: default
-    class (*), intent(in), dimension(:), optional, target :: const
-
-    class (*), dimension(:), pointer :: ptr_default, ptr_const
+    class (*), intent(in), dimension(:) :: default
+    class (*), intent(in), dimension(:), optional :: const
 
     type (str) :: lhelp
     class (argument), pointer :: ptr_arg
     type (status_t) :: lstatus
+    type (argument_data) :: default_data, const_data
 
     type (str), dimension(1) :: names
     type (str), allocatable, dimension(:) :: abbrevs
 
-    nullify (ptr_default, ptr_const)
     nullify (ptr_arg)
 
     call self%check_input (name, abbrev, action, nargs, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
     call sanitize_argument_text (name, abbrev, help, names, abbrevs, lhelp)
-    call sanitize_argument_data (default, ptr_default)
+
+    select type (default)
+    type is (character (*))
+        call argument_data_alloc_char (default_data, default)
+    class default
+        call argument_data_alloc (default_data, default)
+    end select
+
+    if (present(const)) then
+        select type (const)
+        type is (character (*))
+            call argument_data_alloc_char (const_data, const)
+        class default
+            call argument_data_alloc (const_data, const)
+        end select
+    end if
 
     ptr_arg => self%create_arg ()
 
-    if (present(const)) then
-        call sanitize_argument_data (const, ptr_const)
-        call ptr_arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
-            ptr_default, ptr_const, validator=validator)
-    else
-        call ptr_arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
-            ptr_default, validator=validator)
-    end if
+    call ptr_arg%init (names, abbrevs, action, required, nargs, lhelp, lstatus, &
+        default_data, const_data, validator=validator)
 
     call process_argument_status (names(1), lstatus)
 
 100 continue
     if (present(status)) status = lstatus
-    ! Clean up memory that was potentially allocated to copy character-type
-    ! default/const data into str
-    call dealloc_argument_data_array (default, ptr_default)
-    call dealloc_argument_data_array (const, ptr_const)
-    ! Clean up argument object in case initialization failed
+   ! Clean up argument object in case initialization failed
     if (associated(ptr_arg) .and. lstatus /= FC_STATUS_OK) then
         call self%args%remove (size(self%args))
         nullify (ptr_arg)
     end if
 end subroutine
-#endif
 
 
 
@@ -630,84 +564,6 @@ subroutine argparser_add_argument_char (self, name, abbrev, action, &
         nullify (ptr_arg)
     end if
 end subroutine
-
-
-subroutine sanitize_argument_data_scalar (src, ptr)
-    !*  SANITIZE_ARGUMENT_DATA_SCALAR returns a pointer to a valid representation
-    !   of the data contained in src. For all types other than character,
-    !   an array of size 1 is allocated and src is copied into its first element.
-    !   On exit, ptr points to this array.
-    !
-    !   If src is of type character, a str(1) array is allocated
-    !   and the contents of src are copied into this array. On exit, ptr
-    !   points to the newly allocated str array.
-    !
-    !   NOTE: User code is responsible for cleaning ptr in case it
-    !   points to memory allocated in this routine!
-    class (*), intent(in), target :: src
-    class (*), intent(out), dimension(:), pointer :: ptr
-
-    select type (src)
-    type is (character (*))
-        allocate (ptr(1), source=str(src))
-    class default
-        allocate (ptr(1), source=src)
-    end select
-
-end subroutine
-
-
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
-subroutine sanitize_argument_data_array (src, ptr)
-    !*  SANITIZE_ARGUMENT_DATA_ARRAY returns a pointer to a valid representation
-    !   of the data contained in src. For all types other than character,
-    !   ptr simply points to src on exit.
-    !
-    !   If src is of type character, a str array is allocated
-    !   and the contents of src are copied into this array. On exit, ptr
-    !   points to the newly allocated str array.
-    !
-    !   NOTE: User code is responsible for cleaning ptr in case it
-    !   points to memory allocated in this routine!
-    class (*), intent(in), dimension(:), target :: src
-    class (*), intent(out), dimension(:), pointer :: ptr
-
-    type (str), dimension(:), pointer :: ptr_str
-    integer :: n, i
-
-    select type (src)
-    type is (character (*))
-        n = size(src)
-        allocate (ptr_str(n))
-        do i = 1, n
-            ptr_str(i) = src(i)
-        end do
-        ptr => ptr_str
-    class default
-        ptr => src
-    end select
-end subroutine
-#endif
-
-
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
-subroutine dealloc_argument_data_array (src, ptr)
-    !*  DEALLOC_ARGUMENT_DATA_ARRAY conditionally deallocates the memory
-    !   pointed to by ptr if: (1) src is present; and (2) ptr is
-    !   with an object OTHER THAN src.
-    !   This routine should be used to deallocate memory allocated by
-    !   SANITIZE_ARGUMENT_DATA_ARRAY.
-    class (*), intent(in), dimension(:), optional, target :: src
-    class (*), intent(out), dimension(:), pointer :: ptr
-
-    if (present(src)) then
-        if (associated(ptr) .and. .not. associated(ptr, src))  then
-            deallocate (ptr)
-        end if
-    end if
-
-end subroutine
-#endif
 
 
 subroutine sanitize_argument_text_str (name, abbrev, help, names, abbrevs)
@@ -958,15 +814,18 @@ end function
 ! GET methods
 
 
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine argparser_get_array_str (self, name, val, status)
     class (argparser), intent(inout) :: self
     type (str), intent(in) :: name
     class (*), intent(inout), dimension(:) :: val
+        !*  Note: decrease as INOUT, this seems to affect how buggy gfortran
+        !   version pass on array extents.
     type (status_t), intent(out), optional :: status
 
     class (argument), pointer :: ptr_arg
     type (status_t) :: lstatus
+    integer :: n, i, k
+    character (:), dimension(:), allocatable :: cwork
 
     call lstatus%init (FC_STATUS_OK)
 
@@ -980,62 +839,90 @@ subroutine argparser_get_array_str (self, name, val, status)
     if (lstatus /= FC_STATUS_OK) goto 100
 
     ! at this point ptr_arg points to the argument identified by name.
-    ! Retrieve stored argument value
-    call ptr_arg%poly_parse (val, lstatus)
+
+    ! We need to treat character arrays separately as gfortran 5 screws this
+    ! up otherwise.
+    select type (val)
+    type is (character (*))
+        ! At this point we can still recover the correct length attribute
+        ! of the character array VAL, but wouldn't be able to do that in
+        ! ARGUMENT::POLY_PARSE anymore if compiled with gfortran. Hence
+        ! "convert" to non-polymorphic data type here and avoid this.
+        n = size(val)
+        k = len(val)
+        allocate (character (k) :: cwork(n))
+        call ptr_arg%parse (cwork, lstatus)
+        forall (i=1:n) val(i) = cwork(i)
+        deallocate (cwork)
+    class default
+        call ptr_arg%poly_parse (val, lstatus)
+    end select
 
     call process_argument_status (name, lstatus)
 
 100 continue
     if (present(status)) status = lstatus
 end subroutine
-#endif
 
 
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine argparser_get_array_char (self, name, val, status)
+    !*  ARGPARSER_GET_ARRAY_CHAR returns the array-valued data for argument
+    !   of a given name.
+    !
+    !   Note: This is not a wrapper around the STR-version of this routine
+    !   to avoid inserting more routines with unlimited polymorphic arrays
+    !   into the call stack due to a bug in gfortran 5 and lower.
     class (argparser), intent(inout) :: self
     character (*), intent(in) :: name
-    class (*), intent(out), dimension(:) :: val
+    class (*), intent(inout), dimension(:) :: val
+        !*  Note: decrease as INOUT, this seems to affect how buggy gfortran
+        !   version pass on array extents.
     type (status_t), intent(out), optional :: status
 
-    call self%get (str(name), val, status)
+    type (str) :: sname
+    class (argument), pointer :: ptr_arg
+    type (status_t) :: lstatus
+    integer :: n, k
+    character (:), dimension(:), allocatable :: cwork
+
+    call lstatus%init (FC_STATUS_OK)
+
+    sname = name
+
+    call validate_identifier (sname, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
+
+    call argparser_get_check_state (self, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
+
+    call self%find_arg (sname, ptr_arg, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
+
+    ! at this point ptr_arg points to the argument identified by name.
+
+    ! We need to treat character arrays separately as gfortran 5 screws this
+    ! up otherwise.
+    select type (val)
+    type is (character (*))
+        ! At this point we can still recover the correct length attribute
+        ! of the character array VAL, but wouldn't be able to do that in
+        ! ARGUMENT::POLY_PARSE anymore if compiled with gfortran. Hence
+        ! "convert" to non-polymorphic data type here and avoid this.
+        n = size(val)
+        k = len(val)
+        allocate (character (k) :: cwork(n))
+        call ptr_arg%parse (cwork, lstatus)
+        val = cwork
+        deallocate (cwork)
+    class default
+        call ptr_arg%poly_parse (val, lstatus)
+    end select
+
+    call process_argument_status (sname, lstatus)
+
+100 continue
+    if (present(status)) status = lstatus
 end subroutine
-#endif
-
-
-#ifdef __FCORE_GFORTRAN_POLY_ARRAY_BUG
-
-#define __TYPE_SUFFIX int32
-#define __TYPE integer (int32)
-#include "parser_nonpoly_get_impl.F90"
-#undef __TYPE_SUFFIX
-#undef __TYPE
-
-#define __TYPE_SUFFIX int64
-#define __TYPE integer (int64)
-#include "parser_nonpoly_get_impl.F90"
-#undef __TYPE_SUFFIX
-#undef __TYPE
-
-#define __TYPE_SUFFIX real32
-#define __TYPE real (real32)
-#include "parser_nonpoly_get_impl.F90"
-#undef __TYPE_SUFFIX
-#undef __TYPE
-
-#define __TYPE_SUFFIX real64
-#define __TYPE real (real64)
-#include "parser_nonpoly_get_impl.F90"
-#undef __TYPE_SUFFIX
-#undef __TYPE
-
-#define __TYPE_SUFFIX str
-#define __TYPE type (str)
-#include "parser_nonpoly_get_impl.F90"
-#undef __TYPE_SUFFIX
-#undef __TYPE
-
-#endif
 
 
 subroutine argparser_get_scalar_str (self, name, val, status)
@@ -1072,14 +959,13 @@ end subroutine
 subroutine argparser_get_scalar_char (self, name, val, status)
     class (argparser), intent(inout) :: self
     character (*), intent(in) :: name
-    class (*), intent(out) :: val
+    class (*), intent(inout) :: val
     type (status_t), intent(out), optional :: status
 
     call self%get (str(name), val, status)
 end subroutine
 
 
-#ifndef __FCORE_GFORTRAN_POLY_ARRAY_BUG
 subroutine argparser_get_unmapped_array (self, val, status)
     !*  GET_UNMAPPED_ARRAY returns an array of command line arguments
     !   that could not be mapped to any named argument.
@@ -1124,7 +1010,7 @@ subroutine argparser_get_unmapped_array (self, val, status)
 100 continue
     if (present(status)) status = lstatus
 end subroutine
-#endif
+
 
 subroutine argparser_get_unmapped_scalar (self, val, status)
     !*  GET_UNMAPPED_SCALAR returns the command line argument that
