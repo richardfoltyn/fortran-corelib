@@ -113,8 +113,7 @@ pure function timedelta_strftime (self, fmt) result(res)
                 buf(j_at:j_at) = '%'
                 j_at = j_at + 1
             case ('d')
-                fwidth = 1
-                if (self%days > 0) fwidth = floor(log10(real(self%days)))
+                fwidth = max(1, ceiling(log10(self%days+1.0d0)))
                 call assert_alloc (buf, j_at + fwidth - 1, BUFFER_INCR)
                 buf(j_at:j_at + fwidth - 1) = str(self%days, fmt='i0')
                 j_at = j_at + fwidth
