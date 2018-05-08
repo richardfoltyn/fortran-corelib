@@ -266,7 +266,7 @@ contains
 ! STATUS_T METHODS
 
 pure subroutine status_clear (self)
-    class (status_t), intent(in out) :: self
+    class (status_t), intent(inout) :: self
 
     ! do not deallocate space used for message so we don't necessarily have to
     ! reallocate if new message is assined
@@ -275,7 +275,7 @@ pure subroutine status_clear (self)
 end subroutine
 
 pure subroutine status_init (self, code, msg)
-    class (status_t), intent(in out) :: self
+    class (status_t), intent(inout) :: self
     integer (FC_ENUM_KIND), intent(in), optional :: code
     character (*), intent(in), optional :: msg
 
@@ -778,7 +778,7 @@ end subroutine
 
 elemental subroutine assign_char_str (lhs, rhs)
     class (str), intent(in) :: rhs
-    character (len=*), intent(in out) :: lhs
+    character (len=*), intent(inout) :: lhs
 
     if (_VALID(rhs)) then
         lhs = rhs%value
@@ -1147,7 +1147,7 @@ end function
 
 pure subroutine split_str (self, str_list, sep, drop_empty, status)
     class (str), intent(in) :: self
-    type (str), intent(in out), dimension(:), allocatable :: str_list
+    type (str), intent(inout), dimension(:), allocatable :: str_list
     class (str), intent(in), optional :: sep
     logical, intent(in), optional :: drop_empty
     type (status_t), intent(out), optional :: status
@@ -1303,7 +1303,7 @@ pure subroutine split_str (self, str_list, sep, drop_empty, status)
 contains
 
     pure subroutine add_substring (istart, iend, ifound, is, ie)
-        integer, intent(in out), dimension(:), allocatable :: istart, iend
+        integer, intent(inout), dimension(:), allocatable :: istart, iend
         integer, intent(in) :: ifound, ie, is
 
         ! if required, allocate more space to hold indices
@@ -1317,7 +1317,7 @@ end subroutine
 
 pure subroutine split_char (self, str_list, sep, drop_empty, status)
     class (str), intent(in) :: self
-    type (str), intent(in out), dimension(:), allocatable :: str_list
+    type (str), intent(inout), dimension(:), allocatable :: str_list
     character (*), intent(in) :: sep
     logical, intent(in), optional :: drop_empty
     type (status_t), intent(out), optional :: status
@@ -1464,7 +1464,7 @@ end function
 ! *****************************************************************************
 ! TRIM method
 elemental subroutine str_trim (self)
-    class (str), intent(in out) :: self
+    class (str), intent(inout) :: self
 
     if (_VALID(self)) self = trim(self%value)
 end subroutine
@@ -1588,7 +1588,7 @@ end subroutine
 ! abstraction is gained by using preprocessor definitions
 elemental subroutine reset(self)
     ! Note: unlike a finalizer, argument should be defined as polymorphic
-    class (str), intent(in out) :: self
+    class (str), intent(inout) :: self
 
     if (allocated(self%value)) deallocate (self%value)
 end subroutine
@@ -1598,7 +1598,7 @@ end subroutine
 ! Abstract away from how character value is stored internally but handling
 ! allocation in dedicated procedures.
 pure subroutine alloc_int (self, n, stat)
-    class (str), intent(in out) :: self
+    class (str), intent(inout) :: self
     integer, intent(in) :: n
     integer, intent(out), optional :: stat
 
@@ -1615,7 +1615,7 @@ pure subroutine alloc_int (self, n, stat)
 end subroutine
 
 pure subroutine alloc_char (self, val, stat)
-    class (str), intent(in out) :: self
+    class (str), intent(inout) :: self
     character (*), intent(in) :: val
     integer, intent(out), optional :: stat
 
