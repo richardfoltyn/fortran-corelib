@@ -93,8 +93,6 @@ subroutine argument_data_alloc_char (self, val)
 
     integer :: n, i
 
-    if (allocated(swork)) deallocate (swork)
-
     n = size(val)
     allocate (swork(n))
 
