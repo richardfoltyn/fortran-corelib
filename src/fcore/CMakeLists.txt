@@ -79,15 +79,15 @@ endif()
 
 include(CMakePackageConfigHelpers)
 
-# Allow for installing ifort and gfortran version of libraries side-by-side by 
+# Allow for installing ifort and gfortran version of libraries side-by-side by
 # appending compiler suffix
-if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-    set(Fortran_COMPILER_SUFFIX "gf")
-elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-    set(Fortran_COMPILER_SUFFIX "ifort")
-else ()
-    message(FATAL_ERROR "Unsupported Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}")
-endif ()
+string(TOLOWER ${CMAKE_Fortran_COMPILER_ID} Fortran_COMPILER_ID)
+
+# Find major compiler version
+string(REGEX REPLACE "(^[0-9]+).*" "\\1" Fortran_COMPILER_VERSION_MAJOR
+    "${CMAKE_Fortran_COMPILER_VERSION}")
+
+set(Fortran_COMPILER_SUFFIX "${Fortran_COMPILER_ID}-${Fortran_COMPILER_VERSION_MAJOR}")
 
 # Installation directory within <prefix>/lib, <prefix>/include, etc.
 # If ont defined by -DFCORE_INSTALL_DIR by the user, create 

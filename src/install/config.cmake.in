@@ -1,17 +1,16 @@
 
-set(@LIBRARY_NAME@_VERSION @FCORE_VERSION@)
-
 @PACKAGE_INIT@
 
+set(PACKAGE_VERSION @FCORE_VERSION@)
 set(PACKAGE_NAMESPACE @FCORE_INSTALL_NAMESPACE@)
 set(PACKAGE_NAME @LIBRARY_NAME@)
 
-set_and_check(${PACKAGE_NAME}_CONFIG_PATH "@PACKAGE_FCORE_INSTALL_CONFIG_PATH@")
+set_and_check(PACKAGE_CONFIG_PATH "@PACKAGE_FCORE_INSTALL_CONFIG_PATH@")
 
 set(PACKAGE_TARGET ${PACKAGE_NAMESPACE}::${PACKAGE_NAME})
 
-if(NOT TARGET ${PACKAGE_TARGET}})
-    include("${${PACKAGE_NAME}_CONFIG_PATH}/${PACKAGE_NAME}Targets.cmake")
+if(NOT TARGET ${PACKAGE_TARGET})
+    include("${PACKAGE_CONFIG_PATH}/${PACKAGE_NAME}Targets.cmake")
 endif()
 
 # Do this only for compatibility if downstream uses the
@@ -22,10 +21,9 @@ endif()
 # statement.
 get_target_property(_include ${PACKAGE_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
 set(${PACKAGE_NAME}_INCLUDE_DIRS "${_include}" 
-    CACHE STRING "${PACKAGE_NAME} include directory" 
+    CACHE STRING "${PACKAGE_NAME} include directory"
     FORCE
 )
-
 
 if(NOT ${PACKAGE_NAME}_FOUND)
     # Try compiling to see whether the library and the target architecture match
@@ -41,6 +39,7 @@ if(NOT ${PACKAGE_NAME}_FOUND)
 endif()
 
 if(${PACKAGE_NAME}_FOUND AND NOT ${PACKAGE_NAME}_FIND_QUIETLY)
-    message(STATUS "Found FCORE: ${${PACKAGE_NAME}_INCLUDE_DIRS}")
+    set(TOUPPER "${PACKAGE_NAME}" _name)
+    message(STATUS "Found ${_name} ${PACKAGE_VERSION}: ${${PACKAGE_NAME}_INCLUDE_DIRS}")
 endif()
 
