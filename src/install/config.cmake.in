@@ -39,7 +39,7 @@ if(NOT ${PACKAGE_NAME}_FOUND)
 endif()
 
 if(${PACKAGE_NAME}_FOUND AND NOT ${PACKAGE_NAME}_FIND_QUIETLY)
-    set(TOUPPER "${PACKAGE_NAME}" _name)
+    string(TOUPPER "${PACKAGE_NAME}" _name)
     message(STATUS "Found ${_name} ${PACKAGE_VERSION}: ${${PACKAGE_NAME}_INCLUDE_DIRS}")
 endif()
 
