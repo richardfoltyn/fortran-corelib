@@ -21,6 +21,7 @@ module fcore_strings
         copy_alloc, &
         assignment(=), &
         operator (==), &
+        operator (/=), &
         operator (//)
 
 end module
