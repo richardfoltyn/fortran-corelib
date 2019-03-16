@@ -1,8 +1,10 @@
 module fcore_argparse_validators
 
     use, intrinsic :: iso_fortran_env
+
     use fcore_common
     use fcore_argparse_argument, only: fcn_validator
+
     implicit none
     private
 
@@ -13,10 +15,8 @@ module fcore_argparse_validators
     public :: validate_nonempty_str
 
 
-contains
+    contains
 
-! ------------------------------------------------------------------------------
-! Integer argument validators
 subroutine validate_pos_int32 (val, status)
     !*  VALIDATE_INT32_POS verifies that argument value can be represented
     !   as a 32bit integer, and that its value is positive.
@@ -61,7 +61,7 @@ subroutine validate_bounds_int32 (val, status, lb, ub, strict_lb, strict_ub)
 
     integer (INTSIZE):: ival
 
-    include "include/validate_bounds_impl.f90"
+#include "validate_bounds_impl.f90"
 end subroutine
 
 subroutine validate_bounds_int64 (val, status, lb, ub, strict_lb, strict_ub)
@@ -75,7 +75,7 @@ subroutine validate_bounds_int64 (val, status, lb, ub, strict_lb, strict_ub)
 
     integer (INTSIZE):: ival
 
-    include "include/validate_bounds_impl.f90"
+#include "validate_bounds_impl.f90"
 end subroutine
 
 subroutine validate_bounds_real32 (val, status, lb, ub, strict_lb, strict_ub)
@@ -89,7 +89,7 @@ subroutine validate_bounds_real32 (val, status, lb, ub, strict_lb, strict_ub)
 
     real (PREC) :: ival
 
-    include "include/validate_bounds_impl.f90"
+#include "validate_bounds_impl.f90"
 end subroutine
 
 subroutine validate_bounds_real64 (val, status, lb, ub, strict_lb, strict_ub)
@@ -103,7 +103,7 @@ subroutine validate_bounds_real64 (val, status, lb, ub, strict_lb, strict_ub)
 
     real (PREC) :: ival
 
-    include "include/validate_bounds_impl.f90"
+#include "validate_bounds_impl.f90"
 end subroutine
 
 subroutine validate_nonempty_str (val, status)

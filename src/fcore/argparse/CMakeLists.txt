@@ -8,7 +8,7 @@ set(SOURCE_FILES
     argument_data.F90
     actions.f90
     parser.F90
-    validators.f90
+    validators.F90
 )
 
 include_directories(${${PROJECT_NAME}_MODDIR}
