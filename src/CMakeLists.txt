@@ -31,6 +31,7 @@ option(IFORT_STD_MOD_PROC_NAME
 )
 option(BUILD_TESTS "Build unit tests" OFF)
 option(BUILD_EXAMPLES "Build example code" OFF)
+option(DIAGNOSTICS "Enable diagnostic messages" OFF)
 
 ###############################################################################
 # Version
@@ -113,7 +114,7 @@ elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
         if (NOT IFORT_STD_MOD_PROC_NAME)
             set(_FFLAGS "${_FFLAGS} -assume nostd_mod_proc_name")
         endif ()
-        set(_FFLAGS_DEBUG "-check all -O0")
+        set(_FFLAGS_DEBUG "-check all -O0 -traceback")
     endif (WIN32)
 endif ()
 
@@ -134,6 +135,9 @@ else(BUILD_SHARED_LIBS)
 endif(BUILD_SHARED_LIBS)
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+if (DIAGNOSTICS)
+    message(STATUS "Diagnostics ENABLED" )
+endif()
 message(STATUS "Fortran compiler flags: ${CMAKE_Fortran_FLAGS}")
 # Make sure build type is upper case, otherwise the wrong flags will be shown
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _BUILD_TYPE)

@@ -1,5 +1,5 @@
 
-program test_strings
+program test_argparse
 
     use iso_fortran_env
     use fcore_argparse

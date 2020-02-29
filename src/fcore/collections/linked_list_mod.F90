@@ -67,7 +67,7 @@ module fcore_collections_linked_list_mod
         generic, public :: assignment (=) => list_assign
 
         ! implement deferred procedure from collection::iter()
-        procedure, public, pass :: get_iter => list_iter
+        procedure, public, pass :: get_iter => list_get_iter
 
         final :: list_finalize
 
@@ -120,8 +120,13 @@ function node_item (self) result(res)
     class (*), pointer :: res
 
     nullify (res)
-    if (allocated(self%item_obj)) res => self%item_obj
-
+    if (allocated(self%item_obj)) then
+        res => self%item_obj
+    else
+#ifdef __DIAGNOSTICS
+        print *, "list_node::item: ITEM attribute not allocated"
+#endif
+    end if
 end function
 
 
@@ -190,7 +195,7 @@ end function
 
 
 ! *****************************************************************************
-! ACCESSORT METHODS
+! ACCESSOR METHODS
 
 function list_get_item (self, i) result(res)
     class (linked_list), intent(in) :: self
@@ -201,9 +206,17 @@ function list_get_item (self, i) result(res)
     res => null()
 
     node => self%node (i)
-    if (associated(node)) res => node%item()
+    if (associated(node))  then
+        res => node%item()
+    else
+#ifdef __DIAGNOSTICS
+        print *, "linked_list::item: NODE pointer not associated"
+#endif
+    end if
 
 end function
+
+
 
 function list_get_node (self, i) result (res)
     class (linked_list), intent(in) :: self
@@ -213,10 +226,15 @@ function list_get_node (self, i) result (res)
      class (iterator), allocatable :: iter
      class (linked_list_iterator), pointer :: ptr_iter
 
-     res => null()
+     nullify (res)
 
     ! nothing to do for empty list
-    if (i < 1 .or. i > self%n) return
+    if (i < 1 .or. i > self%n) then
+#ifdef __DIAGNOSTICS
+        print *, "linked_list::node: Attemping to access node at invalid index", i
+#endif
+        return
+    end if
 
     ! obtain item iterator
     call self%get_iter (iter)
@@ -226,11 +244,17 @@ function list_get_node (self, i) result (res)
     do while (iter%has_next())
         if (iter%counter() == i) then
             res => ptr_iter%node()
+#ifdef __DIAGNOSTICS
+            if (.not. associated(res)) then
+                print *, "linked_list::node: RES pointer not associated"
+            end if
+#endif
             return
         end if
     end do
 
 end function
+
 
 ! *****************************************************************************
 ! INSERT methods
@@ -249,6 +273,12 @@ subroutine list_insert (self, item, i)
     allocate (node%item_obj, source=item)
 
     nullify (ptr_old)
+
+#ifdef __DIAGNOSTICS
+    print *, "linked_list::insert: Inserting node at position", i, "of", self%n
+#endif
+
+    nullify (node%ptr_prev, node%ptr_next)
 
     if (self%n > 0) then
         if (i <= self%n) then
@@ -272,7 +302,10 @@ subroutine list_insert (self, item, i)
         else
             ! insert at the end
             self%ptr_last%ptr_next => node
+
             node%ptr_prev => self%ptr_last
+            nullify (node%ptr_next)
+
             self%ptr_last => node
         end if
     else
@@ -383,7 +416,7 @@ end subroutine
 ! *****************************************************************************
 ! LINKED_LIST iter
 
-subroutine list_iter (self, iter)
+subroutine list_get_iter (self, iter)
     class (linked_list), intent(in) :: self
     class (iterator), intent(out), allocatable :: iter
 
@@ -413,7 +446,11 @@ subroutine iterator_initialize (self, lst)
     class (linked_list), intent(in), target :: lst
 
     self%ptr_list => lst
+    nullify (self%ptr_current)
+    self%progress = 0
 end subroutine
+
+
 
 function iterator_next (self) result(res)
     class (linked_list_iterator), intent(inout) :: self
@@ -427,14 +464,27 @@ function iterator_next (self) result(res)
         if (associated(self%ptr_current)) then
             self%progress = 1
             res = .true.
+#ifdef __DIAGNOSTICS
+            print *, "iterator::next: Setting PTR_CURRENT to position 1"
+#endif
+        else
+#ifdef __DIAGNOSTICS
+            print *, "iterator::next: No nodes in linked-list"
+#endif
         end if
+
     else if (associated(self%ptr_current%ptr_next)) then
         self%ptr_current => self%ptr_current%ptr_next
         res = .true.
         self%progress = self%progress + 1
+#ifdef __DIAGNOSTICS
+        print *, "iterator::next: Incrementing to ", self%progress
+#endif
     end if
 
 end function
+
+
 
 function iterator_counter (self) result(res)
     class (linked_list_iterator), intent(in) :: self
@@ -442,6 +492,8 @@ function iterator_counter (self) result(res)
 
     res = self%progress
 end function
+
+
 
 function iterator_item (self) result(res)
     class (linked_list_iterator), intent(in) :: self

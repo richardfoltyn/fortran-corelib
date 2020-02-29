@@ -41,6 +41,10 @@ foreach(_comp IN LISTS FCORE_COMPONENTS)
         set_target_properties(${_comp} PROPERTIES POSITION_INDEPENDENT_CODE ON)
     endif ()
 
+    if (DIAGNOSTICS)
+        target_compile_definitions(${_comp} PRIVATE "__DIAGNOSTICS")
+    endif()
+
     # append created objects, to be used as input in main library
     list(APPEND COMPONENT_OBJECTS $<TARGET_OBJECTS:${_comp}>)
 endforeach()
