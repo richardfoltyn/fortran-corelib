@@ -129,7 +129,7 @@ end function
 ! LIST_NODE finalizer
 
 recursive subroutine node_finalize (self)
-   type (list_node), intent(in out) :: self
+   type (list_node), intent(inout) :: self
 
    if (allocated(self%item_obj)) deallocate (self%item_obj)
 end subroutine
@@ -158,7 +158,7 @@ end subroutine
 ! LIST ASSIGNMENT
 
 subroutine list_assign (self, rhs)
-    class (linked_list), intent(in out) :: self
+    class (linked_list), intent(inout) :: self
     class (collection), intent(in) :: rhs
 
     class (iterator), allocatable :: rhs_iter
@@ -236,7 +236,7 @@ end function
 ! INSERT methods
 
 subroutine list_insert (self, item, i)
-    class (linked_list), intent(in out) :: self
+    class (linked_list), intent(inout) :: self
     class (*), intent(in) :: item
     integer, intent(in) :: i
 
@@ -289,7 +289,7 @@ end subroutine
 ! APPEND methods
 
 subroutine list_append(self, item)
-    class (linked_list), intent(in out) :: self
+    class (linked_list), intent(inout) :: self
     class (*), intent(in) :: item
 
     call self%insert (item, self%n + 1)
@@ -299,7 +299,7 @@ end subroutine
 ! EXTEND methods
 
 subroutine list_extend_array (self, items)
-    class (linked_list), intent(in out) :: self
+    class (linked_list), intent(inout) :: self
     class (*), intent(in), dimension(:) :: items
 
     integer :: n, i
@@ -316,7 +316,7 @@ end subroutine
 ! *****************************************************************************
 ! Remove methods
 recursive subroutine list_remove (self, i)
-    class (linked_list), intent(in out) :: self
+    class (linked_list), intent(inout) :: self
     integer, intent(in) :: i
 
     ! pointer to node that is to be removed
@@ -359,7 +359,7 @@ pure recursive subroutine list_clear (self)
     !*  LIST_CLEAR removes all elements contained in the list, deallocating
     !   any memory used in the process. The list length is reset to zero.
 
-    class (linked_list), intent(in out) :: self
+    class (linked_list), intent(inout) :: self
 
     type (list_node), pointer :: ptr_node, ptr_next
 
@@ -400,7 +400,7 @@ end subroutine
 ! LINKED_LIST finalizer
 
 recursive subroutine list_finalize (self)
-    type (linked_list), intent(in out) :: self
+    type (linked_list), intent(inout) :: self
 
     call self%clear ()
 end subroutine
@@ -409,14 +409,14 @@ end subroutine
 ! ITERATOR methods
 
 subroutine iterator_initialize (self, lst)
-    class (linked_list_iterator), intent(in out) :: self
+    class (linked_list_iterator), intent(inout) :: self
     class (linked_list), intent(in), target :: lst
 
     self%ptr_list => lst
 end subroutine
 
 function iterator_next (self) result(res)
-    class (linked_list_iterator), intent(in out) :: self
+    class (linked_list_iterator), intent(inout) :: self
     logical :: res
 
     res = .false.

@@ -25,7 +25,7 @@ module fcore_collections_abc_mod
     abstract interface
         function iface_next (self) result(res)
             import iterator
-            class (iterator), intent(in out) :: self
+            class (iterator), intent(inout) :: self
             logical :: res
         end function
 
