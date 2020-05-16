@@ -673,7 +673,7 @@ subroutine argument_parse_array_int32 (self, val, status)
     integer (int32), intent(inout), dimension(:) :: val
     integer (int32), dimension(:), pointer :: ptr
 
-    include "include/argument_parse_array.f90"
+#include "include/argument_parse_array.f90"
 end subroutine
 
 subroutine argument_parse_array_int64 (self, val, status)
@@ -681,7 +681,7 @@ subroutine argument_parse_array_int64 (self, val, status)
     integer (INTSIZE), intent(inout), dimension(:) :: val
     integer (INTSIZE), dimension(:), pointer :: ptr
 
-    include "include/argument_parse_array.f90"
+#include "include/argument_parse_array.f90"
 end subroutine
 
 subroutine argument_parse_array_real32 (self, val, status)
@@ -689,7 +689,7 @@ subroutine argument_parse_array_real32 (self, val, status)
     real (PREC), intent(inout), dimension(:) :: val
     real (PREC), dimension(:), pointer :: ptr
 
-    include "include/argument_parse_array.f90"
+#include "include/argument_parse_array.f90"
 end subroutine
 
 subroutine argument_parse_array_real64 (self, val, status)
@@ -697,13 +697,14 @@ subroutine argument_parse_array_real64 (self, val, status)
     real (PREC), intent(inout), dimension(:) :: val
     real (PREC), dimension(:), pointer :: ptr
 
-    include "include/argument_parse_array.f90"
+#include "include/argument_parse_array.f90"
 end subroutine
 
 subroutine argument_parse_array_logical (self, val, status)
     logical, intent(inout), dimension(:) :: val
     logical, dimension(:), pointer :: ptr
-    include "include/argument_parse_array.f90"
+
+#include "include/argument_parse_array.f90"
 end subroutine
 
 ! NB: Handle str seperately as we want to be able to convert stored const or
@@ -842,7 +843,7 @@ subroutine argument_parse_scalar_int32 (self, val, status)
     integer (INTSIZE), intent(out) :: val
     integer (INTSIZE), pointer :: ptr
 
-    include "include/argument_parse_scalar.f90"
+#include "include/argument_parse_scalar.f90"
 end subroutine
 
 subroutine argument_parse_scalar_int64 (self, val, status)
@@ -850,7 +851,7 @@ subroutine argument_parse_scalar_int64 (self, val, status)
     integer (INTSIZE), intent(out) :: val
     integer (INTSIZE), pointer :: ptr
 
-    include "include/argument_parse_scalar.f90"
+#include "include/argument_parse_scalar.f90"
 end subroutine
 
 subroutine argument_parse_scalar_real32 (self, val, status)
@@ -858,7 +859,7 @@ subroutine argument_parse_scalar_real32 (self, val, status)
     real (PREC), intent(out) :: val
     real (PREC), pointer :: ptr
 
-    include "include/argument_parse_scalar.f90"
+#include "include/argument_parse_scalar.f90"
 end subroutine
 
 subroutine argument_parse_scalar_real64 (self, val, status)
@@ -866,13 +867,14 @@ subroutine argument_parse_scalar_real64 (self, val, status)
     real (PREC), intent(out) :: val
     real (PREC), pointer :: ptr
 
-    include "include/argument_parse_scalar.f90"
+#include "include/argument_parse_scalar.f90"
 end subroutine
 
 subroutine argument_parse_scalar_logical (self, val, status)
     logical, intent(out) :: val
     logical, pointer :: ptr
-    include "include/argument_parse_scalar.f90"
+
+#include "include/argument_parse_scalar.f90"
 end subroutine
 
 ! NB: Handle str seperately as we want to be able to convert stored const or
