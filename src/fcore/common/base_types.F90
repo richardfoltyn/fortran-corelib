@@ -557,27 +557,27 @@ end function
 ! String representations of arrays
 pure function str_array_1d_int8 (x, fmt) result(res)
     integer (int8), intent(in), dimension(:) :: x
-    include "include/str_array_1d.f90"
+#include "include/str_array_1d.f90"
 end function
 
 pure function str_array_1d_int32 (x, fmt) result(res)
     integer (int32), intent(in), dimension(:) :: x
-    include "include/str_array_1d.f90"
+#include "include/str_array_1d.f90"
 end function
 
 pure function str_array_1d_int64 (x, fmt) result(res)
     integer (int64), intent(in), dimension(:) :: x
-    include "include/str_array_1d.f90"
+#include "include/str_array_1d.f90"
 end function
 
 pure function str_array_1d_real32 (x, fmt) result(res)
     real (real32), intent(in), dimension(:) :: x
-    include "include/str_array_1d.f90"
+#include "include/str_array_1d.f90"
 end function
 
 pure function str_array_1d_real64 (x, fmt) result(res)
     real (real64), intent(in), dimension(:) :: x
-    include "include/str_array_1d.f90"
+#include "include/str_array_1d.f90"
 end function
 
 ! *****************************************************************************
@@ -1482,28 +1482,28 @@ end function
 ! Converstion to other native data types
 subroutine parse_int8 (self, val, status)
     integer (int8) :: val
-    include "include/str_parse.f90"
+#include "include/str_parse.f90"
 end subroutine
 
 subroutine parse_int32 (self, val, status)
     integer (int32) :: val
-    include "include/str_parse.f90"
+#include "include/str_parse.f90"
 end subroutine
 
 subroutine parse_int64 (self, val, status)
     integer (int64) :: val
 
-    include "include/str_parse.f90"
+#include "include/str_parse.f90"
 end subroutine
 
 subroutine parse_real32 (self, val, status)
     real (real32) :: val
-    include "include/str_parse.f90"
+#include "include/str_parse.f90"
 end subroutine
 
 subroutine parse_real64 (self, val, status)
     real (real64) :: val
-    include "include/str_parse.f90"
+#include "include/str_parse.f90"
 end subroutine
 
 subroutine parse_str(self, val, status)
@@ -1542,7 +1542,7 @@ end subroutine
 
 subroutine parse_logical (self, val, status)
     logical :: val
-    include "include/str_parse.f90"
+#include "include/str_parse.f90"
 end subroutine
 
 ! ******************************************************************************
