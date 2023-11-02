@@ -9,9 +9,9 @@ a string type, command-line argument parsing, etc.
 ## Obtaining the code ##
 
 To clone the git repository, run
-
-    git clone https://bitbucket.org/richardfoltyn/fortran-corelib.git
-
+```bash
+git clone https://bitbucket.org/richardfoltyn/fortran-corelib.git
+```
 ## Build instructions ##
 
 ### Linux ###
@@ -23,15 +23,29 @@ The library has been tested with the following compilers:
 
 To compile and install FCORE, create a build directory and run
 
-    cd /path/to/build/dir
-    cmake -DCMAKE_INSTALL_PREFIX=/path/to/install/dir <FCORE_REPOSITORY>/src
-    make install
-    
-where `<FCORE_REPOSITORY>` points to the git repository.
+```bash
+# Path to source directory
+SRC_DIR=$HOME/repos/fortran-corelib
 
-Use the environment variables `FC` and `FFLAGS` to select a compiler 
-or compiler flags other than the defaults. 
-For example, to build with `ifort` and optimize
-for the host machine architecture, use something like
+# Define installation prefix
+INSTALL_PREFIX=$HOME/.local
 
-    FC=ifort FFLAGS="-xHost" cmake -DCMAKE_INSTALL_PREFIX=/path/to/install/dir <FCORE_REPOSITORY>/src
+# Define GCC compiler version
+GCC_VERSION=12
+
+# Build directory
+BUILD_DIR=$HOME/build/gcc/${GCC_VERSION}/fortran-corelib
+
+mkdir -p "${BUILD_DIR}"
+cd "${BUILD_DIR}"
+
+FC=gfortran-${GCC_VERSION} CC=gcc-${GCC_VERSION} \
+cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} ${SRC_DIR}/src
+```
+
+To build and install the project, run
+```bash
+make -j 16
+make install
+```
+
