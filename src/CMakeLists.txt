@@ -1,7 +1,7 @@
 # src/CMakeLists.txt
 # Root cmake configuration file for Fortran corelib
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.10)
 
 project(fcore C Fortran)
 # name used for library files, include directory, etc.
