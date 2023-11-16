@@ -24,14 +24,14 @@ The library has been tested with the following compilers:
 To compile and install FCORE, create a build directory and run
 
 ```bash
+# Define GCC compiler version
+GCC_VERSION=12
+
 # Path to source directory
 SRC_DIR=$HOME/repos/fortran-corelib
 
 # Define installation prefix
 INSTALL_PREFIX=$HOME/.local
-
-# Define GCC compiler version
-GCC_VERSION=12
 
 # Build directory
 BUILD_DIR=$HOME/build/gcc/${GCC_VERSION}/fortran-corelib
