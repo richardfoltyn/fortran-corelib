@@ -34,7 +34,7 @@ SRC_DIR=$HOME/repos/fortran-corelib
 INSTALL_PREFIX=$HOME/.local
 
 # Build directory
-BUILD_DIR=$HOME/build/gcc/${GCC_VERSION}/fortran-corelib
+BUILD_DIR=$HOME/build/gnu/${GCC_VERSION}/fortran-corelib
 
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}"
