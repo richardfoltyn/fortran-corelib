@@ -175,8 +175,7 @@ subroutine argparser_init_str (self, description, progname)
     ptr_arg => self%create_arg ()
 
     names(1) = str(UNMAPPED_ARG_NAME)
-    call ptr_arg%init (names, action=ARGPARSE_ACTION_APPEND, status=status, &
-        allow_empty=.true.)
+    call ptr_arg%init (names, action=ARGPARSE_ACTION_APPEND, status=status)
 
     ! Add "built-in" argument --help/-h that displays help text
     ptr_arg => self%create_arg ()

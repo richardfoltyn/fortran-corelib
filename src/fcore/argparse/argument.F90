@@ -32,8 +32,6 @@ module fcore_argparse_argument
         logical :: required = .false.
         logical, public :: is_present = .false.
         integer, public :: nargs = 1
-        logical :: allow_empty = .false.
-            !!  Allow empty strings as argument values. Disabled by default.
         type (str), dimension(:), allocatable :: passed_values
         type (str), public :: help
         procedure (fcn_validator), nopass, pointer :: validator => null()
@@ -135,13 +133,12 @@ subroutine argument_init_default (self)
     self%is_present = .false.
     self%required = .false.
     self%nargs = 1
-    self%allow_empty = .false.
     self%validator => null()
 end subroutine
 
 
 subroutine argument_init_data (self, names, abbrevs, action, required, nargs, &
-        help, status, default, const, validator, allow_empty)
+        help, status, default, const, validator)
     !*  ARGUMENT_INIT_DATA initializes argument object from user-provided data.
 
     class (argument), intent(inout) :: self
@@ -155,7 +152,6 @@ subroutine argument_init_data (self, names, abbrevs, action, required, nargs, &
     type (status_t), intent(out) :: status
     type (argument_data), intent(in), optional :: const
     procedure (fcn_validator), optional :: validator
-    logical, intent(in), optional :: allow_empty
 
     integer :: laction, lnargs
     logical :: lrequired
@@ -176,7 +172,7 @@ subroutine argument_init_data (self, names, abbrevs, action, required, nargs, &
     ! Call with local action but user-provided nargs, default, const, ...
     ! to properly handle default action.
     call argument_init_validate_input (names, abbrevs, laction, required, nargs, &
-        help, default, const, validator, allow_empty, status)
+        help, default, const, validator, status)
 
     ! Default initalization
     call self%init ()
@@ -239,12 +235,11 @@ subroutine argument_init_data (self, names, abbrevs, action, required, nargs, &
 
     if (present(help)) self%help = help
     if (present(validator)) self%validator => validator
-    if (present(allow_empty)) self%allow_empty = allow_empty
 
 end subroutine
 
 subroutine argument_init_validate_input (names, abbrevs, action, required, nargs, &
-        help, default, const, validator, allow_empty, status)
+        help, default, const, validator, status)
     !*  ARGUMENT_INIT_VALIDATE_INPUT performs input validation for user-provided
     !   subroutine arguments used to build argument object.
 
@@ -258,7 +253,6 @@ subroutine argument_init_validate_input (names, abbrevs, action, required, nargs
     type (status_t), intent(out) :: status
     type (argument_data), intent(in), optional :: const
     procedure (fcn_validator), optional :: validator
-    logical, intent(in), optional :: allow_empty
 
     type (str) :: argname
 
@@ -284,9 +278,6 @@ subroutine argument_init_validate_input (names, abbrevs, action, required, nargs
         argname = 'validator'
         if (present(validator)) goto 10
 
-        argname = 'allow_empty'
-        if (present(allow_empty)) goto 10
-
         argname = 'default'
         if (present(default)) goto 10
 
@@ -300,9 +291,6 @@ subroutine argument_init_validate_input (names, abbrevs, action, required, nargs
         argname = 'validator'
         if (present(validator)) goto 10
 
-        argname = 'allow_empty'
-        if (present(allow_empty)) goto 10
-
         argname = 'default'
         if (present(default)) goto 10
 
@@ -315,9 +303,6 @@ subroutine argument_init_validate_input (names, abbrevs, action, required, nargs
 
         argname = 'validator'
         if (present(validator)) goto 10
-
-        argname = 'allow_empty'
-        if (present(allow_empty)) goto 10
 
         argname = 'default'
         if (.not. present(default)) goto 20
@@ -337,9 +322,6 @@ subroutine argument_init_validate_input (names, abbrevs, action, required, nargs
 
         argname = 'validator'
         if (present(validator)) goto 10
-
-        argname = 'allow_empty'
-        if (present(allow_empty)) goto 10
 
         argname = 'const'
         if (present(const)) goto 10
@@ -514,17 +496,6 @@ subroutine argument_process_cmd_value (self, val, status)
         do i = 1, n
             call self%validator (val(i), status)
             if (status /= FC_STATUS_OK) goto 100
-        end do
-    end if
-
-    ! Check for empty strings if these are not permitted
-    if (.not. self%allow_empty) then
-        do i = 1, n
-            if (len(val(i)) == 0) then
-                status = FC_STATUS_VALUE_ERROR
-                status%msg = "Invalid value; non-empty string not allowed"
-                goto 100
-            end if
         end do
     end if
 
@@ -1106,7 +1077,6 @@ subroutine argument_assign (self, rhs)
     self%nargs = rhs%nargs
     self%is_present = rhs%is_present
     self%required = rhs%required
-    self%allow_empty = rhs%allow_empty
     self%help = rhs%help
 
     self%validator => rhs%validator
