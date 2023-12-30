@@ -22,7 +22,7 @@ contains
 ! JOIN_PATH functions
 
 pure subroutine join_path_impl (str_list, res)
-    __FCORE_POLY_ARRAY (str), dimension(:), intent(in) :: str_list
+    class (str), dimension(:), intent(in) :: str_list
     type (str), intent(in out) :: res
 
     class (str), dimension(:), allocatable :: components
@@ -56,7 +56,7 @@ pure subroutine join_path_impl (str_list, res)
 end subroutine
 
 pure function join_path_array_str (str_list) result(res)
-    __FCORE_POLY_ARRAY (str), dimension(:), intent(in) :: str_list
+    class (str), dimension(:), intent(in) :: str_list
     type (str) :: res
 
     call join_path_impl (str_list, res)

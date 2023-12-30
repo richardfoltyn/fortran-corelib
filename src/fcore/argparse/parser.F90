@@ -1262,7 +1262,7 @@ end subroutine
 
 subroutine argparser_parse_array (self, cmd_args, status)
     class (argparser), intent(inout) :: self
-    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    class (str), intent(in), dimension(:) :: cmd_args
     type (status_t), intent(out), optional :: status
 
     integer :: i, cmd_nargs
@@ -1353,7 +1353,7 @@ end subroutine
 
 subroutine argparser_parse_long (self, cmd_args, offset, status)
     class (argparser), intent(inout) :: self
-    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    class (str), intent(in), dimension(:) :: cmd_args
     integer, intent(inout) :: offset
     type (status_t), intent(out) :: status
 
@@ -1443,7 +1443,7 @@ end subroutine
 
 subroutine argparser_parse_abbrev (self, cmd_args, offset, status)
     class (argparser), intent(inout) :: self
-    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    class (str), intent(in), dimension(:) :: cmd_args
     integer, intent(inout) :: offset
     type (status_t), intent(out) :: status
 
@@ -1519,7 +1519,7 @@ subroutine argparser_collect_values (self, cmd_name, cmd_args, offset, ptr_arg, 
     class (argparser), intent(inout) :: self
     class (str), intent(in) :: cmd_name
         !*  Argument name, as specified by user on CLI
-    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    class (str), intent(in), dimension(:) :: cmd_args
     integer, intent(in) :: offset
     class (argument), intent(in), pointer :: ptr_arg
     type (str), intent(out), dimension(:), allocatable :: cmd_values
@@ -1587,7 +1587,7 @@ function argparser_help_present (self, cmd_args) result(res)
     !   parsing other arguments that might be present are ignored.
 
     class (argparser), intent(inout) :: self
-    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: cmd_args
+    class (str), intent(in), dimension(:) :: cmd_args
     logical :: res
         !*  On exit this value is set to true if --help/-h was passed,
         !   and to false otherwise.

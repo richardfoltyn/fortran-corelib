@@ -1000,7 +1000,7 @@ end function
 
 pure function join_str(self, str_list) result(res)
     class (str), intent(in) :: self
-    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: str_list
+    class (str), intent(in), dimension(:) :: str_list
     type (str) :: res
 
     call join_impl(self, str_list, res)
@@ -1036,7 +1036,7 @@ end function
 
 pure subroutine join_impl(self, str_list, res)
     class (str), intent(in) :: self
-    __FCORE_POLY_ARRAY (str), intent(in), dimension(:) :: str_list
+    class (str), intent(in), dimension(:) :: str_list
     type (str), intent(out) :: res
 
     ! automatically deallocated on subroutine exit
@@ -1565,7 +1565,7 @@ end subroutine
 
 subroutine cast_any_to_str_array (tgt, ptr, status)
     class (*), intent(in), dimension(:), target :: tgt
-    __FCORE_POLY_ARRAY (str), intent(out), dimension(:), pointer :: ptr
+    class (str), intent(out), dimension(:), pointer :: ptr
     type (status_t), intent(out), optional :: status
 
     call cast_status_init (status)

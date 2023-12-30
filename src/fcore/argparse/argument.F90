@@ -711,10 +711,10 @@ end subroutine
 ! default values of type character
 subroutine argument_parse_array_str (self, val, status)
     class (argument), intent(in), target :: self
-    __FCORE_POLY_ARRAY (str), intent(inout), dimension(:) :: val
+    class (str), intent(inout), dimension(:) :: val
     type (status_t), intent(out) :: status
 
-    __FCORE_POLY_ARRAY (str), dimension(:), pointer :: ptr
+    class (str), dimension(:), pointer :: ptr
     class (*), dimension(:), pointer :: ptr_stored
 
     integer :: i
