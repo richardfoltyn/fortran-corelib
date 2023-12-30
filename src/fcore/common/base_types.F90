@@ -964,6 +964,8 @@ elemental subroutine substring_impl (self, ifrom, ito, res)
 
     integer (int64) :: lifrom, lito
 
+    res = ""
+
     if (_VALID(self)) then
         if (self /= "") then
             lifrom = adj_bound (self, ifrom)
@@ -982,15 +984,11 @@ pure function adj_bound (self, i) result(res)
     integer (int64) :: res
 
     res = i
-    if (i == 0) then
-        res = 1
-    else if (i > len(self) .and. len(self) > 0) then
-        res = len(self)
-    else if (i < 0) then
+    if (i < 0) then
         ! negative integer interpreted as indexing backwards with -1
         ! referencing the last element.
         ! For too small (negative) i we bound the return index to be 1.
-        res = 1 + max(0_int64, len(self) + i)
+        res = 1 + len(self) + i
     end if
 
 end function
@@ -1624,7 +1622,7 @@ pure subroutine alloc_char (self, val, stat)
     lstat = -1
     n = len(val)
 
-    if (n > 0) then
+    if (n >= 0) then
         if (allocated(self%value)) deallocate (self%value)
         allocate (character (n) :: self%value, stat=lstat)
         if (lstat == 0) then
