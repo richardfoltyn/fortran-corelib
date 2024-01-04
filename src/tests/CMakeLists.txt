@@ -6,6 +6,7 @@ list(APPEND COMPONENTS
     argparse
     collections
     common
+    io
 )
 
 include_directories("${CMAKE_Fortran_MODULE_DIRECTORY}"

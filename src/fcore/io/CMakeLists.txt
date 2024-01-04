@@ -7,6 +7,7 @@ set(SOURCE_FILES
     io.f90
     dir.f90
     file.f90
+    ini.f90
     path.F90
 )
 
