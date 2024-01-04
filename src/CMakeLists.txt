@@ -50,7 +50,7 @@ set(FCORE_VERSION
 # command line, use those as prefixes beneath CMAKE_INSTALL_PREFIX where
 # library and include files should be placed.
 
-# store values in tempoprary variables, will be overwritten by GNUInstallDirs
+# store values in temporary variables, will be overwritten by GNUInstallDirs
 set(_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}")
 set(_INSTALL_INCLUDEDDIR "${CMAKE_INSTALL_INCLUDEDIR}")
 
