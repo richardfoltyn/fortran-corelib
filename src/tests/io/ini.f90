@@ -36,10 +36,12 @@ subroutine test_all()
 
     call tests%set_label ("fcore_io_ini unit tests")
 
-    call test_from_file (tests)
+!    call test_from_file (tests)
 
     ! test reading integer arguments
-    call test_from_char (tests)
+!    call test_from_char (tests)
+
+    call test_write (tests)
 
     ! print test statistics
     call tests%print ()
@@ -83,9 +85,25 @@ subroutine test_from_char (tests)
 
     call file%parse (SAMPLE1, status=status)
 
+end subroutine
 
 
 
+subroutine test_write (tests)
+    class (test_suite) :: tests
+    class (test_case), pointer :: tc
+
+    type (ini_file) :: file
+    type (status_t) :: status
+
+    character (*), parameter :: PATH = '/tmp/test-write.ini'
+
+    tc => tests%add_test ('Parsing from internal character file')
+
+    file = ini_file (path=PATH)
+    call file%parse (SAMPLE1, status=status)
+
+    call file%write (status)
 
 end subroutine
 

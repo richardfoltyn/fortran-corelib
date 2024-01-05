@@ -10,7 +10,7 @@ module fcore_io_ini
     implicit none
     private
 
-    integer, parameter :: BUFFER_SIZE = 2**14
+    integer, parameter :: BUFFER_SIZE = 2**10
     character (*), parameter :: COMMENT_CHARS = ';#'
 
     type, public :: ini_key_value
@@ -20,11 +20,15 @@ module fcore_io_ini
         type (str) :: value
 
     contains
-        procedure, pass :: ini_key_value_parse
-        generic :: parse => ini_key_value_parse
+        procedure, pass :: ini_key_value_parse_char
+        procedure, pass :: ini_key_value_parse_str
+        generic :: parse => ini_key_value_parse_char, ini_key_value_parse_str
 
         procedure, pass :: ini_key_value_get
         generic, public :: get => ini_key_value_get
+
+        procedure, pass :: ini_key_value_set_char
+        generic, public :: set => ini_key_value_set_char
 
         procedure, pass :: ini_key_value_get_logical
         generic :: get_logical => ini_key_value_get_logical
@@ -43,17 +47,31 @@ module fcore_io_ini
         type (ini_key_value), dimension(:), allocatable :: values
 
     contains
-        procedure, pass :: ini_section_parse
-        generic, public :: parse => ini_section_parse
+!        procedure, pass :: ini_section_parse_char
+        procedure, pass :: ini_section_parse_str
+!        generic, public :: parse => ini_section_parse_char, ini_section_parse_str
+        generic, public :: parse => ini_section_parse_str
 
         procedure, pass :: ini_section_has_key_char
         procedure, pass :: ini_section_has_key_str
         generic, public :: has_key => ini_section_has_key_char, &
             ini_section_has_key_str
 
-        procedure, pass :: ini_section_get_char, ini_section_get_str
+        procedure, pass :: ini_section_get_char
+        procedure, pass :: ini_section_get_str
         generic, public :: get => ini_section_get_char, &
             ini_section_get_str
+
+        procedure, pass :: ini_section_set_char
+        procedure, pass :: ini_section_set_str
+        generic, public :: set => ini_section_set_char, ini_section_set_str
+
+        procedure, pass :: ini_section_value_count
+        generic, public :: value_count => ini_section_value_count
+
+        procedure, pass :: ini_section_to_char
+        generic :: to_char => ini_section_to_char
+
     end type
 
 
@@ -67,23 +85,41 @@ module fcore_io_ini
     contains
         procedure, pass :: ini_file_parse_file
         procedure, pass :: ini_file_parse_char
-        procedure, pass :: ini_file_parse_char_array
+        procedure, pass :: ini_file_parse_str_array
         generic, public :: parse => ini_file_parse_file, ini_file_parse_char, &
-            ini_file_parse_char_array
+            ini_file_parse_str_array
 
         procedure, pass :: ini_file_add_section_section
-        procedure, pass :: ini_file_add_section_char_array
+!        procedure, pass :: ini_file_add_section_char_array
+        procedure, pass :: ini_file_add_section_str_array
         generic, public :: add_section => ini_file_add_section_section, &
-            ini_file_add_section_char_array
+            ini_file_add_section_str_array
 
         procedure, pass :: ini_file_has_section_char
         procedure, pass :: ini_file_has_section_str
         generic, public :: has_section => ini_file_has_section_char, &
             ini_file_has_section_str
 
+        procedure, pass :: ini_file_has_key_char
+        procedure, pass :: ini_file_has_key_str
+        generic, public :: has_key => ini_file_has_key_char, &
+            ini_file_has_key_str
+
         procedure, pass :: ini_file_get_char
         procedure, pass :: ini_file_get_str
         generic, public :: get => ini_file_get_char, ini_file_get_str
+
+        procedure, pass :: ini_file_section_count
+        generic, public :: section_count => ini_file_section_count
+
+        procedure, pass :: ini_file_line_count
+        generic, public :: line_count => ini_file_line_count
+
+        procedure, pass :: ini_file_to_char
+        generic, public :: to_char => ini_file_to_char
+
+        procedure, pass :: ini_file_write
+        generic, public :: write => ini_file_write
 
     end type
 
@@ -109,11 +145,12 @@ subroutine ini_file_parse_file (self, status)
     class (ini_file), intent(inout) :: self
     type (status_t), intent(out), optional :: status
 
-    integer :: iostat, uid, nlines
+    integer :: iostat, uid, nlines, i
 
     type (status_t) :: lstatus
     character (1024) :: lmsg
     character (BUFFER_SIZE), allocatable, dimension(:) :: data
+    type (str), allocatable, dimension(:) :: sdata
 
     open (newunit=uid, file=self%path%to_char(), status='old', action='read', &
         access='sequential', iostat=iostat, iomsg=lmsg, err=100)
@@ -142,7 +179,13 @@ subroutine ini_file_parse_file (self, status)
 
     ! --- Parse input data ---
 
-    call self%parse (data, status)
+    allocate (sdata(nlines))
+
+    do i = 1, nlines
+        sdata(i) = data(i)
+    end do
+
+    call self%parse (sdata, status)
 
     return
 
@@ -163,65 +206,42 @@ subroutine ini_file_parse_char (self, contents, status)
     character (*), intent(in) :: contents
     type (status_t), intent(out), optional :: status
 
-    integer :: iostat, nlines, ipos, ioffset
-
+    type (str) :: sep, s
+    type (str), allocatable, dimension(:) :: tokens
     type (status_t) :: lstatus
     character (1024) :: lmsg
-    character (BUFFER_SIZE), allocatable, dimension(:) :: data
-    character (*), parameter :: NEWLINE_CHARS = new_line ('A')
 
     lstatus = FC_STATUS_UNDEFINED
     lmsg = ''
 
-    ! Find number of lines in input
-    nlines = 1
-    ioffset = 0
-    do while (ioffset < len (contents))
-        ipos = scan (contents(ioffset+1:), NEWLINE_CHARS)
-        if (ipos > 0) then
-            nlines = nlines + 1
-            ioffset = ioffset + ipos
-        else
-            ! No more newline characters
-            exit
-        end if
-    end do
+    sep = new_line ('A')
+    s = str (contents)
+    call s%split (tokens, sep=sep, drop_empty=.true., status=lstatus)
 
-    allocate (data(nlines))
-
-    read (contents, fmt=*, iostat=iostat, iomsg=lmsg, err=100) data
+!    read (contents, fmt='(*(a,/))', iostat=iostat, iomsg=lmsg, err=100) data
 
     ! End of string reached, pass on to internal parsing routine
-    call self%parse (data, status)
+    call self%parse (tokens, lstatus)
 
-    return
-
-100 continue
-
-    lstatus = FC_STATUS_IO_ERROR
-
-    if (present(status)) then
-        status = lstatus
-        status%msg = lmsg
-    end if
+    if (present(status)) status = lstatus
 
 end subroutine
 
 
 
-subroutine ini_file_parse_char_array (self, contents, status)
+subroutine ini_file_parse_str_array (self, contents, status)
     class (ini_file), intent(inout) :: self
-    character (BUFFER_SIZE), intent(in), dimension(:) :: contents
+    type (str), intent(in), dimension(:) :: contents
     type (status_t), intent(out), optional :: status
 
-    integer :: i, j, nsections, nlines
-    character (BUFFER_SIZE) :: line
-    character (BUFFER_SIZE), dimension(:), allocatable :: lines
+    integer :: i, j, nlines, k
+    type (str) :: line
+    type (str), dimension(:), allocatable :: lines
     type (status_t) :: lstatus
 
     lstatus = FC_STATUS_OK
 
-    ! --- Determine numnber of non-empty lines ---
+    ! --- Determine number of non-empty lines ---
 
     nlines = 0
     do i = 1, size (contents)
@@ -251,12 +271,12 @@ subroutine ini_file_parse_char_array (self, contents, status)
 
         nlines = nlines + 1
         lines(nlines) = line
+        print *, line%to_char()
     end do
 
     ! --- Parse actual contents ---
 
     i = 1
-    nsections = 0
 
     do while (i <= size (lines))
         if ( (index(lines(i), '[') == 0) .or. (index(lines(i), ']') == 0)) then
@@ -269,10 +289,14 @@ subroutine ini_file_parse_char_array (self, contents, status)
             if (index (lines(j), '[') == 1) exit
         end do
 
-        call self%add_section (lines(i:j))
+        do k = i, j - 1
+            print *, lines(k)%to_char()
+        end do
+
+        call ini_file_add_section_str_array (self, lines(i:j-1))
 
         ! Shift index for next section
-        i = j + 1
+        i = j
     end do
 
 100 continue
@@ -283,9 +307,10 @@ end subroutine
 
 
 
-subroutine ini_file_add_section_char_array (self, contents, status)
+
+subroutine ini_file_add_section_str_array (self, contents, status)
     class (ini_file), intent(inout) :: self
-    character (BUFFER_SIZE), intent(in), dimension(:) :: contents
+    type (str), intent(in), dimension(:) :: contents
     type (status_t), intent(inout), optional :: status
 
     type (status_t) :: lstatus
@@ -306,6 +331,29 @@ end subroutine
 
 
 
+!subroutine ini_file_add_section_char_array (self, contents, status)
+!    class (ini_file), intent(inout) :: self
+!    character (BUFFER_SIZE), intent(in), dimension(:) :: contents
+!    type (status_t), intent(inout), optional :: status
+!
+!    type (status_t) :: lstatus
+!    type (ini_section) :: section
+!
+!    lstatus = FC_STATUS_OK
+!
+!    call section%parse (contents, lstatus)
+!    if (lstatus /= FC_STATUS_OK) goto 100
+!
+!    call self%add_section (section)
+!
+!100 continue
+!
+!    if (present(status)) status = lstatus
+!
+!end subroutine
+
+
+
 
 subroutine ini_file_add_section_section (self, section, status)
     class (ini_file), intent(inout) :: self
@@ -319,9 +367,11 @@ subroutine ini_file_add_section_section (self, section, status)
 
     lstatus = FC_STATUS_OK
 
-    if (any (self%sections%name == section%name)) then
-        lstatus = FC_STATUS_VALUE_ERROR
-        lstatus%msg = "Duplicate section name " // section%name
+    if (allocated (self%sections)) then
+        if (any (self%sections%name == section%name)) then
+            lstatus = FC_STATUS_VALUE_ERROR
+            lstatus%msg = "Duplicate section name " // section%name
+        end if
     end if
 
     if (allocated (self%sections)) then
@@ -342,7 +392,7 @@ end subroutine
 
 function ini_file_has_section_str (self, name) result(flag)
     class (ini_file), intent(in) :: self
-    class (str), intent(in) :: name
+    type (str), intent(in) :: name
     logical :: flag
 
     flag = .false.
@@ -363,11 +413,46 @@ function ini_file_has_section_char (self, name) result(flag)
 end function
 
 
+
+function ini_file_has_key_str (self, section, key) result(flag)
+    class (ini_file), intent(in) :: self
+    type (str), intent(in) :: section
+    type (str), intent(in) :: key
+    logical :: flag
+
+    integer :: i
+    flag = .false.
+
+    if (allocated (self%sections)) then
+        if (self%has_section (section)) then
+            do i = 1, size (self%sections)
+                if (self%sections(i)%name == section) then
+                    flag = self%sections(i)%has_key (key)
+                    exit
+                end if
+            end do
+        end if
+    end if
+end function
+
+
+
+function ini_file_has_key_char (self, section, key) result(flag)
+    class (ini_file), intent(in) :: self
+    character (*), intent(in) :: section
+    character (*), intent(in) :: key
+    logical :: flag
+
+    flag = self%has_key (str(section), str(key))
+end function
+
+
+
 subroutine ini_file_get_str (self, section, key, val, status)
     class (ini_file), intent(in) :: self
-    class (str), intent(in) :: section
-    class (str), intent(in) :: key
-    class (*), intent(out), target :: val
+    type (str), intent(in) :: section
+    type (str), intent(in) :: key
+    class (*), intent(out) :: val
     type (status_t), intent(out) , optional :: status
 
     integer :: i
@@ -399,7 +484,7 @@ subroutine ini_file_get_char (self, section, key, val, status)
     class (ini_file), intent(in) :: self
     character (*), intent(in) :: section
     character (*), intent(in) :: key
-    class (*), intent(out), target :: val
+    class (*), intent(out) :: val
     type (status_t), intent(out) , optional :: status
 
     call self%get (str(section), str(key), val, status)
@@ -407,13 +492,124 @@ end subroutine
 
 
 
-pure subroutine ini_section_parse (self, contents, status)
+pure function ini_file_section_count (self) result(res)
+    class (ini_file), intent(in) :: self
+    integer :: res
+
+    res = 0
+
+    if (allocated (self%sections)) then
+        res = size (self%sections)
+    end if
+end function
+
+
+
+pure function ini_file_line_count (self) result(res)
+    class (ini_file), intent(in) :: self
+    integer :: res
+
+    integer :: i
+    res = 0
+
+    if (allocated (self%sections)) then
+        do i = 1, size (self%sections)
+            res = res + self%sections(i)%value_count() + 1
+        end do
+    end if
+end function
+
+
+
+pure subroutine ini_file_to_char (self, char, status)
+    class (ini_file), intent(in) :: self
+    character (BUFFER_SIZE), intent(out), dimension(:) :: char
+    type (status_t), intent(out), optional :: status
+
+    type (status_t) :: lstatus
+    integer :: i, n, ioffset
+
+    lstatus = FC_STATUS_OK
+
+    if (size (char) < self%line_count()) then
+        lstatus = FC_STATUS_VALUE_ERROR
+        lstatus%msg = 'Array too small'
+        goto 100
+    end if
+
+    ioffset = 0
+    do i = 1, size (self%sections)
+        n = self%sections(i)%value_count()
+        call self%sections(i)%to_char (char(ioffset+1:ioffset+n+1))
+
+        ioffset = ioffset + n + 1
+    end do
+
+100 continue
+
+    if (present(status)) status = lstatus
+
+end subroutine
+
+
+
+subroutine ini_file_write (self, status)
+    class (ini_file), intent(in) :: self
+    type (status_t), intent(out), optional :: status
+
+    integer :: iostat, uid, nlines, i, n
+    character (1024) :: lmsg
+    type (status_t) :: lstatus
+    character (BUFFER_SIZE), allocatable, dimension(:) :: lines
+    character (BUFFER_SIZE) :: line
+
+    lstatus = FC_STATUS_OK
+
+    nlines = self%line_count ()
+
+    allocate (lines(nlines))
+
+    call self%to_char (lines)
+
+    open (newunit=uid, file=self%path%to_char(), action='write', &
+        access='sequential', iostat=iostat, iomsg=lmsg, err=60)
+
+    do i = 1, nlines
+        line = lines(i)
+        n = len_trim (line)
+        write (unit=uid, fmt='(a)', iomsg=lmsg, iostat=iostat, err=50) line(i:n)
+    end do
+
+    close (uid)
+
+    goto 100
+
+50  continue
+
+    close (uid)
+
+60  continue
+
+    lstatus = FC_STATUS_IO_ERROR
+    lstatus%msg = lmsg
+
+100 continue
+
+    if (present(status)) status = lstatus
+
+end subroutine
+
+
+
+
+
+subroutine ini_section_parse_str (self, contents, status)
     class (ini_section), intent(inout) :: self
-    character (BUFFER_SIZE), intent(in), dimension(:) :: contents
+    type (str), intent(in), dimension(:) :: contents
     type (status_t), intent(out), optional :: status
 
     integer :: ipos, nvalues, i
-    character (BUFFER_SIZE) :: line
+    type (str) :: line
     type (status_t) :: lstatus
 
     lstatus = FC_STATUS_OK
@@ -421,13 +617,15 @@ pure subroutine ini_section_parse (self, contents, status)
     line = contents(1)
 
     ipos = index (line, ']')
-    self%name = line(2:ipos-1)
+    self%name = line%substring(2, ipos-1)
+
+    print *, self%name%to_char()
 
     nvalues = size(contents) - 1
     allocate (self%values(nvalues))
 
     do i = 2, size(contents)
-        call self%values(i-1)%parse (contents(2), lstatus)
+        call self%values(i-1)%parse (contents(i), lstatus)
         if (any (self%values(1:i-2)%name == self%values(i-1)%name)) then
             lstatus = FC_STATUS_VALUE_ERROR
             lstatus%msg = 'Duplicate key ' // self%values(i-1)%name // &
@@ -445,9 +643,26 @@ end subroutine
 
 
 
+!pure subroutine ini_section_parse_char (self, contents, status)
+!    class (ini_section), intent(inout) :: self
+!    character (BUFFER_SIZE), intent(in), dimension(:) :: contents
+!    type (status_t), intent(out), optional :: status
+!
+!    type (str), allocatable, dimension(:) :: scontents
+!    integer :: i
+!
+!    allocate (scontents (size(contents)))
+!
+!    do i = 1, size (contents)
+!        scontents(i) = str (contents(i))
+!    end do
+!end subroutine
+
+
+
 pure function ini_section_has_key_str (self, key) result(flag)
     class (ini_section), intent(in) :: self
-    class (str), intent(in) :: key
+    type (str), intent(in) :: key
     logical :: flag
 
     flag = .false.
@@ -473,8 +688,8 @@ end function
 
 subroutine ini_section_get_str (self, key, val, status)
     class (ini_section), intent(in) :: self
-    class (str), intent(in) :: key
-    class (*), intent(out), target :: val
+    type (str), intent(in) :: key
+    class (*), intent(out) :: val
     type (status_t), intent(out) , optional :: status
 
     type (status_t) :: lstatus
@@ -505,7 +720,7 @@ end subroutine
 subroutine ini_section_get_char (self, key, val, status)
     class (ini_section), intent(in) :: self
     character (*), intent(in) :: key
-    class (*), intent(out), target :: val
+    class (*), intent(out) :: val
     type (status_t), intent(out) , optional :: status
 
     call self%get (str(key), val, status)
@@ -513,18 +728,110 @@ end subroutine
 
 
 
-pure subroutine ini_key_value_parse (self, contents, status)
-    class (ini_key_value), intent(inout) :: self
-    character (*), intent(in) :: contents
+subroutine ini_section_set_char (self, key, val, fmt, status)
+    class (ini_section), intent(inout) :: self
+    character (*), intent(in) :: key
+    class (*), intent(in) :: val
+    character (*), intent(in), optional :: fmt
+    type (status_t), intent(out) , optional :: status
+
+    integer :: i
+    type (status_t) :: lstatus
+
+    lstatus = FC_STATUS_OK
+
+    if (.not. self%has_key (key)) then
+        lstatus = FC_STATUS_VALUE_ERROR
+        lstatus%msg = 'Key ' // key // ' not present'
+        goto 100
+    end if
+
+    do i = 1, size (self%values)
+        if (self%values(i)%name == key) then
+            call self%values(i)%set (val, fmt, lstatus)
+            exit
+        end if
+    end do
+
+100 continue
+
+    if (present (status)) status = lstatus
+
+end subroutine
+
+
+
+subroutine ini_section_set_str (self, key, val, fmt, status)
+    class (ini_section), intent(inout) :: self
+    type (str), intent(in) :: key
+    class (*), intent(out) :: val
+    type (str), intent(in), optional :: fmt
     type (status_t), intent(out), optional :: status
 
-    character (BUFFER_SIZE) :: line
+    if (present (fmt)) then
+        call self%set (key%to_char(), val, fmt%to_char(), status)
+    else
+        call self%set (key%to_char(), val, status=status)
+    end if
+end subroutine
+
+
+
+pure subroutine ini_section_to_char (self, char, status)
+    class (ini_section), intent(in) :: self
+    character (BUFFER_SIZE), intent(out), dimension(:) :: char
+    type (status_t), intent(out), optional :: status
+
+    type (status_t) :: lstatus
+    integer :: i
+
+    lstatus = FC_STATUS_OK
+
+    if (size(char) < (self%value_count() + 1)) then
+        lstatus = FC_STATUS_VALUE_ERROR
+        lstatus%msg = 'Array smaller than number of key-value pairs'
+        goto 100
+    end if
+
+    char (1) = '[' // self%name // ']'
+    do i = 1, size (self%values)
+        call self%values(i)%to_char (char(i+1))
+    end do
+
+100 continue
+
+    if (present(status)) status = lstatus
+
+end subroutine
+
+
+
+elemental function ini_section_value_count (self) result(res)
+    class (ini_section), intent(in) :: self
+    integer :: res
+
+    res = 0
+
+    if (allocated (self%values)) then
+        res = size (self%values)
+    end if
+
+end function
+
+
+
+subroutine ini_key_value_parse_str (self, contents, status)
+    class (ini_key_value), intent(inout) :: self
+    type (str), intent(in) :: contents
+    type (status_t), intent(out), optional :: status
+
+    type (str) :: line
     integer :: ipos, n
     type (status_t) :: lstatus
 
     lstatus = FC_STATUS_OK
 
-    line = adjustl (contents)
+    line = trim (adjustl ( contents))
 
     ipos = index (line, '=')
     if (ipos == 0) then
@@ -546,12 +853,26 @@ pure subroutine ini_key_value_parse (self, contents, status)
         goto 100
     end if
 
-    self%name = line(1:ipos-1)
-    self%value = line(ipos+1:n)
+    self%name = line%substring(1, ipos-1)
+    self%value = line%substring(ipos+1, n)
+
+    print *, self%name%to_char()
+    print *, self%value%to_char()
 
 100 continue
 
     if (present(status)) status = lstatus
+
+end subroutine
+
+
+
+subroutine ini_key_value_parse_char (self, contents, status)
+    class (ini_key_value), intent(inout) :: self
+    character (*), intent(in) :: contents
+    type (status_t), intent(out), optional :: status
+
+    call self%parse (str(contents), status)
 
 end subroutine
 
@@ -643,10 +964,49 @@ end subroutine
 
 
 
-subroutine ini_key_value_serialize (self, char)
-    type (ini_key_value), intent(in) :: self
+subroutine ini_key_value_set_char (self, val, fmt, status)
+    class (ini_key_value), intent(inout) :: self
+    class (*), intent(in) :: val
+    character (*), intent(in), optional :: fmt
+    type (status_t), intent(out) , optional :: status
+
+    type (status_t) :: lstatus
+
+    lstatus = FC_STATUS_OK
+
+    select type (val)
+    type is (integer(int32))
+        self%value = adjustl (str(val, fmt))
+    type is (integer(int64))
+        self%value = adjustl (str (val, fmt))
+    type is (real(real32))
+        self%value = adjustl (str (val, fmt))
+    type is (real(real64))
+        self%value = adjustl (str (val, fmt))
+    type is (logical)
+        self%value = adjustl (str (val, fmt))
+    type is (character (*))
+        self%value = adjustl (val)
+    class is (str)
+        self%value = adjustl (val)
+    class default
+        lstatus = FC_STATUS_VALUE_ERROR
+        lstatus%msg = "Unsupported argument type"
+        goto 100
+    end select
+
+100 continue
+
+    if (present(status)) status = lstatus
+
+end subroutine
 
 
+pure subroutine ini_key_value_to_char (self, char)
+    class (ini_key_value), intent(in) :: self
+    character (*), intent(out) :: char
+
+    char = self%name // '=' // self%value
 
 end subroutine
 
