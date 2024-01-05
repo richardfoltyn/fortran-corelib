@@ -23,7 +23,8 @@ module fcore_common_base
 
     public :: status_t
     public :: char, size
-    public :: str, str_array, len, len_trim, repeat, index, trim
+    public :: str, str_array, len, len_trim, repeat, trim, adjustl
+    public :: index, scan
     public :: is_alnum, is_alpha, is_digit
     public :: dynamic_cast
     public :: copy_alloc
@@ -111,6 +112,12 @@ module fcore_common_base
             parse_real32, parse_real64, &
             parse_str, parse_char, parse_logical
 
+        procedure, pass :: adjustl_str
+        generic, public :: adjustl => adjustl_str
+
+        procedure, pass :: scan_str_char
+        generic, public :: scan => scan_str_char
+
         ! Finalizers
         ! final :: finalize
     end type
@@ -163,6 +170,10 @@ module fcore_common_base
         module procedure index_str_str, index_char_str, index_str_char
     end interface
 
+    interface scan
+        procedure scan_str_char
+    end interface scan
+
     interface trim
         module procedure trim_str
     end interface
@@ -185,6 +196,10 @@ module fcore_common_base
 
     interface copy_alloc
         procedure copy_alloc_str_array
+    end interface
+
+    interface adjustl
+        procedure adjustl_str
     end interface
 
     !---------------------------------------------------------------------------
@@ -1459,6 +1474,25 @@ elemental function index_char_str (char, s1, back, kind) result(res)
     end if
 end function
 
+
+! ******************************************************************************
+! SCAN routine
+
+elemental function scan_str_char (string, set, back, kind) result(res)
+    class (str), intent(in) :: string
+    character (*), intent(in) :: set
+    logical, intent(in), optional :: back
+    integer, intent(in), optional :: kind
+    integer :: res
+
+    res = 0
+
+    if (_VALID(string)) then
+        res = scan (string%value, set, back)
+    end if
+end function
+
+
 ! *****************************************************************************
 ! TRIM method
 elemental subroutine str_trim (self)
@@ -1542,6 +1576,21 @@ subroutine parse_logical (self, val, status)
     logical :: val
 #include "include/str_parse.f90"
 end subroutine
+
+! ******************************************************************************
+
+function adjustl_str (self) result (res)
+    class (str), intent(in) :: self
+    type (str) :: res
+
+    if (_VALID(self)) then
+        res = adjustl (self%value)
+    else
+        res = ''
+    end if
+end function
+
+
 
 ! ******************************************************************************
 ! Casts to str polymorphic objects
