@@ -5,9 +5,11 @@ get_filename_component(COMPONENT_NAME "${CMAKE_CURRENT_SOURCE_DIR}" NAME)
 set(SOURCE_FILES
     kinds.f90
     alloc_mod.f90
+    char.f90
     common.f90
     constants.f90
     base_types.F90
+    diagnostics.F90
     input_validation.F90
     status_helpers.F90
     strings.f90
