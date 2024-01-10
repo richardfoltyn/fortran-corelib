@@ -95,13 +95,23 @@ subroutine test_write (tests)
 
     type (ini_file) :: file
     type (status_t) :: status
+    logical :: flag
 
     character (*), parameter :: PATH = '/tmp/test-write.ini'
 
     tc => tests%add_test ('Parsing from internal character file')
 
+    print *, associated (file%sections%ptr_first)
+    print *, associated (file%sections%ptr_last)
+
+    call file%clear ()
+
     file = ini_file (path=PATH)
     call file%parse (SAMPLE1, status=status)
+
+    print *, file%sections%length()
+
+    flag = file%has_key ("section-1", "key1")
 
     call file%write (status)
 

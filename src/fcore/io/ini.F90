@@ -4,8 +4,11 @@ module fcore_io_ini
     !*  Module to implement classes and routines to read and write files in INI
     !   format.
 
-    use, intrinsic :: iso_fortran_env
+    use, intrinsic :: iso_fortran_env, stderr => error_unit
     use fcore_common
+    use fcore_common_status_helpers
+    use fcore_collections
+    use fcore_diagnostics
 
     implicit none
     private
@@ -13,8 +16,8 @@ module fcore_io_ini
     integer, parameter :: BUFFER_SIZE = 2**10
     character (*), parameter :: COMMENT_CHARS = ';#'
 
-    type, public :: ini_key_value
-        private
+    type :: ini_key_value
+!        private
 
         type (str) :: name
         type (str) :: value
@@ -41,16 +44,23 @@ module fcore_io_ini
 
 
     type, public :: ini_section
-        private
+!        private
 
         type (str) :: name
-        type (ini_key_value), dimension(:), allocatable :: values
+        type (linked_list), allocatable :: values
 
     contains
+        private
+
 !        procedure, pass :: ini_section_parse_char
         procedure, pass :: ini_section_parse_str
 !        generic, public :: parse => ini_section_parse_char, ini_section_parse_str
         generic, public :: parse => ini_section_parse_str
+
+        procedure, pass :: ini_section_find_key_value_str
+        procedure, pass :: ini_section_find_key_value_char
+        generic, public :: find_key_value => ini_section_find_key_value_str, &
+            ini_section_find_key_value_char
 
         procedure, pass :: ini_section_has_key_char
         procedure, pass :: ini_section_has_key_str
@@ -77,12 +87,13 @@ module fcore_io_ini
 
 
     type, public :: ini_file
-        private
+!        private
 
+        type (linked_list) :: sections
         type (str), public :: path
-        type (ini_section), dimension(:), allocatable :: sections
 
     contains
+
         procedure, pass :: ini_file_parse_file
         procedure, pass :: ini_file_parse_char
         procedure, pass :: ini_file_parse_str_array
@@ -94,6 +105,11 @@ module fcore_io_ini
         procedure, pass :: ini_file_add_section_str_array
         generic, public :: add_section => ini_file_add_section_section, &
             ini_file_add_section_str_array
+
+        procedure, pass :: ini_file_find_section_char
+        procedure, pass :: ini_file_find_section_str
+        generic, public :: find_section => ini_file_find_section_char, &
+            ini_file_find_section_str
 
         procedure, pass :: ini_file_has_section_char
         procedure, pass :: ini_file_has_section_str
@@ -121,11 +137,21 @@ module fcore_io_ini
         procedure, pass :: ini_file_write
         generic, public :: write => ini_file_write
 
+        procedure, pass :: ini_file_clear
+        generic, public :: clear => ini_file_clear
+
+        final :: ini_file_final
+
     end type
 
 
     interface ini_file
         procedure ini_file_char
+    end interface
+
+
+    interface dynamic_cast
+        procedure cast_any_to_ini_section, cast_any_to_ini_key_value
     end interface
 
     contains
@@ -234,10 +260,12 @@ subroutine ini_file_parse_str_array (self, contents, status)
     type (str), intent(in), dimension(:) :: contents
     type (status_t), intent(out), optional :: status
 
-    integer :: i, j, nlines, k
+    integer :: i, j, nlines
     type (str) :: line
     type (str), dimension(:), allocatable :: lines
     type (status_t) :: lstatus
+
+    call diag_entry ('INI_FILE_PARSE_STR_ARRAY')
 
     lstatus = FC_STATUS_OK
 
@@ -289,10 +317,6 @@ subroutine ini_file_parse_str_array (self, contents, status)
             if (index (lines(j), '[') == 1) exit
         end do
 
-        do k = i, j - 1
-            print *, lines(k)%to_char()
-        end do
-
         call ini_file_add_section_str_array (self, lines(i:j-1))
 
         ! Shift index for next section
@@ -302,6 +326,8 @@ subroutine ini_file_parse_str_array (self, contents, status)
 100 continue
 
     if (present(status)) status = lstatus
+
+    call diag_exit ('INI_FILE_PARSE_STR_ARRAY')
 
 end subroutine
 
@@ -316,16 +342,28 @@ subroutine ini_file_add_section_str_array (self, contents, status)
     type (status_t) :: lstatus
     type (ini_section) :: section
 
+    class (ini_section), pointer :: ptr_sec
+    class (*), pointer :: ptr
+
+    call diag_entry ('ini_file_add_section_str_array')
+
     lstatus = FC_STATUS_OK
 
     call section%parse (contents, lstatus)
     if (lstatus /= FC_STATUS_OK) goto 100
 
+    call diag_msg ('Appending section [' // section%name%to_char() // ']')
     call self%add_section (section)
+
+    ptr => self%sections%item(self%sections%length())
+    call dynamic_cast (ptr, ptr_sec)
+    print *, ptr_sec%name%to_char()
 
 100 continue
 
     if (present(status)) status = lstatus
+
+    call diag_exit ('ini_file_add_section_str_array')
 
 end subroutine
 
@@ -355,36 +393,73 @@ end subroutine
 
 
 
-subroutine ini_file_add_section_section (self, section, status)
+subroutine ini_file_add_section_section (self, section)
     class (ini_file), intent(inout) :: self
     class (ini_section), intent(in) :: section
+
+    call diag_entry ('ini_file_add_section_section')
+
+!    if (.not. allocated (self%sections)) then
+!        call diag_msg ('Allocating sections list')
+!        allocate (self%sections)
+!    end if
+
+    call self%sections%append (section)
+
+    call diag_exit ('ini_file_add_section_section')
+
+end subroutine
+
+
+
+subroutine ini_file_find_section_str (self, name, ptr_sec, status)
+    class (ini_file), intent(in) :: self
+    class (str), intent(in) :: name
+    class (ini_section), intent(out), pointer :: ptr_sec
     type (status_t), intent(out), optional :: status
 
-    type (status_t) :: lstatus
+    class (iterator), allocatable :: iter
+    class (*), pointer :: ptr_item
 
-    integer :: n
-    type (ini_section), dimension(:), allocatable :: sections
+    nullify (ptr_sec)
 
-    lstatus = FC_STATUS_OK
+!    if (.not. allocated (self%sections)) goto 100
 
-    if (allocated (self%sections)) then
-        if (any (self%sections%name == section%name)) then
-            lstatus = FC_STATUS_VALUE_ERROR
-            lstatus%msg = "Duplicate section name " // section%name
+    call self%sections%get_iter (iter)
+
+    do while (iter%has_next())
+        ptr_item => iter%item()
+
+        call dynamic_cast (ptr_item, ptr_sec)
+
+        if (ptr_sec%name == name) goto 100
+
+        nullify (ptr_sec)
+
+    end do
+
+100 continue
+
+    if (present(status)) then
+        status = FC_STATUS_OK
+        if (.not. associated (ptr_sec)) then
+            status = FC_STATUS_VALUE_ERROR
+            status%msg = 'Unknown section: "' // name // '"'
         end if
+
     end if
 
-    if (allocated (self%sections)) then
-        n = size (self%sections)
-        allocate (sections(n+1))
-        sections(1:n) = self%sections
-        sections(n+1) = section
-        call move_alloc (sections, self%sections)
-    else
-        allocate (self%sections(1), source=section)
-    end if
+end subroutine
 
-    if (present(status)) status = lstatus
+
+
+subroutine ini_file_find_section_char (self, name, ptr_sec, status)
+    class (ini_file), intent(in) :: self
+    character (*), intent(in) :: name
+    class (ini_section), intent(out), pointer :: ptr_sec
+    type (status_t), intent(out), optional :: status
+
+    call self%find_section (str(name), ptr_sec, status)
 
 end subroutine
 
@@ -395,11 +470,12 @@ function ini_file_has_section_str (self, name) result(flag)
     type (str), intent(in) :: name
     logical :: flag
 
-    flag = .false.
+    class (ini_section), pointer :: ptr
 
-    if (allocated (self%sections)) then
-        flag = any (self%sections%name == name)
-    end if
+    call self%find_section (name, ptr)
+
+    flag = associated (ptr)
+
 end function
 
 
@@ -420,19 +496,15 @@ function ini_file_has_key_str (self, section, key) result(flag)
     type (str), intent(in) :: key
     logical :: flag
 
-    integer :: i
+    class (ini_section), pointer :: ptr
+
     flag = .false.
 
-    if (allocated (self%sections)) then
-        if (self%has_section (section)) then
-            do i = 1, size (self%sections)
-                if (self%sections(i)%name == section) then
-                    flag = self%sections(i)%has_key (key)
-                    exit
-                end if
-            end do
-        end if
+    call self%find_section (section, ptr)
+    if (associated (ptr)) then
+        flag = ptr%has_key (key)
     end if
+
 end function
 
 
@@ -455,23 +527,15 @@ subroutine ini_file_get_str (self, section, key, val, status)
     class (*), intent(out) :: val
     type (status_t), intent(out) , optional :: status
 
-    integer :: i
     type (status_t) :: lstatus
+    class (ini_section), pointer :: ptr
 
     lstatus = FC_STATUS_OK
 
-    if (.not. self%has_section (section)) then
-        lstatus = FC_STATUS_VALUE_ERROR
-        lstatus%msg = 'Section ' // section // ' not present'
-        goto 100
-    end if
+    call self%find_section (section, ptr, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
 
-    do i = 1, size (self%sections)
-        if (self%sections(i)%name == section) then
-            call self%sections(i)%get (key, val, lstatus)
-            exit
-        end if
-    end do
+    call ptr%get (key, val, lstatus)
 
 100 continue
 
@@ -497,37 +561,56 @@ pure function ini_file_section_count (self) result(res)
     integer :: res
 
     res = 0
-
-    if (allocated (self%sections)) then
-        res = size (self%sections)
-    end if
+!    if (allocated (self%sections)) then
+        res = self%sections%length ()
+!    end if
 end function
 
 
 
-pure function ini_file_line_count (self) result(res)
+function ini_file_line_count (self) result(res)
     class (ini_file), intent(in) :: self
     integer :: res
 
-    integer :: i
-    res = 0
+    class (iterator), allocatable :: iter
+    class (ini_section), pointer :: ptr_sec
+    class (*), pointer :: ptr_item
 
-    if (allocated (self%sections)) then
-        do i = 1, size (self%sections)
-            res = res + self%sections(i)%value_count() + 1
-        end do
-    end if
+    call diag_entry ('ini_file_line_count')
+
+    res = 0
+!    if (.not. allocated (self%sections)) return
+
+    call self%sections%get_iter (iter)
+
+    do while (iter%has_next())
+        ptr_item => iter%item()
+
+        call dynamic_cast (ptr_item, ptr_sec)
+
+        res = res + ptr_sec%value_count() + 1
+
+        nullify (ptr_sec)
+    end do
+
+    call diag_exit ('ini_file_line_count')
+
 end function
 
 
 
-pure subroutine ini_file_to_char (self, char, status)
+subroutine ini_file_to_char (self, char, status)
     class (ini_file), intent(in) :: self
     character (BUFFER_SIZE), intent(out), dimension(:) :: char
     type (status_t), intent(out), optional :: status
 
     type (status_t) :: lstatus
-    integer :: i, n, ioffset
+    integer :: n, ioffset
+    class (*), pointer :: ptr_item
+    class (ini_section), pointer :: ptr_sec
+    class (iterator), allocatable :: iter
+
+    call diag_entry ('ini_file_to_char')
 
     lstatus = FC_STATUS_OK
 
@@ -537,17 +620,28 @@ pure subroutine ini_file_to_char (self, char, status)
         goto 100
     end if
 
-    ioffset = 0
-    do i = 1, size (self%sections)
-        n = self%sections(i)%value_count()
-        call self%sections(i)%to_char (char(ioffset+1:ioffset+n+1))
+!    if (.not. allocated (self%sections)) goto 100
 
-        ioffset = ioffset + n + 1
+    call self%sections%get_iter (iter)
+
+    ioffset = 0
+    do while (iter%has_next())
+        ptr_item => iter%item()
+
+        call dynamic_cast (ptr_item, ptr_sec)
+
+        n = ptr_sec%value_count ()
+
+        call ptr_sec%to_char (char(ioffset+1:ioffset+n+1))
+
+        nullify (ptr_sec)
     end do
 
 100 continue
 
     if (present(status)) status = lstatus
+
+    call diag_exit ('ini_file_to_char')
 
 end subroutine
 
@@ -562,6 +656,8 @@ subroutine ini_file_write (self, status)
     type (status_t) :: lstatus
     character (BUFFER_SIZE), allocatable, dimension(:) :: lines
     character (BUFFER_SIZE) :: line
+
+    call diag_entry ('ini_file_write')
 
     lstatus = FC_STATUS_OK
 
@@ -597,10 +693,25 @@ subroutine ini_file_write (self, status)
 
     if (present(status)) status = lstatus
 
+    call diag_exit ('ini_file_write')
+
 end subroutine
 
 
 
+subroutine ini_file_clear (self)
+    class (ini_file), intent(inout) :: self
+
+    call self%sections%clear ()
+end subroutine
+
+
+
+subroutine ini_file_final (self)
+    type (ini_file), intent(inout) :: self
+
+    call self%clear ()
+end subroutine
 
 
 subroutine ini_section_parse_str (self, contents, status)
@@ -611,6 +722,11 @@ subroutine ini_section_parse_str (self, contents, status)
     integer :: ipos, nvalues, i
     type (str) :: line
     type (status_t) :: lstatus
+    type (ini_key_value), allocatable :: key_val
+    class (ini_key_value), pointer :: ptr_kval
+    class (*), pointer :: ptr
+
+    call diag_entry ('ini_section_parse_str')
 
     lstatus = FC_STATUS_OK
 
@@ -619,25 +735,50 @@ subroutine ini_section_parse_str (self, contents, status)
     ipos = index (line, ']')
     self%name = line%substring(2, ipos-1)
 
-    print *, self%name%to_char()
+    call diag_msg ('Processing section [' // self%name%to_char() // ']')
 
     nvalues = size(contents) - 1
-    allocate (self%values(nvalues))
+
+    if (allocated (self%values)) then
+        call diag_msg ('Clearing key-value list')
+        call self%values%clear ()
+    else
+        call diag_msg ('Allocating key-value list')
+        allocate (self%values)
+    end if
 
     do i = 2, size(contents)
-        call self%values(i-1)%parse (contents(i), lstatus)
-        if (any (self%values(1:i-2)%name == self%values(i-1)%name)) then
+
+        allocate (key_val)
+
+        call key_val%parse (contents(i), lstatus)
+        if (lstatus /= FC_STATUS_OK) goto 100
+
+        if (self%has_key (key_val%name)) then
             lstatus = FC_STATUS_VALUE_ERROR
-            lstatus%msg = 'Duplicate key ' // self%values(i-1)%name // &
+            lstatus%msg = 'Duplicate key ' // key_val%name // &
                 ' in section ' // self%name
             goto 100
         end if
-        if (lstatus /= FC_STATUS_OK) goto 100
+
+        call diag_msg ('Appending key "' // key_val%name%to_char() // '"')
+        call self%values%append (key_val)
+
+        deallocate (key_val)
+
+        ptr => self%values%item(self%values%length())
+
+        call dynamic_cast (ptr, ptr_kval)
+
+        print *, ptr_kval%name%to_char()
+        print *, ptr_kval%value%to_char()
     end do
 
 100 continue
 
     if (present(status)) status = lstatus
+
+    call diag_exit ('ini_section_parse_str')
 
 end subroutine
 
@@ -660,23 +801,80 @@ end subroutine
 
 
 
-pure function ini_section_has_key_str (self, key) result(flag)
+subroutine ini_section_find_key_value_str (self, name, ptr, status)
+    class (ini_section), intent(in) :: self
+    class (str), intent(in) :: name
+    class (ini_key_value), intent(out), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    class (iterator), allocatable :: iter
+    class (*), pointer :: ptr_item
+    integer :: i
+
+    nullify (ptr)
+
+    if (.not. allocated (self%values)) goto 100
+
+    do i = 1, self%values%length ()
+        ptr_item => self%values%item(i)
+        call dynamic_cast (ptr_item, ptr)
+        print *, ptr%name%to_char(), ptr%value%to_char()
+    end do
+
+    call self%values%get_iter (iter)
+
+    do while (iter%has_next())
+        ptr_item => iter%item()
+
+        call dynamic_cast (ptr_item, ptr)
+
+        if (ptr%name == name) goto 100
+
+        nullify (ptr)
+    end do
+
+100 continue
+
+    if (present(status)) then
+        status = FC_STATUS_OK
+        if (.not. associated (ptr)) then
+            status = FC_STATUS_VALUE_ERROR
+            status%msg = 'Key not found: "' // name // '"'
+        end if
+
+    end if
+
+end subroutine
+
+
+
+subroutine ini_section_find_key_value_char (self, name, ptr, status)
+    class (ini_section), intent(in) :: self
+    character (*), intent(in) :: name
+    class (ini_key_value), intent(out), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call self%find_key_value (str(name), ptr, status)
+end subroutine
+
+
+
+function ini_section_has_key_str (self, key) result(flag)
     class (ini_section), intent(in) :: self
     type (str), intent(in) :: key
     logical :: flag
 
-    flag = .false.
+    class (ini_key_value), pointer :: ptr_kval
 
-    if (.not. allocated (self%values)) return
+    nullify (ptr_kval)
 
-    if (allocated(self%values)) then
-        flag = any (self%values%name == key)
-    end if
+    call self%find_key_value (key, ptr_kval)
+    flag = associated (ptr_kval)
 end function
 
 
 
-pure function ini_section_has_key_char (self, key) result(flag)
+function ini_section_has_key_char (self, key) result(flag)
     class (ini_section), intent(in) :: self
     character (*), intent(in) :: key
     logical :: flag
@@ -693,22 +891,15 @@ subroutine ini_section_get_str (self, key, val, status)
     type (status_t), intent(out) , optional :: status
 
     type (status_t) :: lstatus
-    integer :: i
+    class (ini_key_value), pointer :: ptr_kval
 
     lstatus = FC_STATUS_OK
+    nullify (ptr_kval)
+    
+    call self%find_key_value (key, ptr_kval, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
 
-    if (.not. self%has_key (key)) then
-        lstatus = FC_STATUS_VALUE_ERROR
-        lstatus%msg = 'Key ' // key // ' not present'
-        goto 100
-    end if
-
-    do i = 1, size (self%values)
-        if (self%values(i)%name == key) then
-            call self%values(i)%get (val, lstatus)
-            exit
-        end if
-    end do
+    call ptr_kval%get (val, lstatus)
 
 100 continue
 
@@ -735,23 +926,15 @@ subroutine ini_section_set_char (self, key, val, fmt, status)
     character (*), intent(in), optional :: fmt
     type (status_t), intent(out) , optional :: status
 
-    integer :: i
     type (status_t) :: lstatus
+    class (ini_key_value), pointer :: ptr_kval
 
     lstatus = FC_STATUS_OK
 
-    if (.not. self%has_key (key)) then
-        lstatus = FC_STATUS_VALUE_ERROR
-        lstatus%msg = 'Key ' // key // ' not present'
-        goto 100
-    end if
+    call self%find_key_value (key, ptr_kval, lstatus)
+    if (lstatus /= FC_STATUS_OK) goto 100
 
-    do i = 1, size (self%values)
-        if (self%values(i)%name == key) then
-            call self%values(i)%set (val, fmt, lstatus)
-            exit
-        end if
-    end do
+    call ptr_kval%set (val, fmt, lstatus)
 
 100 continue
 
@@ -777,15 +960,22 @@ end subroutine
 
 
 
-pure subroutine ini_section_to_char (self, char, status)
+subroutine ini_section_to_char (self, char, status)
     class (ini_section), intent(in) :: self
     character (BUFFER_SIZE), intent(out), dimension(:) :: char
     type (status_t), intent(out), optional :: status
 
     type (status_t) :: lstatus
     integer :: i
+    class (*), pointer :: ptr_item
+    class (iterator), allocatable :: iter
+    class (ini_key_value), pointer :: ptr_kval
+
+    call diag_entry ('ini_section_to_char')
 
     lstatus = FC_STATUS_OK
+
+    nullify (ptr_item, ptr_kval)
 
     if (size(char) < (self%value_count() + 1)) then
         lstatus = FC_STATUS_VALUE_ERROR
@@ -794,13 +984,28 @@ pure subroutine ini_section_to_char (self, char, status)
     end if
 
     char (1) = '[' // self%name // ']'
-    do i = 1, size (self%values)
-        call self%values(i)%to_char (char(i+1))
+
+    if (.not. allocated (self%values)) goto 100
+
+    call self%values%get_iter (iter)
+
+    i = 2
+    do while (iter%has_next())
+        ptr_item => iter%item()
+
+        call dynamic_cast (ptr_item, ptr_kval)
+
+        call ptr_kval%to_char (char(i))
+
+        i = i + 1
+        nullify (ptr_kval)
     end do
 
 100 continue
 
     if (present(status)) status = lstatus
+
+    call diag_exit ('ini_section_to_char')
 
 end subroutine
 
@@ -811,11 +1016,9 @@ elemental function ini_section_value_count (self) result(res)
     integer :: res
 
     res = 0
-
     if (allocated (self%values)) then
-        res = size (self%values)
+        res = self%values%length ()
     end if
-
 end function
 
 
@@ -829,9 +1032,13 @@ subroutine ini_key_value_parse_str (self, contents, status)
     integer :: ipos, n
     type (status_t) :: lstatus
 
+    call diag_entry ('ini_key_value_parse_str')
+
     lstatus = FC_STATUS_OK
 
     line = trim (adjustl ( contents))
+
+    call diag_msg ('Processing line ' // line%to_char())
 
     ipos = index (line, '=')
     if (ipos == 0) then
@@ -856,12 +1063,13 @@ subroutine ini_key_value_parse_str (self, contents, status)
     self%name = line%substring(1, ipos-1)
     self%value = line%substring(ipos+1, n)
 
-    print *, self%name%to_char()
-    print *, self%value%to_char()
+    call diag_msg ('Parsed key/value ' // self%name%to_char() // '=' // self%value%to_char())
 
 100 continue
 
     if (present(status)) status = lstatus
+
+    call diag_exit ('ini_key_value_parse_str')
 
 end subroutine
 
@@ -1002,13 +1210,63 @@ subroutine ini_key_value_set_char (self, val, fmt, status)
 end subroutine
 
 
-pure subroutine ini_key_value_to_char (self, char)
+subroutine ini_key_value_to_char (self, char)
     class (ini_key_value), intent(in) :: self
     character (*), intent(out) :: char
 
-    char = self%name // '=' // self%value
+    call diag_entry ('ini_key_value_to_char')
+
+    char = self%name%to_char() // '=' // self%value%to_char()
+
+    call diag_exit ('ini_key_value_to_char')
 
 end subroutine
 
+
+
+
+subroutine cast_any_to_ini_section (tgt, ptr, status)
+    class (*), intent(in), pointer :: tgt
+    class (ini_section), intent(out), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call diag_entry ('cast_any_to_ini_section')
+
+    call status%init (FC_STATUS_OK)
+    nullify (ptr)
+
+    select type (tgt)
+    class is (ini_section)
+        ptr => tgt
+    class default
+        call status_set_cast_error (status, "ini_section")
+    end select
+
+    call diag_exit ('cast_any_to_ini_section')
+
+end subroutine
+
+
+
+subroutine cast_any_to_ini_key_value (tgt, ptr, status)
+    class (*), intent(in), pointer :: tgt
+    class (ini_key_value), intent(out), pointer :: ptr
+    type (status_t), intent(out), optional :: status
+
+    call diag_entry ('cast_any_to_ini_key_value')
+
+    call status%init (FC_STATUS_OK)
+    nullify (ptr)
+
+    select type (tgt)
+    class is (ini_key_value)
+        ptr => tgt
+    class default
+        call status_set_cast_error (status, "ini_key_value")
+    end select
+
+    call diag_exit ('cast_any_to_ini_key_value')
+
+end subroutine
 
 end module
