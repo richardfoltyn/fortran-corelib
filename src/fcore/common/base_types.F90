@@ -290,20 +290,22 @@ pure subroutine status_clear (self)
 end subroutine
 
 pure subroutine status_init (self, code, msg)
-    class (status_t), intent(inout) :: self
+    class (status_t), intent(inout), optional :: self
     integer (FC_ENUM_KIND), intent(in), optional :: code
     character (*), intent(in), optional :: msg
 
-    if (.not. present(msg)) then
-        self%msg = ""
-    else
-        self%msg = msg
-    end if
+    if (present(self)) then
+        if (.not. present(msg)) then
+            self%msg = ""
+        else
+            self%msg = msg
+        end if
 
-    if (present(code)) then
-        self = code
-    else
-        self = FC_STATUS_UNDEFINED
+        if (present(code)) then
+            self = code
+        else
+            self = FC_STATUS_UNDEFINED
+        end if
     end if
 end subroutine
 
