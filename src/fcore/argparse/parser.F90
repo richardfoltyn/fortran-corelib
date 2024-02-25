@@ -823,7 +823,7 @@ subroutine argparser_get_array_str (self, name, val, status)
 
     class (argument), pointer :: ptr_arg
     type (status_t) :: lstatus
-    integer :: n, i, k
+    integer :: n, k
     character (:), dimension(:), allocatable :: cwork
 
     call lstatus%init (FC_STATUS_OK)
@@ -851,7 +851,7 @@ subroutine argparser_get_array_str (self, name, val, status)
         k = len(val)
         allocate (character (k) :: cwork(n))
         call ptr_arg%parse (cwork, lstatus)
-        forall (i=1:n) val(i) = cwork(i)
+        val(1:n) = cwork(1:n)
         deallocate (cwork)
     class default
         call ptr_arg%poly_parse (val, lstatus)

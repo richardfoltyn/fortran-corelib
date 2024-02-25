@@ -166,7 +166,7 @@ subroutine print (self, lun)
     integer, parameter :: LEFT_INDENT = 1
     character (len=:), allocatable :: str_indent, llabel
     integer :: passed, failed
-    integer :: llun, i, n
+    integer :: llun, n
 
     ! write to stdout if nothing else specified
     llun = OUTPUT_UNIT
@@ -176,7 +176,7 @@ subroutine print (self, lun)
     str_indent = " "
 
     ! initialize separator line
-    forall (i = 1:LINEWIDTH) separator(i:i) = "="
+    separator = repeat ("=", LINEWIDTH)
 
     call self%tally_results (passed, failed)
 
