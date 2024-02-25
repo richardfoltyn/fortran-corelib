@@ -40,7 +40,7 @@ module fcore_argparse_argument_data
 
 
 
-pure subroutine argument_data_alloc_array (self, x)
+subroutine argument_data_alloc_array (self, x)
     type (argument_data), intent(inout) :: self
     class (*), intent(in), dimension(:) :: x
 
@@ -65,7 +65,7 @@ pure subroutine argument_data_alloc_array (self, x)
 end subroutine
 
 
-pure subroutine argument_data_alloc_scalar (self, x)
+subroutine argument_data_alloc_scalar (self, x)
     type (argument_data), intent(inout) :: self
     class (*), intent(in), optional :: x
 
@@ -119,7 +119,7 @@ pure function argument_data_get_nvals (self) result(res)
 end function
 
 
-pure subroutine argument_data_reset (self)
+subroutine argument_data_reset (self)
     type (argument_data), intent(inout) :: self
 
     if (allocated(self%data_array)) deallocate (self%data_array)
@@ -127,7 +127,7 @@ pure subroutine argument_data_reset (self)
 end subroutine
 
 
-elemental subroutine argument_data_assign (lhs, rhs)
+subroutine argument_data_assign (lhs, rhs)
     type (argument_data), intent(inout) :: lhs
     type (argument_data), intent(in) :: rhs
 
