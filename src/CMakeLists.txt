@@ -1,5 +1,3 @@
-# src/CMakeLists.txt
-# Root cmake configuration file for Fortran corelib
 
 cmake_minimum_required(VERSION 3.10)
 
@@ -91,28 +89,23 @@ if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     # explicitly add -cpp to run C preprocessor if required
     set(GNU_WARN "-Wall -Wextra -Wimplicit-interface -Wimplicit-procedure \
       -Warray-temporaries -Wrealloc-lhs")
-    set(_FFLAGS "${GNU_WARN} -std=f2008 -pedantic -frecursive")
+    set(_FFLAGS "${GNU_WARN} -std=f2018 -pedantic -frecursive")
     set(_FFLAGS_DEBUG "-fcheck=all -ggdb -O0")
-
-    # Disable "surprising" warnings for older GFORTRAN version as this
-    # produces endless warnings about array finalizers
-    if (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 7)
-        set(_FFLAGS "${_FFLAGS} -Wno-surprising")
-    endif()
-    if (CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 6)
-        set(_FFLAGS "${_FFLAGS} -Wno-unused-dummy-argument")
-    endif ()
-elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel(LLVM)?")
     if (WIN32)
-        set(_FFLAGS "/warn:all /standard-semantics /stand:f08 /recursive")
+        set(_FFLAGS "/warn:all /standard-semantics /stand:f18")
         set(_FFLAGS_DEBUG "/check:all")
         if (NOT IFORT_STD_MOD_PROC_NAME)
             set(_FFLAGS "${_FFLAGS} /assume:nostd_mod_proc_name")
         endif ()
     else ()
-        set(_FFLAGS "-warn all -standard-semantics -std08 -recursive")
+        set(_FFLAGS "-warn all -standard-semantics -std18")
         if (NOT IFORT_STD_MOD_PROC_NAME)
             set(_FFLAGS "${_FFLAGS} -assume nostd_mod_proc_name")
+        endif ()
+        # Disable seriously annoying warning that ifort is deprecated
+        if (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+            set(_FFLAGS "${_FFLAGS} -diag-disable=10448")
         endif ()
         set(_FFLAGS_DEBUG "-check all -O0 -traceback")
     endif (WIN32)
