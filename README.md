@@ -1,28 +1,19 @@
-# Fortran corelib (FCORE) #
-
-## About ##
+# Fortran corelib (fcore) #
 
 Fortran library which provides come basic functionality that is taken for 
 granted in other languages or their standard libraries, such as
 a string type, command-line argument parsing, etc.
 
-## Obtaining the code ##
-
-To clone the git repository, run
-```bash
-git clone https://bitbucket.org/richardfoltyn/fortran-corelib.git
-```
-## Build instructions ##
+## Installation ##
 
 ### Linux ###
 
 The library has been tested with the following compilers:
 
-1.  Intel `ifort` 2018 and 2019
-2.  GNU `gfortran` 7.x and 8.x
+1.  Intel `ifort` 2024, `ifx` 2024
+2.  GNU `gfortran` 11.x, 12.x and 13.x
 
-To compile and install FCORE, create a build directory and run
-
+To compile and install `fcore`, adapt to following to your environment:
 ```bash
 # Define GCC compiler version
 GCC_VERSION=12
@@ -45,7 +36,21 @@ cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} ${SRC_DIR}/src
 
 To build and install the project, run
 ```bash
-make -j 16
-make install
+cmake --build .
+cmake --install .
 ```
 
+## Author
+
+Richard Foltyn
+
+## License
+
+This program is free software: you can redistribute it and/or modify it under 
+the terms of the GNU General Public License as published by the Free Software 
+Foundation, either version 3 of the License, or (at your option) any later 
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
