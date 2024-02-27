@@ -20,29 +20,9 @@ else()
     option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 endif()
 
-# If enabled, pass -assume std_mod_proc_name to ifort such that module
-# names will use _MP_ as module name / procedure name separator.
-# Off by default, this causes major pain since most third-party libraries
-# are compiled without this option.
-# option(IFORT_STD_MOD_PROC_NAME
-#     "Assume standard-compliant name mangling for module procedures" OFF
-# )
 option(BUILD_TESTS "Build unit tests" OFF)
 option(BUILD_EXAMPLES "Build example code" OFF)
 option(DIAGNOSTICS "Enable diagnostic messages" OFF)
-
-
-###############################################################################
-# Universal compiler FLAGS
-
-# set(Fortran_FLAGS_ABI)
-
-# # This flags breaks ABI compatibility, needs to be applied globally
-# if (CMAKE_Fortran_COMPILER_ID MATCHES "Intel(LLVM)?")
-#     if (NOT WIN32 AND NOT IFORT_STD_MOD_PROC_NAME)
-#         set(Fortran_FLAGS_ABI -assume nostd_mod_proc_name)
-#     endif ()
-# endif ()
 
 ###############################################################################
 # Testing
