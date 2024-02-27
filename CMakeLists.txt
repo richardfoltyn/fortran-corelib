@@ -1,0 +1,221 @@
+
+cmake_minimum_required(VERSION 3.12)
+
+project(fcore VERSION 0.1.0 LANGUAGES C Fortran)
+# name used for library files, include directory, etc.
+set(LIBRARY_NAME fcore)
+
+# make sure that the default is a RELEASE
+if (NOT CMAKE_BUILD_TYPE)
+  set (CMAKE_BUILD_TYPE Release CACHE STRING
+      "Choose the type of build, options are: None Debug Release."
+      FORCE)
+endif (NOT CMAKE_BUILD_TYPE)
+
+###############################################################################
+# User-definable options
+if (WIN32)
+    option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+else()
+    option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+endif()
+
+# If enabled, pass -assume std_mod_proc_name to ifort such that module
+# names will use _MP_ as module name / procedure name separator.
+# Off by default, this causes major pain since most third-party libraries
+# are compiled without this option.
+# option(IFORT_STD_MOD_PROC_NAME
+#     "Assume standard-compliant name mangling for module procedures" OFF
+# )
+option(BUILD_TESTS "Build unit tests" OFF)
+option(BUILD_EXAMPLES "Build example code" OFF)
+option(DIAGNOSTICS "Enable diagnostic messages" OFF)
+
+
+###############################################################################
+# Universal compiler FLAGS
+
+# set(Fortran_FLAGS_ABI)
+
+# # This flags breaks ABI compatibility, needs to be applied globally
+# if (CMAKE_Fortran_COMPILER_ID MATCHES "Intel(LLVM)?")
+#     if (NOT WIN32 AND NOT IFORT_STD_MOD_PROC_NAME)
+#         set(Fortran_FLAGS_ABI -assume nostd_mod_proc_name)
+#     endif ()
+# endif ()
+
+###############################################################################
+# Testing
+
+if (BUILD_TESTS)
+    enable_testing()
+endif()
+
+###############################################################################
+# Report options and settings
+if (BUILD_SHARED_LIBS)
+    message(STATUS "Building SHARED libraries")
+else(BUILD_SHARED_LIBS)
+    message(STATUS "Building STATIC libraries")
+endif(BUILD_SHARED_LIBS)
+
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+if (DIAGNOSTICS)
+    message(STATUS "Diagnostics ENABLED" )
+endif()
+
+
+###############################################################################
+# Output directories
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set(TESTS_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tests")
+set(EXAMPLES_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/examples")
+
+set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/include")
+
+
+###############################################################################
+# Path suffixes beneath CMAKE_INSTALL_PREFIX
+
+# if CMAKE_INSTALL_LIBDIR or CMAKE_INSTALL_INCLUDEDIR were specified on the
+# command line, use those as prefixes beneath CMAKE_INSTALL_PREFIX where
+# library and include files should be placed.
+
+# store values in temporary variables, will be overwritten by GNUInstallDirs
+set(_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}")
+set(_INSTALL_INCLUDEDDIR "${CMAKE_INSTALL_INCLUDEDIR}")
+
+include(GNUInstallDirs)
+
+# fill in any missing values
+if (_INSTALL_LIBDIR)
+    set(CMAKE_INSTALL_LIBDIR "${_INSTALL_LIBDIR}")
+elseif (NOT CMAKE_INSTALL_LIBDIR)
+    set(CMAKE_INSTALL_LIBDIR lib)
+endif()
+
+if (_INSTALL_INCLUDEDDIR)
+    set(CMAKE_INSTALL_INCLUDEDIR "${_INSTALL_INCLUDEDDIR}")
+elseif (NOT CMAKE_INSTALL_INCLUDEDIR)
+    set(CMAKE_INSTALL_INCLUDEDIR include)
+endif()
+
+# Allow for installing ifort and gfortran version of libraries side-by-side by
+# appending compiler suffix
+string(TOLOWER ${CMAKE_Fortran_COMPILER_ID} Fortran_COMPILER_ID)
+
+# Find major compiler version
+string(REGEX REPLACE "(^[0-9]+).*" "\\1" Fortran_COMPILER_VERSION_MAJOR
+    "${CMAKE_Fortran_COMPILER_VERSION}")
+
+set(Fortran_COMPILER_SUFFIX "${Fortran_COMPILER_ID}-${Fortran_COMPILER_VERSION_MAJOR}")
+
+# Installation directory within <prefix>/lib, <prefix>/include, etc.
+# If not defined by -DFCORE_INSTALL_DIR by the user, create 
+# version- and compiler-specific directory name.
+if (NOT DEFINED FCORE_INSTALL_DIR)
+    set(_version ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR})
+    set(FCORE_INSTALL_DIR
+        "${LIBRARY_NAME}-${_version}-${Fortran_COMPILER_SUFFIX}"
+        CACHE STRING "Install directory name"
+        FORCE
+    )
+endif()
+
+get_filename_component(_LIBDIR
+    "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${FCORE_INSTALL_DIR}" 
+    REALPATH
+)
+get_filename_component(_INCLDIR
+    "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/${FCORE_INSTALL_DIR}" 
+    REALPATH
+)
+message(STATUS "Library install directory: ${_LIBDIR}")
+message(STATUS "MOD file install directory: ${_INCLDIR}")
+
+###############################################################################
+# Add source directories
+
+add_subdirectory(src)
+
+if (BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
+
+if (BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+
+
+###############################################################################
+# Installation
+
+# Path there cmake config files will be installed
+set(FCORE_INSTALL_CONFIG_PATH 
+    "${CMAKE_INSTALL_LIBDIR}/${FCORE_INSTALL_DIR}/cmake"
+)
+
+set(FCORE_INSTALL_NAMESPACE ${LIBRARY_NAME})
+
+set(FCORE_CONFIG_FILE ${LIBRARY_NAME}-config.cmake)
+set(FCORE_CONFIG_VERSION_FILE ${LIBRARY_NAME}-config-version.cmake)
+set(FCORE_TARGETS_FILE ${LIBRARY_NAME}Targets.cmake)
+
+# Directory that contains installation-specific (config) files
+get_filename_component(FCORE_INSTALL_SOURCE_DIR
+    "${CMAKE_CURRENT_LIST_DIR}/install"
+    ABSOLUTE
+)
+
+configure_file("${FCORE_INSTALL_SOURCE_DIR}/config-version.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${FCORE_CONFIG_VERSION_FILE}"
+    @ONLY
+)
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file("${FCORE_INSTALL_SOURCE_DIR}/config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${FCORE_CONFIG_FILE}"
+    INSTALL_DESTINATION "${FCORE_INSTALL_CONFIG_PATH}"
+    PATH_VARS FCORE_INSTALL_CONFIG_PATH
+)
+
+# Note: INCLUDES DESTINATION is equivalent to adding
+# INTERFACE_INCLUDE_DIRECTORIES property on exported targets.
+install(TARGETS ${LIBRARY_NAME} 
+    EXPORT ${LIBRARY_NAME}_targets
+    RUNTIME DESTINATION "${CMAKE_INSTALL_LIBDIR}/${FCORE_INSTALL_DIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/${FCORE_INSTALL_DIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/${FCORE_INSTALL_DIR}"
+    INCLUDES DESTINATION
+        "${CMAKE_INSTALL_INCLUDEDIR}/${FCORE_INSTALL_DIR}"
+)
+
+# export(EXPORT ${LIBRARY_NAME}_targets
+#     FILE "${CMAKE_CURRENT_BINARY_DIR}/${FCORE_TARGETS_FILE}"
+#     NAMESPACE ${FCORE_INSTALL_NAMESPACE}::
+# )
+
+install(EXPORT ${LIBRARY_NAME}_targets
+    FILE "${FCORE_TARGETS_FILE}"
+    NAMESPACE ${FCORE_INSTALL_NAMESPACE}::
+    DESTINATION "${FCORE_INSTALL_CONFIG_PATH}"
+)
+
+# install compiler-specific MOD files
+install(DIRECTORY "${CMAKE_Fortran_MODULE_DIRECTORY}/"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${FCORE_INSTALL_DIR}"
+    COMPONENT devel
+    FILES_MATCHING PATTERN "fcore*.mod"
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${FCORE_CONFIG_FILE}"
+    "${CMAKE_CURRENT_BINARY_DIR}/${FCORE_CONFIG_VERSION_FILE}"
+    "${FCORE_INSTALL_SOURCE_DIR}/compiler_test.f90"
+    DESTINATION "${FCORE_INSTALL_CONFIG_PATH}"
+    COMPONENT devel
+)

@@ -1,0 +1,10 @@
+module fcore
+
+    implicit none
+
+    integer, parameter, dimension(*) :: FCORE_VERSION_COMPONENTS = &
+        [${PROJECT_VERSION_MAJOR}, ${PROJECT_VERSION_MINOR}, ${PROJECT_VERSION_PATCH}]
+
+    character (*), parameter :: FCORE_VERSION = '${PROJECT_VERSION}'
+
+end module

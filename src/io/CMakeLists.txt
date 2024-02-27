@@ -10,6 +10,5 @@ set(SOURCE_FILES
     path.F90
 )
 
-include_directories(${${PROJECT_NAME}_MODDIR})
 add_library(${COMPONENT_NAME} OBJECT ${SOURCE_FILES})
 add_dependencies(${COMPONENT_NAME} common)

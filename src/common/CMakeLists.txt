@@ -13,8 +13,8 @@ set(SOURCE_FILES
     strings.f90
 )
 
-include_directories(${${PROJECT_NAME}_MODDIR}
-    ${CMAKE_CURRENT_LIST_DIR}/include
-)
-
 add_library(${COMPONENT_NAME} OBJECT ${SOURCE_FILES})
+
+target_include_directories(${COMPONENT_NAME} BEFORE
+    PRIVATE "${CMAKE_CURRENT_LIST_DIR}/include"
+)
