@@ -10,8 +10,8 @@ a string type, command-line argument parsing, etc.
 
 The library has been tested with the following compilers:
 
-1.  Intel `ifort` 2024, `ifx` 2024
-2.  GNU `gfortran` 11.x, 12.x and 13.x
+1.  GNU `gfortran` 11.x, 12.x and 13.x
+2.  Intel `ifort` 2024, `ifx` 2024
 
 To compile and install `fcore`, adapt to following to your environment:
 ```bash
@@ -38,6 +38,22 @@ To build and install the project, run
 ```bash
 cmake --build .
 cmake --install .
+```
+
+## Usage
+
+To integrate the library in your own CMake project, augment your `CMakeLists.txt`
+as follows. See also the minimal client in `examples/client/`.
+```CMake
+cmake_minimum_required(VERSION 3.12)
+
+project(fcore_client Fortran)
+
+find_package(fcore REQUIRED)
+
+add_executable(client client.f90)
+target_link_libraries(client fcore::fcore)
+
 ```
 
 ## Author
