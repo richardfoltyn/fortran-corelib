@@ -11,7 +11,7 @@ a string type, command-line argument parsing, etc.
 The library has been tested with the following compilers:
 
 1.  GNU `gfortran` 11.x, 12.x and 13.x
-2.  Intel `ifort` 2024, `ifx` 2024
+2.  Intel `ifort` 2021.x, `ifx` 2024
 
 To compile and install `fcore`, adapt to following to your environment:
 ```bash

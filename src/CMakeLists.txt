@@ -18,16 +18,8 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel(LLVM)?")
     if (WIN32)
         set(_FFLAGS /warn:all /stand:f18)
         set(_FFLAGS_Debug /check:all)
-        # Disable seriously annoying warning that ifort is deprecated
-        if (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-            set(_FFLAGS ${_FFLAGS} /Qdiag-disable:10448)
-        endif ()
     else ()
         set(_FFLAGS -warn all -std18)
-        # Disable seriously annoying warning that ifort is deprecated
-        if (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-            set(_FFLAGS ${_FFLAGS} -diag-disable=10448)
-        endif ()
         set(_FFLAGS_Debug -check all -O0 -traceback)
     endif (WIN32)
 endif ()
@@ -83,7 +75,6 @@ endforeach()
 
 add_library(${LIBRARY_NAME} ${CMAKE_BINARY_DIR}/fcore.f90 ${COMPONENT_OBJECTS})
 set_target_properties(${LIBRARY_NAME} PROPERTIES
-    # RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
     VERSION ${PROJECT_VERSION}
 )
 

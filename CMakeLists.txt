@@ -116,6 +116,32 @@ get_filename_component(_INCLDIR
 message(STATUS "Library install directory: ${_LIBDIR}")
 message(STATUS "MOD file install directory: ${_INCLDIR}")
 
+################################################################################
+# Universal compiler FLAGS for all targets
+
+unset(_FFLAGS)
+unset(_FFLAGS_Debug)
+
+if (CMAKE_Fortran_COMPILER_ID MATCHES "Intel(LLVM)?")
+    if (WIN32)
+        set(_FFLAGS /auto)
+        # Disable seriously annoying warning that ifort is deprecated
+        if (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+            set(_FFLAGS ${_FFLAGS} /Qdiag-disable:10448)
+        endif ()
+    else ()
+        set(_FFLAGS -auto)
+        # Disable seriously annoying warning that ifort is deprecated
+        if (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+            set(_FFLAGS ${_FFLAGS} -diag-disable=10448)
+        endif ()
+    endif (WIN32)
+endif ()
+
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${_FFLAGS}")
+set(CMAKE_Fortran_FLAGS_Debug "${CMAKE_Fortran_FLAGS_Debug} ${_FFLAGS_Debug}")
+
+
 ###############################################################################
 # Add source directories
 
