@@ -32,13 +32,12 @@ foreach (_comp IN LISTS COMPONENTS)
         add_executable(${target_name}
             "${_comp}/${test_source}"
             ${SHARED_SOURCE_FILES_PREFIXED}
-            ${FCORE_COMPONENT_OBJECTS}
-        )
-        # Include directory where main lib modules are places
-        target_include_directories(${target_name} PRIVATE 
-            "${CMAKE_Fortran_MODULE_DIRECTORY}"
         )
 
+        target_link_libraries(${target_name} PRIVATE
+            ${LIBRARY_NAME}_static
+        )
+        
         # Component-specific module directory to avoid any naming conflicts
         set_target_properties(${target_name} PROPERTIES
             OUTPUT_NAME ${exe_name}

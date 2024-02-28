@@ -2,25 +2,24 @@
 # Set additional Fortran compiler FLAGS
 
 unset(_FFLAGS)
-unset(_FFLAGS_Debug)
+unset(_FFLAGS_DEBUG)
 
-if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    set(_CFLAGS_Debug -ggdb -O0)
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR MINGW)
+    set(_CFLAGS_DEBUG -ggdb -O0)
     set(_CFLAGS -Wall -Wextra)
 endif()
 
-if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU" OR MINGW)
     set(GNU_WARN -Wall -Wextra -Wimplicit-interface -Wimplicit-procedure 
       -Warray-temporaries -Wrealloc-lhs)
-    set(_FFLAGS ${GNU_WARN} -std=f2018 -pedantic -frecursive)
-    set(_FFLAGS_Debug -fcheck=all -ggdb -O0)
+    set(_FFLAGS ${GNU_WARN} -pedantic)
+    set(_FFLAGS_DEBUG -O0 -ggdb)
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel(LLVM)?")
     if (WIN32)
-        set(_FFLAGS /warn:all /stand:f18)
-        set(_FFLAGS_Debug /check:all)
+        set(_FFLAGS /warn:all)
     else ()
-        set(_FFLAGS -warn all -std18)
-        set(_FFLAGS_Debug -check all -O0 -traceback)
+        set(_FFLAGS -warn all)
+        set(_FFLAGS_DEBUG -O0 -traceback)
     endif (WIN32)
 endif ()
 
@@ -64,20 +63,44 @@ foreach(_comp IN LISTS FCORE_COMPONENTS)
     # correct flags
     target_compile_options(${_comp} BEFORE PRIVATE
         $<$<COMPILE_LANGUAGE:C>:${_CFLAGS}>
-        $<$<COMPILE_LANGUAGE:C>:$<$<CONFIG:Debug>:${_CFLAGS_Debug}>>
+        $<$<COMPILE_LANGUAGE:C>:$<$<CONFIG:Debug>:${_CFLAGS_DEBUG}>>
         $<$<COMPILE_LANGUAGE:Fortran>:${_FFLAGS}>
-        $<$<COMPILE_LANGUAGE:Fortran>:$<$<CONFIG:Debug>:${_FFLAGS_Debug}>>
+        $<$<COMPILE_LANGUAGE:Fortran>:$<$<CONFIG:Debug>:${_FFLAGS_DEBUG}>>
     )
 
     # append created objects, to be used as input in main library
     list(APPEND COMPONENT_OBJECTS $<TARGET_OBJECTS:${_comp}>)
 endforeach()
 
-add_library(${LIBRARY_NAME} ${CMAKE_BINARY_DIR}/fcore.f90 ${COMPONENT_OBJECTS})
+set(SOURCE_FILES
+    ${CMAKE_BINARY_DIR}/fcore.f90
+)
+
+add_library(${LIBRARY_NAME} ${SOURCE_FILES} ${COMPONENT_OBJECTS})
 set_target_properties(${LIBRARY_NAME} PROPERTIES
     VERSION ${PROJECT_VERSION}
 )
 
-# Store list of component object libraries in root folder so these can be 
-# added as "sources" to unit tests
-set(FCORE_COMPONENT_OBJECTS ${COMPONENT_OBJECTS} PARENT_SCOPE)
+if (BUILD_TESTS OR BUILD_EXAMPLES)
+    # build static library so tests & examples can link against it
+    add_library(${LIBRARY_NAME}_static STATIC 
+        ${SOURCE_FILES}
+        ${COMPONENT_OBJECTS}
+    )
+
+    set_target_properties(${LIBRARY_NAME}_static PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${FCORE_STATIC_DIRECTORY}"
+        LIBRARY_OUTPUT_DIRECTORY "${FCORE_STATIC_DIRECTORY}"
+        ARCHIVE_OUTPUT_DIRECTORY "${FCORE_STATIC_DIRECTORY}"
+        OUTPUT_NAME ${LIBRARY_NAME}
+    )
+
+    # Add public include directories, this will propagage to tests and 
+    # examples.
+    target_include_directories(${LIBRARY_NAME}_static
+        PUBLIC
+            "$<BUILD_INTERFACE:${CMAKE_Fortran_MODULE_DIRECTORY}>"
+            "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/include>"
+    )
+
+endif ()

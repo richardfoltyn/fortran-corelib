@@ -56,6 +56,11 @@ set(EXAMPLES_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/examples")
 
 set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/include")
 
+# Output directory for additional static library used for linking tests
+# and examples irrespective of whether main build is shared/static.
+# This is not meant to be installed anywhere, so keep it separate.
+set(FCORE_STATIC_DIRECTORY "${CMAKE_BINARY_DIR}/lib-static")
+
 
 ###############################################################################
 # Path suffixes beneath CMAKE_INSTALL_PREFIX
@@ -120,26 +125,31 @@ message(STATUS "MOD file install directory: ${_INCLDIR}")
 # Universal compiler FLAGS for all targets
 
 unset(_FFLAGS)
-unset(_FFLAGS_Debug)
+unset(_FFLAGS_DEBUG)
 
-if (CMAKE_Fortran_COMPILER_ID MATCHES "Intel(LLVM)?")
+if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU" OR MINGW)
+    set(_FFLAGS "-std=f2018 -frecursive -fimplicit-none")
+    set(_FFLAGS_DEBUG "-fcheck=all")
+elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel(LLVM)?")
     if (WIN32)
-        set(_FFLAGS /auto)
+        set(_FFLAGS "/auto /assume:recursion /stand:f18")
+        set(_FFLAGS_DEBUG "/check:all")
         # Disable seriously annoying warning that ifort is deprecated
         if (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-            set(_FFLAGS ${_FFLAGS} /Qdiag-disable:10448)
+            set(_FFLAGS "${_FFLAGS} /Qdiag-disable:10448")
         endif ()
     else ()
-        set(_FFLAGS -auto)
+        set(_FFLAGS "-auto -assume recursion -std18")
+        set(_FFLAGS_DEBUG "-check all")
         # Disable seriously annoying warning that ifort is deprecated
         if (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-            set(_FFLAGS ${_FFLAGS} -diag-disable=10448)
+            set(_FFLAGS "${_FFLAGS} -diag-disable=10448")
         endif ()
     endif (WIN32)
 endif ()
 
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${_FFLAGS}")
-set(CMAKE_Fortran_FLAGS_Debug "${CMAKE_Fortran_FLAGS_Debug} ${_FFLAGS_Debug}")
+set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${_FFLAGS_DEBUG}")
 
 
 ###############################################################################

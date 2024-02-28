@@ -11,8 +11,10 @@ foreach (_comp IN LISTS COMPONENTS)
         get_filename_component(exe_name "${_file}" NAME_WE)
         set(TARGET_NAME examples_${_comp}_${exe_name})
     	
-        add_executable(${TARGET_NAME} "${_comp}/${_file}"
-            ${FCORE_COMPONENT_OBJECTS}
+        add_executable(${TARGET_NAME} "${_comp}/${_file}")
+
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            ${LIBRARY_NAME}_static
         )
 
         set_target_properties(${TARGET_NAME} PROPERTIES
