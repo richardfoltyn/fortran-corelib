@@ -5,23 +5,28 @@ unset(_FFLAGS)
 unset(_FFLAGS_DEBUG)
 
 if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR MINGW)
-    set(_CFLAGS_DEBUG -ggdb -O0)
-    set(_CFLAGS -Wall -Wextra)
+    set(_CFLAGS_DEBUG "-ggdb -O0")
+    set(_CFLAGS "-Wall -Wextra")
 endif()
 
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU" OR MINGW)
-    set(GNU_WARN -Wall -Wextra -Wimplicit-interface -Wimplicit-procedure 
-      -Warray-temporaries -Wrealloc-lhs)
-    set(_FFLAGS ${GNU_WARN} -pedantic)
-    set(_FFLAGS_DEBUG -O0 -ggdb)
+    set(GNU_WARN "-Wall -Wextra -pedantic -Wimplicit-interface -Wimplicit-procedure -Warray-temporaries -Wrealloc-lhs")
+    set(_FFLAGS "${GNU_WARN}")
+    set(_FFLAGS_DEBUG "-O0 -ggdb")
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel(LLVM)?")
     if (WIN32)
-        set(_FFLAGS /warn:all)
+        set(_FFLAGS "/warn:all")
     else ()
-        set(_FFLAGS -warn all)
-        set(_FFLAGS_DEBUG -O0 -traceback)
+        set(_FFLAGS "-warn all")
+        set(_FFLAGS_DEBUG "-O0 -traceback")
     endif (WIN32)
 endif ()
+
+set(CMAKE_Fortran_FLAGS "${_FFLAGS} ${CMAKE_Fortran_FLAGS}")
+set(CMAKE_Fortran_FLAGS_DEBUG "${_FFLAGS_DEBUG} ${CMAKE_Fortran_FLAGS_DEBUG}")
+
+set(CMAKE_C_FLAGS "${_CFLAGS} ${CMAKE_C_FLAGS}")
+set(CMAKE_C_FLAGS_DEBUG "${_CFLAGS_DEBUG} ${CMAKE_C_FLAGS_DEBUG}")
 
 
 ################################################################################
@@ -58,15 +63,6 @@ foreach(_comp IN LISTS FCORE_COMPONENTS)
     if (DIAGNOSTICS)
         target_compile_definitions(${_comp} PRIVATE "__DIAGNOSTICS")
     endif()
-
-    # Source files can be both C and Fortran, need to be careful to assign
-    # correct flags
-    target_compile_options(${_comp} BEFORE PRIVATE
-        $<$<COMPILE_LANGUAGE:C>:${_CFLAGS}>
-        $<$<COMPILE_LANGUAGE:C>:$<$<CONFIG:Debug>:${_CFLAGS_DEBUG}>>
-        $<$<COMPILE_LANGUAGE:Fortran>:${_FFLAGS}>
-        $<$<COMPILE_LANGUAGE:Fortran>:$<$<CONFIG:Debug>:${_FFLAGS_DEBUG}>>
-    )
 
     # append created objects, to be used as input in main library
     list(APPEND COMPONENT_OBJECTS $<TARGET_OBJECTS:${_comp}>)
