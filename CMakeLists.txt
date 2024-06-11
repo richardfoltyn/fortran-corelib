@@ -46,23 +46,6 @@ endif()
 
 
 ###############################################################################
-# Output directories
-
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-set(TESTS_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tests")
-set(EXAMPLES_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/examples")
-
-set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/include")
-
-# Output directory for additional static library used for linking tests
-# and examples irrespective of whether main build is shared/static.
-# This is not meant to be installed anywhere, so keep it separate.
-set(FCORE_STATIC_DIRECTORY "${CMAKE_BINARY_DIR}/lib-static")
-
-
-###############################################################################
 # Path suffixes beneath CMAKE_INSTALL_PREFIX
 
 # if CMAKE_INSTALL_LIBDIR or CMAKE_INSTALL_INCLUDEDIR were specified on the
@@ -87,6 +70,23 @@ if (_INSTALL_INCLUDEDDIR)
 elseif (NOT CMAKE_INSTALL_INCLUDEDIR)
     set(CMAKE_INSTALL_INCLUDEDIR include)
 endif()
+
+
+###############################################################################
+# Output directories
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set(TESTS_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tests")
+set(EXAMPLES_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/examples")
+
+set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/include")
+
+# Output directory for additional static library used for linking tests
+# and examples irrespective of whether main build is shared/static.
+# This is not meant to be installed anywhere, so keep it separate.
+set(FCORE_STATIC_DIRECTORY "${CMAKE_BINARY_DIR}/lib-static")
 
 # Allow for installing ifort and gfortran version of libraries side-by-side by
 # appending compiler suffix
