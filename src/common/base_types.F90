@@ -1506,7 +1506,7 @@ end subroutine
 ! TRIM_STR is an overload for trim() with argument of type str.
 pure function trim_str (self) result(res)
     class (str), intent(in) :: self
-    class (str), allocatable :: res
+    type (str), allocatable :: res
 
     allocate (res, source=self)
     call res%trim ()
