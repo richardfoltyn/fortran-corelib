@@ -1508,7 +1508,9 @@ pure function trim_str (self) result(res)
     class (str), intent(in) :: self
     type (str), allocatable :: res
 
-    allocate (res, source=self)
+    ! Separate allocation and assignment to avoid a GNU Fortran 16 compiler bug.
+    allocate (res)
+    res = self
     call res%trim ()
 end function
 
