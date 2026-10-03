@@ -14,89 +14,55 @@ The library has been tested with the following compilers:
 1.  GNU `gfortran` 11.x to 16.x
 2.  Intel `ifort` 2021.x, `ifx` 2024
 
-To compile and install `fcore`, adapt the following to your environment:
+Set the GCC major version in your shell. On Fedora this sets the build path;
+the default compiler must be the matching version.
 
-#### Bash ####
-
+Bash:
 ```bash
-# Define GCC compiler version
 GCC_VERSION=16
-
-# Path to source directory
-SRC_DIR=$HOME/repos/fortran-corelib
-
-# Define installation prefix
-INSTALL_PREFIX=$HOME/.local
-
-# Build directory
-BUILD_DIR=$HOME/build/gnu/${GCC_VERSION}/fortran-corelib
-
-mkdir -p "${BUILD_DIR}"
-cd "${BUILD_DIR}"
 ```
 
-#### Fish ####
-
+Fish:
 ```fish
-# Define GCC compiler version
 set GCC_VERSION 16
-
-# Path to source directory
-set SRC_DIR $HOME/repos/fortran-corelib
-
-# Define installation prefix
-set INSTALL_PREFIX $HOME/.local
-
-# Build directory
-set BUILD_DIR $HOME/build/gnu/$GCC_VERSION/fortran-corelib
-
-mkdir -p $BUILD_DIR
-cd $BUILD_DIR
 ```
+
+The remaining commands work in both shells. CMake creates the build
+directory outside the source tree.
 
 #### Ubuntu ####
 
-On Debian/Ubuntu, the project can now be configured as follows:
+On Debian/Ubuntu, the compiler executables have version suffixes:
 
-##### Bash #####
-
-```bash
-FC=gfortran-${GCC_VERSION} CC=gcc-${GCC_VERSION} \
-cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} ${SRC_DIR}
-```
-
-##### Fish #####
-
-```fish
-env FC=gfortran-$GCC_VERSION CC=gcc-$GCC_VERSION \
-cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX $SRC_DIR
+```sh
+cmake -S "$HOME/repos/fortran-corelib" \
+    -B "$HOME/build/gnu/$GCC_VERSION/fortran-corelib" \
+    -DCMAKE_Fortran_COMPILER=gfortran-$GCC_VERSION \
+    -DCMAKE_C_COMPILER=gcc-$GCC_VERSION \
+    -DCMAKE_INSTALL_PREFIX="$HOME/.local"
 ```
 
 #### Fedora ####
 
-On Fedora, the default GCC compiler does not have a version suffix,
-so the following should be used instead:
+On Fedora, the default GCC compiler does not have a version suffix:
 
-##### Bash #####
-
-```bash
-FC=gfortran CC=gcc cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} ${SRC_DIR}
+```sh
+cmake -S "$HOME/repos/fortran-corelib" \
+    -B "$HOME/build/gnu/$GCC_VERSION/fortran-corelib" \
+    -DCMAKE_Fortran_COMPILER=gfortran -DCMAKE_C_COMPILER=gcc \
+    -DCMAKE_INSTALL_PREFIX="$HOME/.local"
 ```
-
-##### Fish #####
-
-```fish
-env FC=gfortran CC=gcc cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX $SRC_DIR
-```
-
-To build and install the project, run:
 
 #### Building and installing ####
 
-```bash
-cmake --build .
-cmake --install .
+```sh
+cmake --build "$HOME/build/gnu/$GCC_VERSION/fortran-corelib" --parallel 8
+cmake --install "$HOME/build/gnu/$GCC_VERSION/fortran-corelib"
 ```
+
+For GCC 16 on Fedora, the installed libraries and CMake package are under
+`~/.local/lib64/fcore-0.1-gnu-16/`; module files are under
+`~/.local/include/fcore-0.1-gnu-16/`.
 
 ***
 ## Usage
