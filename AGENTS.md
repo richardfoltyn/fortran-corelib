@@ -17,8 +17,8 @@
   [its README](ci/ubuntu26.04/README.md) for setup and commands.
 - Use `run-tests.sh` for a single compiler/configuration or `run-matrix.sh` for
   selected named jobs.
-- Preserve `build-ci` logs and matrix summaries. Check `ASSERTIONS` results and
-  `Testing/Temporary/LastTest.log`; a zero exit status can hide assertion failures.
+- Preserve `build-ci` logs and matrix summaries. Check CTest exit status and
+  `Testing/Temporary/LastTest.log`; failed checks must produce a nonzero test exit.
 
 ## Language and structure
 

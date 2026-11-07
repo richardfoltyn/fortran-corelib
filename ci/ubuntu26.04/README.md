@@ -78,13 +78,12 @@ docker run --rm --ulimit core=0 --user "$(id -u):$(id -g)" \
 
 ## Result status
 
-- `PASS` means the job completed successfully with no failed assertions.
-- `ASSERTIONS` means assertions failed despite a successful CTest exit
-  ([runner issue #2](https://github.com/richardfoltyn/fortran-corelib/issues/2)).
-  The job returns exit code 3 and makes the matrix fail.
-- `FAIL` means the job returned another nonzero exit code. Check its log for
+- `PASS` means the job completed successfully. Failed checks terminate the test
+  executable with a nonzero exit status, which CTest reports as a failure.
+- `FAIL` means the job returned a nonzero exit code. Check its log for
   configure, build, executable, or installed-client failures.
 - `INCOMPLETE` means no complete worker result was produced, for example, after
   a scheduler setup failure or worker interruption. It also makes the matrix fail.
-- `test-results.tsv` records CTest exit status and assertion counts separately;
-  inspect both alongside the full test output.
+- `test-results.tsv` records the inner CTest exit status. Worker rows and the
+  matrix summary record both the runner and CTest exit statuses; `-` means
+  no CTest result was recorded. Full test output remains in the test logs.

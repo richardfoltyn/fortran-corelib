@@ -8,7 +8,7 @@
 # - Limit concurrent configurations with --jobs N (default: 1).
 # - Use with-oneapi for selections that include ifx.
 # - Save the manifest, worker logs, and ordered summary under BUILD_ROOT/matrix.
-# - Return nonzero for failed or incomplete jobs; report ASSERTIONS separately.
+# - Return nonzero for failed or incomplete jobs.
 
 # ==============================================================================
 # Execution environment
@@ -128,7 +128,7 @@ fi
 # ==============================================================================
 # Workers write separate rows; merge them in selection order after CTest exits.
 summary=${run_dir}/summary.tsv
-printf 'job\tresult\texit_code\tassertion_lines\tlog\n' > "${summary}"
+printf 'job\tresult\texit_code\tctest_exit\tlog\n' > "${summary}"
 for name in "${selected[@]}"; do
     if [[ -f ${run_dir}/${name}.tsv ]]; then
         cat -- "${run_dir}/${name}.tsv" >> "${summary}"

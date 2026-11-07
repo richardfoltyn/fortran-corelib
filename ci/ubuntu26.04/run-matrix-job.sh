@@ -4,7 +4,7 @@
 #
 # - Receive the manifest fields from the standalone scheduler.
 # - Save independent logs, timing, artifact pointers, and a result row.
-# - Preserve assertion-only exit code 3; return other failures unchanged.
+# - Record CTest's exit status and return the delegated runner's exit status.
 
 # ==============================================================================
 # Execution environment
@@ -48,23 +48,21 @@ printf 'start\tend\n%s\t%s\n' "${started}" "${finished}" > "${run_dir}/${name}.t
 # ==============================================================================
 # Independent result collection
 # ==============================================================================
-assertions=-
+ctest_code=-
 if [[ -f ${record} ]]; then
     read -r work < "${record}"
     if [[ -f ${work}/test-results.tsv ]]; then
-        IFS=$'\t' read -r _ assertions < <(tail -n 1 "${work}/test-results.tsv")
+        read -r ctest_code < <(tail -n 1 "${work}/test-results.tsv")
     fi
 fi
 status=PASS
-if (( code == 3 )); then
-    status=ASSERTIONS
-elif (( code != 0 )); then
+if (( code != 0 )); then
     status=FAIL
 fi
 # Publish only complete rows. Missing rows are INCOMPLETE in the ordered merge.
-printf '%s\t%s\t%s\t%s\t%s\n' "${name}" "${status}" "${code}" "${assertions}" "${log}" \
+printf '%s\t%s\t%s\t%s\t%s\n' "${name}" "${status}" "${code}" "${ctest_code}" "${log}" \
     > "${run_dir}/${name}.tsv.tmp"
 mv -- "${run_dir}/${name}.tsv.tmp" "${run_dir}/${name}.tsv"
-printf '%s: %s (exit %s, assertion lines %s)\nLog: %s\n' \
-    "${name}" "${status}" "${code}" "${assertions}" "${log}"
+printf '%s: %s (exit %s, CTest exit %s)\nLog: %s\n' \
+    "${name}" "${status}" "${code}" "${ctest_code}" "${log}"
 exit "${code}"

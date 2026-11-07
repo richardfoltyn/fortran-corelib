@@ -3,53 +3,23 @@ program test_argparse
 
     use iso_fortran_env
     use fcore_argparse
-    use fcore_testing
 
     implicit none
 
-    call test_all ()
+    call test_integer ()
+    call test_store_true ()
+    call test_store_false ()
+    call test_toggle ()
+    call test_append ()
+    call test_unmapped ()
+    call test_validators ()
+    call test_help ()
+    call test_copy ()
 
 contains
 
-subroutine test_all()
-
-    type (test_suite) :: tests
-
-    call tests%set_label ("fcore_argparse unit tests")
-
-    ! test reading integer arguments
-    call test_integer (tests)
-
-    ! Test STORE_TRUE action
-    call test_store_true (tests)
-
-    ! Test STORE_FALSE action
-    call test_store_false (tests)
-
-    ! Test TOGGLE action
-    call test_toggle (tests)
-
-    ! run individual test cases
-    call test_append (tests)
-
-    ! Test handling of cmd. arguments that are not mapped to any argument object
-    call test_unmapped (tests)
-
-    call test_validators (tests)
-
-    call test_help (tests)
-
-    call test_copy (tests)
-
-    ! print test statistics
-    call tests%print ()
-
-end subroutine
-
-
-subroutine test_integer (tests)
-    class (test_suite) :: tests
-    class (test_case), pointer :: tc
+subroutine test_integer ()
+    !* Check integer arguments and defaults for both supported integer kinds.
 
     type (argparser) :: parser
     type (status_t) :: status
@@ -62,8 +32,6 @@ subroutine test_integer (tests)
     integer (int32) :: val32
     integer (int64) :: val64
 
-    tc => tests%add_test("argparse integer tests")
-
     ! ===== Scalar 32bit integer =====
     call parser%init (description="argparse integer tests")
     call parser%add_argument ("name", default=input1_32, status=status)
@@ -74,8 +42,8 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val32, status=status)
-    call tc%assert_true (is_present .and. val32 == input2_32 .and. status == FC_STATUS_OK, &
-        "Scalar 32bit integer argument, argument present")
+    if (.not. (is_present .and. val32 == input2_32 .and. status == FC_STATUS_OK)) &
+        error stop "Scalar 32bit integer argument, argument present"
     deallocate (cmd)
 
     ! test with no argument present
@@ -84,8 +52,8 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val32, status=status)
-    call tc%assert_true ((.not. is_present) .and. val32 == input1_32 .and. status == FC_STATUS_OK, &
-        "Scalar 32bit integer argument, argument NOT present")
+    if (.not. ((.not. is_present) .and. val32 == input1_32 .and. status == FC_STATUS_OK)) &
+        error stop "Scalar 32bit integer argument, argument NOT present"
 
     deallocate (cmd)
 
@@ -99,8 +67,8 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val64, status=status)
-    call tc%assert_true (is_present .and. val64 == input2_64 .and. status == FC_STATUS_OK, &
-        "Scalar 64bit integer argument, argument present")
+    if (.not. (is_present .and. val64 == input2_64 .and. status == FC_STATUS_OK)) &
+        error stop "Scalar 64bit integer argument, argument present"
     deallocate (cmd)
 
     ! test with no argument present
@@ -109,16 +77,14 @@ subroutine test_integer (tests)
     call parser%parse (cmd, status)
     is_present = parser%is_present ("name")
     call parser%get ("name", val64, status=status)
-    call tc%assert_true ((.not. is_present) .and. val64 == input1_64 .and. status == FC_STATUS_OK, &
-        "Scalar 64bit integer argument, argument NOT present")
+    if (.not. ((.not. is_present) .and. val64 == input1_64 .and. status == FC_STATUS_OK)) &
+        error stop "Scalar 64bit integer argument, argument NOT present"
     deallocate (cmd)
 
 end subroutine
 
-
-subroutine test_append (tests)
-    class (test_suite) :: tests
-    class (test_case), pointer :: tc
+subroutine test_append ()
+    !* Check appending argument values with long and abbreviated options.
 
     type (argparser) :: parser
     type (status_t) :: status
@@ -127,9 +93,6 @@ subroutine test_append (tests)
     ! emulated command line arguments
     type (str), dimension(:), allocatable :: cmd, val_list
     integer :: nvals
-
-
-    tc => tests%add_test("argparse ACTION_APPEND")
 
     call parser%init (description="argparse append test")
     call parser%add_argument ("name", "n", action=ARGPARSE_ACTION_APPEND, status=status)
@@ -141,16 +104,16 @@ subroutine test_append (tests)
 
     call parser%parse (cmd, status)
 
-    call tc%assert_true (parser%is_present ("name"), &
-        "ACTION_APPEND: argument present, nargs=1")
+    if (.not. (parser%is_present ("name"))) &
+        error stop "ACTION_APPEND: argument present, nargs=1"
 
     call parser%get ("name", val)
-    call tc%assert_true (val == "foo", &
-        "ACTION_APPEND: correct argument value, nargs=1")
+    if (.not. (val == "foo")) &
+        error stop "ACTION_APPEND: correct argument value, nargs=1"
 
     nvals = parser%get_nvals ("name")
-    call tc%assert_true (nvals == 1, &
-        "ACTION_APPEND: corrent # of arguments reported, nargs=1")
+    if (.not. (nvals == 1)) &
+        error stop "ACTION_APPEND: correct number of arguments reported, nargs=1"
 
     deallocate (cmd)
 
@@ -161,17 +124,17 @@ subroutine test_append (tests)
 
     call parser%parse (cmd, status)
 
-    call tc%assert_true (parser%is_present ("name"), &
-        "ACTION_APPEND: argument present, nargs=2")
+    if (.not. (parser%is_present ("name"))) &
+        error stop "ACTION_APPEND: argument present, nargs=2"
 
     nvals = parser%get_nvals ("name")
-    call tc%assert_true (nvals == 2, &
-        "ACTION_APPEND: corrent # of arguments reported, nargs=2")
+    if (.not. (nvals == 2)) &
+        error stop "ACTION_APPEND: correct number of arguments reported, nargs=2"
 
     allocate (val_list(nvals))
     call parser%get ("name", val_list)
-    call tc%assert_true (val_list(1) == "foo" .and. val_list(2) == "bar", &
-        "ACTION_APPEND: correct argument value, nargs=2")
+    if (.not. (val_list(1) == "foo" .and. val_list(2) == "bar")) &
+        error stop "ACTION_APPEND: correct argument value, nargs=2"
 
     deallocate (cmd, val_list)
 
@@ -182,17 +145,17 @@ subroutine test_append (tests)
 
     call parser%parse (cmd, status)
 
-    call tc%assert_true (parser%is_present ("name"), &
-        "abbrev. syntax: argument present, nargs=1")
+    if (.not. (parser%is_present ("name"))) &
+        error stop "abbrev. syntax: argument present, nargs=1"
 
     nvals = parser%get_nvals ("name")
-    call tc%assert_true (nvals == 1, &
-        "abbrev. syntax: corrent # of arguments reported, nargs=1")
+    if (.not. (nvals == 1)) &
+        error stop "abbrev. syntax: correct number of arguments reported, nargs=1"
 
     allocate (val_list(nvals))
     call parser%get ("name", val_list)
-    call tc%assert_true (val_list(1) == "foo", &
-        "abbrev. syntax: correct argument value, nargs=1")
+    if (.not. (val_list(1) == "foo")) &
+        error stop "abbrev. syntax: correct argument value, nargs=1"
 
     deallocate (cmd, val_list)
 
@@ -203,17 +166,17 @@ subroutine test_append (tests)
 
     call parser%parse (cmd, status)
 
-    call tc%assert_true (parser%is_present ("name"), &
-        "abbrev. syntax: argument present, nargs=2")
+    if (.not. (parser%is_present ("name"))) &
+        error stop "abbrev. syntax: argument present, nargs=2"
 
     nvals = parser%get_nvals ("name")
-    call tc%assert_true (nvals == 2, &
-        "abbrev. syntax: corrent # of arguments reported, nargs=2")
+    if (.not. (nvals == 2)) &
+        error stop "abbrev. syntax: correct number of arguments reported, nargs=2"
 
     allocate (val_list(nvals))
     call parser%get ("name", val_list)
-    call tc%assert_true (all(val_list == ["foo", "bar"]), &
-        "abbrev. syntax: correct argument value, nargs=2")
+    if (.not. (all(val_list == ["foo", "bar"]))) &
+        error stop "abbrev. syntax: correct argument value, nargs=2"
 
     deallocate (cmd, val_list)
 
@@ -224,26 +187,24 @@ subroutine test_append (tests)
 
     call parser%parse (cmd, status)
 
-    call tc%assert_true (parser%is_present ("name"), &
-        "abbrev. syntax: argument present (value list, nargs=1)")
+    if (.not. (parser%is_present ("name"))) &
+        error stop "abbrev. syntax: argument present (value list, nargs=1)"
 
     nvals = parser%get_nvals ("name")
-    call tc%assert_true (nvals == 1, &
-        "abbrev. syntax: corrent # of arguments (value list, nargs=1)")
+    if (.not. (nvals == 1)) &
+        error stop "abbrev. syntax: correct number of arguments (value list, nargs=1)"
 
     allocate (val_list(nvals))
     call parser%get ("name", val_list)
-    call tc%assert_true (all(val_list == ["foo,bar"]), &
-        "abbrev. syntax: correct argument value (value list, nargs=1)")
+    if (.not. (all(val_list == ["foo,bar"]))) &
+        error stop "abbrev. syntax: correct argument value (value list, nargs=1)"
 
     deallocate (cmd, val_list)
 
 end subroutine
 
-
-subroutine test_validators (tests)
-    class (test_suite) :: tests
-    class (test_case), pointer :: tc
+subroutine test_validators ()
+    !* Check that validators accept valid arguments and reject invalid ones.
 
     type (argparser) :: parser
     type (status_t) :: status
@@ -251,8 +212,6 @@ subroutine test_validators (tests)
     integer :: ival
     ! emulated command line arguments
     type (str), dimension(:), allocatable :: cmd
-
-    tc => tests%add_test("argparse validators")
 
     call parser%init (description="Validators test routine")
 
@@ -267,38 +226,38 @@ subroutine test_validators (tests)
     ! int value.
     cmd(1) ='--pos-int=0'
     call parser%parse (cmd, status)
-    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
-        "validate_pos_int32() with invalid integer value")
+    if (.not. (status == FC_STATUS_VALUE_ERROR)) &
+        error stop "validate_pos_int32() with invalid integer value"
 
     ! Test with argument that cannot be converged to int
     cmd(1) = '--pos-int=foobar'
     call parser%parse (cmd, status)
-    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
-        "validate_pos_int32() with string value")
+    if (.not. (status == FC_STATUS_VALUE_ERROR)) &
+        error stop "validate_pos_int32() with string value"
 
     cmd(1) = '--pos-int=1'
     call parser%parse (cmd, status)
     call parser%get ("pos-int", ival)
-    call tc%assert_true (status == FC_STATUS_OK .and. ival == 1, &
-        "validate_pos_int32() with valid value")
+    if (.not. (status == FC_STATUS_OK .and. ival == 1)) &
+        error stop "validate_pos_int32() with valid value"
 
     ! === Test non-negative int validator ===
     cmd(1) ='--nonneg=-1'
     call parser%parse (cmd, status)
-    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
-        "validate_nonneg_int32() with invalid integer value")
+    if (.not. (status == FC_STATUS_VALUE_ERROR)) &
+        error stop "validate_nonneg_int32() with invalid integer value"
 
     ! Test with argument that cannot be converged to int
     cmd(1) = '--nonneg=foobar'
     call parser%parse (cmd, status)
-    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
-        "validate_nonneg_int32() with string value")
+    if (.not. (status == FC_STATUS_VALUE_ERROR)) &
+        error stop "validate_nonneg_int32() with string value"
 
     cmd(1) = '--nonneg=0'
     call parser%parse (cmd, status)
     call parser%get ("nonneg", ival)
-    call tc%assert_true (status == FC_STATUS_OK .and. ival == 0, &
-        "validate_nonneg_int32() with valid value")
+    if (.not. (status == FC_STATUS_OK .and. ival == 0)) &
+        error stop "validate_nonneg_int32() with valid value"
 
     ! === Test non-empty string ===
     ! Note: for this to be triggered the user has to supply something like
@@ -312,22 +271,18 @@ subroutine test_validators (tests)
     cmd(1) = '--nonempty-str'
     cmd(2) = ''
     call parser%parse (cmd, status)
-    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
-        "validate_nonempty_str with empty string value")
+    if (.not. (status == FC_STATUS_VALUE_ERROR)) &
+        error stop "validate_nonempty_str with empty string value"
 end subroutine
 
-
-subroutine test_store_true (tests)
-    class (test_suite) :: tests
-    class (test_case), pointer :: tc
+subroutine test_store_true ()
+    !* Check the STORE_TRUE action and its default value.
 
     type (argparser) :: parser
     type (status_t) :: status
     logical :: val
 
     type (str), dimension(:), allocatable :: cmd_str
-
-    tc => tests%add_test("argparse STORE_TRUE action")
 
     call parser%init ()
     call parser%add_argument ("foo", abbrev='f', action=ARGPARSE_ACTION_STORE_TRUE)
@@ -339,43 +294,39 @@ subroutine test_store_true (tests)
     call parser%parse (cmd_str, status)
 
     call parser%get ("foo", val)
-    call tc%assert_true (status == FC_STATUS_OK .and. val, &
-        "Argument present, value = .true. (long form)")
+    if (.not. (status == FC_STATUS_OK .and. val)) &
+        error stop "Argument present, value = .true. (long form)"
 
     ! Short form, argument present
     cmd_str(1) = "-f"
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
-    call tc%assert_true (status == FC_STATUS_OK .and. val, &
-        "Argument present, value = .true. (short form)")
+    if (.not. (status == FC_STATUS_OK .and. val)) &
+        error stop "Argument present, value = .true. (short form)"
 
     ! Argument not present
     cmd_str(1) = ""
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
-    call tc%assert_true (status == FC_STATUS_OK .and. .not. val, &
-        "Argument NOT present, value = .false. (long form)")
+    if (.not. (status == FC_STATUS_OK .and. .not. val)) &
+        error stop "Argument NOT present, value = .false. (long form)"
 
     ! Unexpected argument value
     cmd_str(1) = "--foo=bar"
     call parser%parse (cmd_str, status)
-    call tc%assert_true (status == ARGPARSE_STATUS_PARSE_ERROR, &
-        "Argument present, unexpected argument value (short form)")
+    if (.not. (status == ARGPARSE_STATUS_PARSE_ERROR)) &
+        error stop "Argument present, unexpected argument value (short form)"
 
 end subroutine
 
-
-subroutine test_store_false (tests)
-    class (test_suite) :: tests
-    class (test_case), pointer :: tc
+subroutine test_store_false ()
+    !* Check the STORE_FALSE action and its default value.
 
     type (argparser) :: parser
     type (status_t) :: status
     logical :: val
 
     type (str), dimension(:), allocatable :: cmd_str
-
-    tc => tests%add_test("argparse STORE_FALSE action")
 
     call parser%init ()
     call parser%add_argument ("foo", abbrev='f', action=ARGPARSE_ACTION_STORE_FALSE)
@@ -387,43 +338,39 @@ subroutine test_store_false (tests)
     call parser%parse (cmd_str, status)
 
     call parser%get ("foo", val)
-    call tc%assert_true (status == FC_STATUS_OK .and. .not. val, &
-        "Argument present, value = .false. (long form)")
+    if (.not. (status == FC_STATUS_OK .and. .not. val)) &
+        error stop "Argument present, value = .false. (long form)"
 
     ! Short form, argument present
     cmd_str(1) = "-f"
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
-    call tc%assert_true (status == FC_STATUS_OK .and. .not. val, &
-        "Argument present, value = .false. (short form)")
+    if (.not. (status == FC_STATUS_OK .and. .not. val)) &
+        error stop "Argument present, value = .false. (short form)"
 
     ! Argument not present
     cmd_str(1) = ""
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
-    call tc%assert_true (status == FC_STATUS_OK .and. val, &
-        "Argument NOT present, value = .true. (long form)")
+    if (.not. (status == FC_STATUS_OK .and. val)) &
+        error stop "Argument NOT present, value = .true. (long form)"
 
     ! Unexpected argument value
     cmd_str(1) = "--foo=bar"
     call parser%parse (cmd_str, status)
-    call tc%assert_true (status == ARGPARSE_STATUS_PARSE_ERROR, &
-        "Argument present, unexpected argument value (short form)")
+    if (.not. (status == ARGPARSE_STATUS_PARSE_ERROR)) &
+        error stop "Argument present, unexpected argument value (short form)"
 
 end subroutine
 
-
-subroutine test_toggle (tests)
-    class (test_suite) :: tests
-    class (test_case), pointer :: tc
+subroutine test_toggle ()
+    !* Check toggling arguments and rejecting conflicting option names.
 
     type (argparser) :: parser
     type (status_t) :: status
     logical :: val
 
     type (str), dimension(:), allocatable :: cmd_str
-
-    tc => tests%add_test ("argparse TOGGLE action")
 
     call parser%init ()
 
@@ -433,7 +380,7 @@ subroutine test_toggle (tests)
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
 
-    call tc%assert_true (val, "Default settings, empty cmd. line")
+    if (.not. val) error stop "Default settings, empty cmd. line"
     deallocate (cmd_str)
 
     ! Test with default settings, toggle ON
@@ -441,26 +388,23 @@ subroutine test_toggle (tests)
     cmd_str(1) = "--foo"
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
-    call tc%assert_true (val, "Default settings, toggle ON on cmd. line")
+    if (.not. val) error stop "Default settings, toggle ON on cmd. line"
 
     ! Test with default settings, toggle OFF
     cmd_str(1) = "--no-foo"
     call parser%parse (cmd_str, status)
     call parser%get ("foo", val)
-    call tc%assert_false (val, "Default settings, toggle OFF on cmd. line")
-   
+    if (val) error stop "Default settings, toggle OFF on cmd. line"
+
     ! Try to add argument with name --no-foo, this should not be permitted
     call parser%add_argument ("no-foo", status=status)
-    call tc%assert_true (status /= FC_STATUS_OK, &
-        "Attemping to add --no-foo when --foo defined")
+    if (.not. (status /= FC_STATUS_OK)) &
+        error stop "Attempting to add --no-foo when --foo defined"
 
 end subroutine
 
-
- 
-subroutine test_unmapped (tests)
-    class (test_suite) :: tests
-    class (test_case), pointer :: tc
+subroutine test_unmapped ()
+    !* Check retaining and retrieving unmapped command-line arguments.
 
     type (argparser) :: parser
     type (status_t) :: status
@@ -469,8 +413,6 @@ subroutine test_unmapped (tests)
     type (str), dimension(3) :: cmd_unmapped
     type (str), dimension(:), allocatable :: cmd_str, stored_str
     type (str) :: val1, val2
-
-    tc => tests%add_test("argparse unmapped args")
 
     cmd_unmapped(1) = "foo"
     cmd_unmapped(2) = "bar"
@@ -484,8 +426,8 @@ subroutine test_unmapped (tests)
     allocate (cmd_str(0))
     call parser%parse (cmd_str, status)
     num = parser%get_num_unmapped ()
-    call tc%assert_true (status == FC_STATUS_OK .and. num == 0, &
-        "No args present, assert (num_unmapped == 0)")
+    if (.not. (status == FC_STATUS_OK .and. num == 0)) &
+        error stop "No args present, assert (num_unmapped == 0)"
 
     ! Test with no unmapped args, but other args present
     if (allocated(cmd_str)) deallocate (cmd_str)
@@ -495,8 +437,8 @@ subroutine test_unmapped (tests)
 
     call parser%parse (cmd_str, status)
     num = parser%get_num_unmapped ()
-    call tc%assert_true (status == FC_STATUS_OK .and. num == 0, &
-        "No unmapped but other args. present, assert (num_unmapped == 0)")
+    if (.not. (status == FC_STATUS_OK .and. num == 0)) &
+        error stop "No unmapped but other args. present, assert (num_unmapped == 0)"
 
     ! Test with only unmapped args, one empty unmapped arg present
     if (allocated(cmd_str)) deallocate (cmd_str)
@@ -505,9 +447,8 @@ subroutine test_unmapped (tests)
     call parser%parse (cmd_str, status)
     num = parser%get_num_unmapped ()
     call parser%get_unmapped (val1)
-    call tc%assert_true (status == FC_STATUS_OK .and. num == 1 &
-        .and. val1 == "", &
-        "One empty unmapped arg. present, assert (num_unmapped == 1)")
+    if (.not. (status == FC_STATUS_OK .and. num == 1  .and. val1 == "")) &
+        error stop "One empty unmapped arg. present, assert (num_unmapped == 1)"
 
     ! Test mix of mappend and unmapped values at various positions
     if (allocated(cmd_str)) deallocate (cmd_str)
@@ -522,27 +463,26 @@ subroutine test_unmapped (tests)
     call parser%parse (cmd_str, status)
 
     call parser%get ("option1", val1, status)
-    call tc%assert_true (status == FC_STATUS_OK .and. val1 == "baz", &
-        "Multiple interleaved mapped/unmapped args, mapped arg 1 OK")
+    if (.not. (status == FC_STATUS_OK .and. val1 == "baz")) &
+        error stop "Multiple interleaved mapped/unmapped args, mapped arg 1 OK"
 
     call parser%get ("option2", val2, status)
-    call tc%assert_true (status == FC_STATUS_OK .and. val2 == "bar", &
-        "Multiple interleaved mapped/unmapped args, mapped arg 2 OK")
+    if (.not. (status == FC_STATUS_OK .and. val2 == "bar")) &
+        error stop "Multiple interleaved mapped/unmapped args, mapped arg 2 OK"
 
     if (allocated(stored_str)) deallocate (stored_str)
     allocate (stored_str(size(cmd_unmapped)))
     num = parser%get_num_unmapped ()
     call parser%get_unmapped (stored_str, status)
-    call tc%assert_true (status == FC_STATUS_OK .and. num == size(cmd_unmapped) &
-        .and. all(stored_str == cmd_unmapped), &
-        "Multiple interleaved mapped/unmapped args; unmapped args OK")
+    if (.not. (status == FC_STATUS_OK .and. num == size(cmd_unmapped)  .and. all(stored_str == cmd_unmapped))) &
+        error stop "Multiple interleaved mapped/unmapped args; unmapped args OK"
 
     ! Attempting to retrieve more or fewer unmapped values than present
     if (allocated(stored_str)) deallocate (stored_str)
     allocate (stored_str(size(cmd_unmapped) - 1))
     call parser%get_unmapped (stored_str, status)
-    call tc%assert_true (status == FC_STATUS_VALUE_ERROR, &
-        "Attempt to retrieve fewer unmapped values than present")
+    if (.not. (status == FC_STATUS_VALUE_ERROR)) &
+        error stop "Attempt to retrieve fewer unmapped values than present"
 
     ! Store into array that is larger than number of unmapped args:
     ! This is OK.
@@ -550,30 +490,25 @@ subroutine test_unmapped (tests)
     allocate (stored_str(size(cmd_unmapped) + 1))
     call parser%get_unmapped (stored_str, status)
     num = parser%get_num_unmapped ()
-    call tc%assert_true (status == FC_STATUS_OK .and. &
-        all(cmd_unmapped == stored_str(1:num)), &
-        "Attempt to retrieve more unmapped values than present")
+    if (.not. (status == FC_STATUS_OK .and.  all(cmd_unmapped == stored_str(1:num)))) &
+        error stop "Attempt to retrieve more unmapped values than present"
 
     ! Test with no unmapped args. present, but trying to retrieve one as scalar
     if (allocated(cmd_str)) deallocate (cmd_str)
     allocate (cmd_str(0))
     call parser%parse (cmd_str, status)
     call parser%get_unmapped (val1, status)
-    call tc%assert_true (status == FC_STATUS_INVALID_STATE, &
-        "Attempt to retrieve scalar unmapped arg if none present")
+    if (.not. (status == FC_STATUS_INVALID_STATE)) &
+        error stop "Attempt to retrieve scalar unmapped arg if none present"
 
 end subroutine
 
-
-subroutine test_help (tests)
-    class (test_suite) :: tests
-    class (test_case), pointer :: tc
+subroutine test_help ()
+    !* Check help detection regardless of argument order and definitions.
 
     type (argparser) :: parser
     type (status_t) :: status
     type (str), dimension(:), allocatable :: cmd_args
-
-    tc => tests%add_test("argparse HELP argument")
 
     call parser%init (description="argparse HELP test")
 
@@ -581,13 +516,13 @@ subroutine test_help (tests)
     allocate (cmd_args(1))
     cmd_args(1) = "--help"
     call parser%parse (cmd_args, status)
-    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
-        "Single argument --help")
+    if (.not. (status == ARGPARSE_STATUS_HELP_PRESENT)) &
+        error stop "Single argument --help"
 
     cmd_args(1) = "-h"
     call parser%parse (cmd_args, status)
-    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
-        "Single argument -h")
+    if (.not. (status == ARGPARSE_STATUS_HELP_PRESENT)) &
+        error stop "Single argument -h"
     deallocate (cmd_args)
 
     ! Test with  3 arguments with --help at various positions;
@@ -597,20 +532,20 @@ subroutine test_help (tests)
     cmd_args(2) = "--foo"
     cmd_args(3) = "--bar"
     call parser%parse (cmd_args, status)
-    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
-        "Three arguments, --help in position 1")
+    if (.not. (status == ARGPARSE_STATUS_HELP_PRESENT)) &
+        error stop "Three arguments, --help in position 1"
 
     cmd_args(1) = "--foo"
     cmd_args(2) = "--help"
     call parser%parse (cmd_args, status)
-    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
-        "Three arguments, --help in position 2")
+    if (.not. (status == ARGPARSE_STATUS_HELP_PRESENT)) &
+        error stop "Three arguments, --help in position 2"
 
     cmd_args(2) = "--bar"
     cmd_args(3) = "--help"
     call parser%parse (cmd_args, status)
-    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
-        "Three arguments, --help in position 3")
+    if (.not. (status == ARGPARSE_STATUS_HELP_PRESENT)) &
+        error stop "Three arguments, --help in position 3"
     deallocate (cmd_args)
 
     ! Test with args that take user-provided values
@@ -619,8 +554,8 @@ subroutine test_help (tests)
     cmd_args(2) = "bar"
     cmd_args(3) = "--help"
     call parser%parse (cmd_args, status)
-    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
-        "Three arguments incl. user-provided value")
+    if (.not. (status == ARGPARSE_STATUS_HELP_PRESENT)) &
+        error stop "Three arguments incl. user-provided value"
     deallocate (cmd_args)
 
     ! Test with args. that are defined
@@ -631,17 +566,15 @@ subroutine test_help (tests)
     cmd_args(2) = "bar"
     cmd_args(3) = "--help"
     call parser%parse (cmd_args, status)
-    call tc%assert_true (status == ARGPARSE_STATUS_HELP_PRESENT, &
-        "Three arguments incl. user-provided value; args. defined ex ante")
+    if (.not. (status == ARGPARSE_STATUS_HELP_PRESENT)) &
+        error stop "Three arguments incl. user-provided value; args. defined ex ante"
     deallocate (cmd_args)
 
 end subroutine
 
+subroutine test_copy ()
+    !* Check that copying a parser preserves independent definitions and values.
 
-subroutine test_copy (tests)
-    class (test_suite) :: tests
-
-    class (test_case), pointer :: tc
     type (argparser), allocatable :: parser1, parser2
     type (status_t) :: status
     type (str), dimension(:), allocatable :: cmd_args
@@ -650,8 +583,6 @@ subroutine test_copy (tests)
     logical :: is_present1, is_present2
     integer :: ivalue1, ivalue2
     logical :: lvalue1, lvalue2
-
-    tc => tests%add_test ("argparse copy test")
 
     allocate (parser1)
 
@@ -687,18 +618,18 @@ subroutine test_copy (tests)
 
     is_defined1 = parser1%is_defined ('arg-value')
     is_defined2 = parser2%is_defined ('arg-value')
-    call tc%assert_true (is_defined1 .eqv. is_defined2, &
-        'Pre-parsing: Checking IS_DEFINED for action STORE')
+    if (.not. (is_defined1 .eqv. is_defined2)) &
+        error stop 'Pre-parsing: Checking IS_DEFINED for action STORE'
 
     is_defined1 = parser1%is_defined ('arg-const')
     is_defined2 = parser2%is_defined ('arg-const')
-    call tc%assert_true (is_defined1 .eqv. is_defined2, &
-        'Pre-parsing: Checking IS_DEFINED for action STORE_CONST')
+    if (.not. (is_defined1 .eqv. is_defined2)) &
+        error stop 'Pre-parsing: Checking IS_DEFINED for action STORE_CONST'
 
     is_defined1 = parser1%is_defined ('arg-toggle')
     is_defined2 = parser2%is_defined ('arg-toggle')
-    call tc%assert_true (is_defined1 .eqv. is_defined2, &
-        'Pre-parsing: Checking IS_DEFINED for action TOGGLE')
+    if (.not. (is_defined1 .eqv. is_defined2)) &
+        error stop 'Pre-parsing: Checking IS_DEFINED for action TOGGLE'
 
     deallocate (parser2)
 
@@ -711,61 +642,61 @@ subroutine test_copy (tests)
     ! Check argument presence
     is_present1 = parser1%is_present ('arg-value')
     is_present2 = parser2%is_present ('arg-value')
-    call tc%assert_true (is_present1 .eqv. is_present2, &
-        'Checking IS_PRESENT for action STORE')
+    if (.not. (is_present1 .eqv. is_present2)) &
+        error stop 'Checking IS_PRESENT for action STORE'
 
     is_present1 = parser1%is_present ('arg-const')
     is_present2 = parser2%is_present ('arg-const')
-    call tc%assert_true (is_present1 .eqv. is_present2, &
-        'Checking IS_PRESENT for action STORE_CONST')
+    if (.not. (is_present1 .eqv. is_present2)) &
+        error stop 'Checking IS_PRESENT for action STORE_CONST'
 
     is_present1 = parser1%is_present ('arg-toggle')
     is_present2 = parser2%is_present ('arg-toggle')
-    call tc%assert_true (is_present1 .eqv. is_present2, &
-        'Checking IS_PRESENT for action TOGGLE')
+    if (.not. (is_present1 .eqv. is_present2)) &
+        error stop 'Checking IS_PRESENT for action TOGGLE'
 
     ! Check argument values
     call parser1%get ('arg-value', ivalue1, status)
     call parser2%get ('arg-value', ivalue2, status)
-    call tc%assert_true (ivalue1 == ivalue2, &
-        'Checking arg. value for action STORE')
+    if (.not. (ivalue1 == ivalue2)) &
+        error stop 'Checking arg. value for action STORE'
 
     call parser1%get ('arg-const', ivalue1, status)
     call parser2%get ('arg-const', ivalue2, status)
-    call tc%assert_true (ivalue1 == ivalue2, &
-        'Checking arg. value for action STORE_CONST')
+    if (.not. (ivalue1 == ivalue2)) &
+        error stop 'Checking arg. value for action STORE_CONST'
 
     call parser1%get ('arg-toggle', lvalue1, status)
     call parser2%get ('arg-toggle', lvalue2, status)
-    call tc%assert_true (lvalue1 .eqv. lvalue2, &
-        'Checking arg. value for action TOGGLE')
+    if (.not. (lvalue1 .eqv. lvalue2)) &
+        error stop 'Checking arg. value for action TOGGLE'
 
     deallocate (parser2)
 
     ! Check that values in parser1 are unaffected by deallocating PARSER2
     is_present1 = parser1%is_present ('arg-value')
-    call tc%assert_true (.not. is_present1, &
-        'Post-dealloc: Checking IS_PRESENT on PARSER1 for action STORE')
+    if (is_present1) &
+        error stop 'Post-dealloc: Checking IS_PRESENT on PARSER1 for action STORE'
 
     is_present1 = parser1%is_present ('arg-const')
-    call tc%assert_true (is_present1, &
-        'Post-dealloc: Checking IS_PRESENT on PARSER1 for action STORE_CONST')
+    if (.not. is_present1) &
+        error stop 'Post-dealloc: Checking IS_PRESENT on PARSER1 for action STORE_CONST'
 
     is_present1 = parser1%is_present ('arg-toggle')
-    call tc%assert_true (is_present1, &
-        'Post-dealloc: Checking IS_PRESENT on PARSER1 for action TOGGLE')
+    if (.not. is_present1) &
+        error stop 'Post-dealloc: Checking IS_PRESENT on PARSER1 for action TOGGLE'
 
     call parser1%get ('arg-value', ivalue1, status)
-    call tc%assert_true (ivalue1 == value1_default, &
-        'Post-dealloc: Checking value on PARSER1 for action STORE')
+    if (.not. (ivalue1 == value1_default)) &
+        error stop 'Post-dealloc: Checking value on PARSER1 for action STORE'
 
     call parser1%get ('arg-const', ivalue1, status)
-    call tc%assert_true (ivalue1 == 2, &
-        'Post-dealloc: Checking value on PARSER1 for action STORE_CONST')
+    if (.not. (ivalue1 == 2)) &
+        error stop 'Post-dealloc: Checking value on PARSER1 for action STORE_CONST'
 
     call parser1%get ('arg-toggle', lvalue1, status)
-    call tc%assert_true (.not. lvalue1, &
-        'Post-dealloc: Checking value on PARSER1 for action TOGGLE')
+    if (lvalue1) &
+        error stop 'Post-dealloc: Checking value on PARSER1 for action TOGGLE'
 
     deallocate (parser1)
 

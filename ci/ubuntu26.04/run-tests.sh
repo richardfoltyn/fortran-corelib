@@ -4,7 +4,7 @@
 # - Select GNU 11–16 or ifx; use gcc-15 for C with ifx.
 # - Keep fresh builds, provenance, installs, and temporary files under BUILD_ROOT.
 # - Run tests sequentially, then validate a relocated Fortran-only client.
-# - Return 3 for assertion-only failures, and nonzero for other failures.
+# - Return nonzero when CTest or any build/install/client step fails.
 # ==============================================================================
 # Execution environment
 # ==============================================================================
@@ -117,20 +117,18 @@ cmake -S "${source_dir}" -B "${work}/fcore" "${common[@]}" \
 cmake --build "${work}/fcore"
 
 # ==============================================================================
-# Test results, including assertion-only failures (issue #2)
+# Run tests and record CTest's exit status
 # ==============================================================================
 ctest_code=0
-assertions=0
 if [[ ${tests} == ON ]]; then
     ctest --test-dir "${work}/fcore" --parallel 1 --verbose --no-tests=error > "${work}/ctest.log" 2>&1 || ctest_code=$?
     cat "${work}/ctest.log"
-    assertions=$(grep -Ec '[[:space:]]FAILED[[:space:]]*$' "${work}/fcore/Testing/Temporary/LastTest.log" || true)
 else
     ctest --test-dir "${work}/fcore" --parallel 1 --show-only > "${work}/ctest.log" 2>&1
     cat "${work}/ctest.log"
     if ! grep -q 'Total Tests: 0$' "${work}/ctest.log"; then ctest_code=1; fi
 fi
-printf 'ctest_exit\tassertion_lines\n%s\t%s\n' "${ctest_code}" "${assertions}" > "${work}/test-results.tsv"
+printf 'ctest_exit\n%s\n' "${ctest_code}" > "${work}/test-results.tsv"
 
 # ==============================================================================
 # Install, relocate, and consume the exported Fortran target
@@ -159,6 +157,5 @@ cmake -S "${work}/consumer" -B "${work}/client" "${common[@]}" \
     "-DCMAKE_PREFIX_PATH=${work}/relocated"
 cmake --build "${work}/client"
 "${work}/client/consumer"
-printf 'Artifacts: %s\nCTest exit: %s; failed assertions: %s\n' "${work}" "${ctest_code}" "${assertions}"
+printf 'Artifacts: %s\nCTest exit: %s\n' "${work}" "${ctest_code}"
 if (( ctest_code != 0 )); then exit 1; fi
-if (( assertions != 0 )); then exit 3; fi
