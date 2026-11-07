@@ -1,1 +1,2 @@
 fcore_add_test(collections_linked_list linked_list.f90)
+fcore_add_test(collections_finalization finalization.f90)

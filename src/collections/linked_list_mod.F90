@@ -388,9 +388,10 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! CLEAR method
 
-pure recursive subroutine list_clear (self)
+recursive subroutine list_clear (self)
     !*  LIST_CLEAR removes all elements contained in the list, deallocating
     !   any memory used in the process. The list length is reset to zero.
+    !   Clearing is impure because contained objects may have impure finalizers.
 
     class (linked_list), intent(inout) :: self
 

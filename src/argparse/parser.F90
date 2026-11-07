@@ -200,7 +200,9 @@ subroutine argparser_init_char (self, description, progname)
 
 end subroutine
 
-pure subroutine argparser_reset (self)
+subroutine argparser_reset (self)
+    !* Reset the parser, including impure finalization of its argument list.
+
     class (argparser), intent(inout) :: self
 
     if (allocated(self%args)) deallocate(self%args)
