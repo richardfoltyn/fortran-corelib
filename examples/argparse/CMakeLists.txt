@@ -1,5 +1,1 @@
-
-set(SOURCE_FILES
-    argparse1.F90
-    PARENT_SCOPE
-)
+fcore_add_example(argparse argparse1.F90)

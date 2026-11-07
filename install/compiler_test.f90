@@ -1,9 +1,12 @@
 program compiler_test
-    
-    use fcore
+
+    use fcore, only: FCORE_VERSION
+    use fcore_io, only: is_dir
 
     implicit none
 
-    character (*), parameter :: LIB_VERSION = FCORE_VERSION
+    ! Check both module compatibility and linking to a library procedure.
+    if (len(FCORE_VERSION) == 0) stop 1
+    if (.not. is_dir('.')) stop 1
 
-end
+end program

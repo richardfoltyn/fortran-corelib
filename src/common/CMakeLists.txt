@@ -1,8 +1,4 @@
-
-
-get_filename_component(COMPONENT_NAME "${CMAKE_CURRENT_SOURCE_DIR}" NAME)
-
-set(SOURCE_FILES
+target_sources(fcore PRIVATE
     kinds.f90
     alloc_mod.f90
     common.f90
@@ -13,8 +9,4 @@ set(SOURCE_FILES
     strings.f90
 )
 
-add_library(${COMPONENT_NAME} OBJECT ${SOURCE_FILES})
-
-target_include_directories(${COMPONENT_NAME} BEFORE
-    PRIVATE "${CMAKE_CURRENT_LIST_DIR}/include"
-)
+target_include_directories(fcore PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")

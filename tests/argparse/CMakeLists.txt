@@ -1,8 +1,1 @@
-
-get_filename_component(COMPONENT_NAME "${CMAKE_CURRENT_SOURCE_DIR}" NAME)
-
-# List of files that should each be compiled into separate executable
-set(EXE_SOURCE_FILES
-    argparse.F90
-    PARENT_SCOPE
-)
+fcore_add_test(argparse argparse.F90)

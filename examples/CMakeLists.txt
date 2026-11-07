@@ -1,25 +1,9 @@
-# Build file for examples
+function(fcore_add_example name source)
+    set(target fcore_example_${name})
+    add_executable(${target} "${source}")
+    target_link_libraries(${target} PRIVATE fcore::fcore)
+    fcore_configure_compiler_options(${target})
+endfunction()
 
-set(COMPONENTS argparse io)
-
-foreach (_comp IN LISTS COMPONENTS)
-
-    unset(SOURCE_FILES)
-    add_subdirectory(${_comp})
-
-    foreach (_file IN LISTS SOURCE_FILES)
-        get_filename_component(exe_name "${_file}" NAME_WE)
-        set(TARGET_NAME examples_${_comp}_${exe_name})
-    	
-        add_executable(${TARGET_NAME} "${_comp}/${_file}")
-
-        target_link_libraries(${TARGET_NAME} PRIVATE
-            ${LIBRARY_NAME}_static
-        )
-
-        set_target_properties(${TARGET_NAME} PROPERTIES
-            OUTPUT_NAME ${exe_name}
-            RUNTIME_OUTPUT_DIRECTORY "${EXAMPLES_OUTPUT_DIRECTORY}/${_comp}"
-        )
-    endforeach()
-endforeach()
+add_subdirectory(argparse)
+add_subdirectory(io)

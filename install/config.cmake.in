@@ -1,45 +1,42 @@
-
 @PACKAGE_INIT@
 
-set(PACKAGE_VERSION @PROJECT_VERSION@)
-set(PACKAGE_NAMESPACE @FCORE_INSTALL_NAMESPACE@)
-set(PACKAGE_NAME @LIBRARY_NAME@)
-
-set_and_check(PACKAGE_CONFIG_PATH "@PACKAGE_FCORE_INSTALL_CONFIG_PATH@")
-
-set(PACKAGE_TARGET ${PACKAGE_NAMESPACE}::${PACKAGE_NAME})
-
-if(NOT TARGET ${PACKAGE_TARGET})
-    include("${PACKAGE_CONFIG_PATH}/${PACKAGE_NAME}Targets.cmake")
+set(fcore_VERSION "@PROJECT_VERSION@")
+if(NOT CMAKE_Fortran_COMPILER_LOADED)
+    set(fcore_FOUND FALSE)
+    set(fcore_NOT_FOUND_MESSAGE "Enable the Fortran language before finding fcore.")
+    return()
 endif()
 
-# Do this only for compatibility if downstream uses the
-# @LIBRARY_NAME@_INCLUDE_DIRS variable. This variable is not needed if
-# the upstream include directories are added via
-# target_include_directories(target INTERFACE
-#   @FCORE_INSTALL_NAMESPACE@::@LIBRARY_NAME@)
-# statement.
-get_target_property(_include ${PACKAGE_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
-set(${PACKAGE_NAME}_INCLUDE_DIRS "${_include}" 
-    CACHE STRING "${PACKAGE_NAME} include directory"
-    FORCE
-)
-
-if(NOT ${PACKAGE_NAME}_FOUND)
-    # Try compiling to see whether the library and the target architecture match
-    # Note: _result is set to TRUE/FALSE
-    try_compile(_result
-        "${CMAKE_CURRENT_BINARY_DIR}"
-        "${CMAKE_CURRENT_LIST_DIR}/compiler_test.f90"
-        LINK_LIBRARIES ${PACKAGE_TARGET}
+string(REGEX MATCH "^[0-9]+" _fcore_compiler_major "${CMAKE_Fortran_COMPILER_VERSION}")
+if(NOT CMAKE_Fortran_COMPILER_ID STREQUAL "@CMAKE_Fortran_COMPILER_ID@"
+        OR NOT _fcore_compiler_major STREQUAL "@FCORE_COMPILER_MAJOR@")
+    set(fcore_FOUND FALSE)
+    set(fcore_NOT_FOUND_MESSAGE
+        "fcore was built with @CMAKE_Fortran_COMPILER_ID@ @CMAKE_Fortran_COMPILER_VERSION@; a matching compiler family and major version are required."
     )
+    unset(_fcore_compiler_major)
+    return()
+endif()
+unset(_fcore_compiler_major)
 
-    set(${PACKAGE_NAME}_FOUND ${_result} CACHE BOOL "" FORCE)
-
+if(NOT TARGET fcore::fcore)
+    include("${CMAKE_CURRENT_LIST_DIR}/fcoreTargets.cmake")
 endif()
 
-if(${PACKAGE_NAME}_FOUND AND NOT ${PACKAGE_NAME}_FIND_QUIETLY)
-    string(TOUPPER "${PACKAGE_NAME}" _name)
-    message(STATUS "Found ${_name} ${PACKAGE_VERSION}: ${${PACKAGE_NAME}_INCLUDE_DIRS}")
+try_compile(_fcore_compiler_compatible
+    SOURCES "${CMAKE_CURRENT_LIST_DIR}/compiler_test.f90"
+    LINK_LIBRARIES fcore::fcore
+    NO_CACHE
+    LOG_DESCRIPTION "Check installed fcore Fortran modules and link compatibility"
+    OUTPUT_VARIABLE _fcore_compiler_output
+)
+if(NOT _fcore_compiler_compatible)
+    set(fcore_FOUND FALSE)
+    set(fcore_NOT_FOUND_MESSAGE
+        "The installed fcore failed its compiler compatibility check:\n${_fcore_compiler_output}"
+    )
 endif()
+unset(_fcore_compiler_compatible)
+unset(_fcore_compiler_output)
 
+check_required_components(fcore)

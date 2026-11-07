@@ -1,9 +1,8 @@
+cmake_minimum_required(VERSION 4.1)
 
-cmake_minimum_required(VERSION 3.12)
+project(fcore_client LANGUAGES Fortran)
 
-project(fcore_client Fortran)
-
-find_package(fcore REQUIRED)
+find_package(fcore CONFIG REQUIRED)
 
 add_executable(client client.f90)
-target_link_libraries(client fcore::fcore)
+target_link_libraries(client PRIVATE fcore::fcore)

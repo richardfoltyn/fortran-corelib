@@ -1,5 +1,1 @@
-
-set(SOURCE_FILES
-    dir.f90
-    PARENT_SCOPE
-)
+fcore_add_example(io_dir dir.f90)
