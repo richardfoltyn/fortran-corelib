@@ -17,7 +17,7 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # ==============================================================================
 # Worker arguments and artifact paths
 # ==============================================================================
-if (( $# != 8 )); then
+if (( $# != 9 )); then
     echo 'Internal worker: invoke through run-matrix.sh.' >&2
     exit 2
 fi
@@ -29,6 +29,7 @@ shared=${5}
 tests=${6}
 examples=${7}
 diagnostics=${8}
+native=${9}
 log=${run_dir}/${name}.log
 record=${run_dir}/${name}.work
 started=$(date +%s.%N)
@@ -41,6 +42,7 @@ code=0
 BUILD_ROOT=${run_dir}/artifacts FCORE_WORK_RECORD=${record} \
     BUILD_SHARED_LIBS=${shared} FCORE_BUILD_TESTS=${tests} \
     FCORE_BUILD_EXAMPLES=${examples} FCORE_DIAGNOSTICS=${diagnostics} \
+    FCORE_NATIVE_ARCH=${native} \
     bash "${script_dir}/run-tests.sh" "${compiler}" "${config}" > "${log}" 2>&1 || code=$?
 finished=$(date +%s.%N)
 printf 'start\tend\n%s\t%s\n' "${started}" "${finished}" > "${run_dir}/${name}.timing.tsv"

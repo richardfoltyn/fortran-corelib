@@ -34,8 +34,8 @@ add_job() {
     order+=("${name}")
 }
 for major in 11 12 13 14 15 16; do
-    add_job "gnu${major}-debug-static" "${major}" Debug OFF ON ON OFF
-    add_job "gnu${major}-release-shared" "${major}" Release ON ON ON OFF
+    add_job "gnu${major}-debug-static" "${major}" Debug OFF ON ON OFF OFF
+    add_job "gnu${major}-release-shared" "${major}" Release ON ON ON OFF OFF
 done
 # Ubuntu 26.04's default compiler in the shared image is GCC 15.
 for shared in OFF ON; do
@@ -43,14 +43,19 @@ for shared in OFF ON; do
         for examples in OFF ON; do
             for diagnostics in OFF ON; do
                 add_job "gnu15-options-${shared}-${tests}-${examples}-${diagnostics}" \
-                    15 Debug "${shared}" "${tests}" "${examples}" "${diagnostics}"
+                    15 Debug "${shared}" "${tests}" "${examples}" "${diagnostics}" OFF
             done
         done
     done
 done
 
-add_job ifx-debug-static ifx Debug OFF ON ON OFF
-add_job ifx-release-shared ifx Release ON ON ON OFF
+add_job ifx-debug-static ifx Debug OFF ON ON OFF OFF
+add_job ifx-release-shared ifx Release ON ON ON OFF OFF
+
+# Exercise native host microarchitecture and FMA/SIMD optimizations.
+add_job gnu15-release-shared-native 15 Release ON ON ON OFF ON
+add_job gnu16-release-shared-native 16 Release ON ON ON OFF ON
+add_job ifx-release-shared-native ifx Release ON ON ON OFF ON
 
 # ==============================================================================
 # Job selection
@@ -69,7 +74,7 @@ if [[ ${1:-} == --list ]]; then
         printf 'Use --list by itself.\n' >&2
         exit 2
     fi
-    printf 'job\tcompiler\tconfiguration\tshared\ttests\texamples\tdiagnostics\n'
+    printf 'job\tcompiler\tconfiguration\tshared\ttests\texamples\tdiagnostics\tnative\n'
     for name in "${order[@]}"; do
         printf '%s\t%s\n' "${name}" "${jobs[${name}]// /$'\t'}"
     done

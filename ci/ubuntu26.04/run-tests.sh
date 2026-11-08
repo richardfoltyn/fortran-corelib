@@ -25,11 +25,12 @@ shared=${BUILD_SHARED_LIBS:-OFF}
 tests=${FCORE_BUILD_TESTS:-ON}
 examples=${FCORE_BUILD_EXAMPLES:-ON}
 diagnostics=${FCORE_DIAGNOSTICS:-OFF}
+native=${FCORE_NATIVE_ARCH:-OFF}
 if [[ ! ${compiler} =~ ^(11|12|13|14|15|16|ifx)$ || ! ${config} =~ ^(Debug|Release)$ ]]; then
     echo 'Invalid compiler or configuration.' >&2
     exit 2
 fi
-for value in "${shared}" "${tests}" "${examples}" "${diagnostics}"; do
+for value in "${shared}" "${tests}" "${examples}" "${diagnostics}" "${native}"; do
     if [[ ! ${value} =~ ^(ON|OFF)$ ]]; then
         echo 'Options must be ON/OFF.' >&2
         exit 2
@@ -48,7 +49,7 @@ source_dir=${FCORE_SOURCE_DIR:-/src/fcore}
 mkdir -p "${BUILD_ROOT:-/build}"
 BUILD_ROOT=$(cd -- "${BUILD_ROOT:-/build}" && pwd)
 export BUILD_ROOT
-job_dir=${BUILD_ROOT}/${toolchain}/${config}/shared-${shared}-tests-${tests}-examples-${examples}-diagnostics-${diagnostics}
+job_dir=${BUILD_ROOT}/${toolchain}/${config}/shared-${shared}-tests-${tests}-examples-${examples}-diagnostics-${diagnostics}-native-${native}
 mkdir -p "${job_dir}"
 # Fresh work trees prevent stale registrations or installed modules on reruns.
 work=$(mktemp -d "${job_dir}/run.XXXXXX")
@@ -106,6 +107,9 @@ export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-4}
 cat "${work}/versions.log"
 common=(-G Ninja "-DCMAKE_Fortran_COMPILER=${fc}" "-DCMAKE_BUILD_TYPE=${config}"
     -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF)
+if [[ ${native} == ON ]]; then
+    common+=("-DCMAKE_Fortran_FLAGS=-march=native" "-DCMAKE_C_FLAGS=-march=native")
+fi
 
 # ==============================================================================
 # Configure and build

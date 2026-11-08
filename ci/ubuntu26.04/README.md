@@ -29,12 +29,13 @@ docker run --rm --ulimit core=0 --user "$(id -u):$(id -g)" \
 - Replace the matrix command with `run-tests.sh 15 Debug` or
   `run-tests.sh ifx Release` for a single configuration. GNU-only selections
   can omit `with-oneapi`.
+- Set `-e FCORE_NATIVE_ARCH=ON` to build with `-march=native` host optimizations.
 - To run with local tools, set `FCORE_SOURCE_DIR` to this checkout and
   `BUILD_ROOT` to a writable directory. Intel jobs require the oneAPI environment.
 
 ## Matrix and options
 
-- The matrix contains 29 deduplicated configurations. Its authoritative
+- The matrix contains 32 deduplicated configurations. Its authoritative
   definition is in `run-matrix.sh`; the CMake scheduler reads the selected
   configurations from a generated manifest.
 - GNU 11–16 jobs are named `gnuN-debug-static` and `gnuN-release-shared`.
@@ -47,10 +48,14 @@ docker run --rm --ulimit core=0 --user "$(id -u):$(id -g)" \
 - `ifx-debug-static` and `ifx-release-shared` enable tests and examples, use
   `gcc-15` for C, and use `ifx` for both fcore and its installed-package client.
   There are no MKL jobs or BLAS/LAPACK dependencies.
+- Three native host-optimized Release jobs (`gnu15-release-shared-native`,
+  `gnu16-release-shared-native`, and `ifx-release-shared-native`) exercise
+  `-march=native` host code generation.
 - Single-job switches are `BUILD_SHARED_LIBS`, `FCORE_BUILD_TESTS`,
-  `FCORE_BUILD_EXAMPLES`, and `FCORE_DIAGNOSTICS`, each accepting ON/OFF.
-  Defaults are static libraries, tests and examples enabled, and diagnostics
-  disabled. Pass overrides with Docker's `-e` before the image name.
+  `FCORE_BUILD_EXAMPLES`, `FCORE_DIAGNOSTICS`, and `FCORE_NATIVE_ARCH`, each
+  accepting ON/OFF. Defaults are static libraries, tests and examples enabled,
+  diagnostics disabled, and native optimization disabled. Pass overrides with
+  Docker's `-e` before the image name.
 - `CMAKE_BUILD_PARALLEL_LEVEL` controls build parallelism independently of
   `--jobs` and defaults to 4. Choose both limits to suit available CPU and memory.
 
