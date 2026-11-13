@@ -105,8 +105,7 @@ export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-4}
     fi
 } > "${work}/versions.log"
 cat "${work}/versions.log"
-common=(-G Ninja "-DCMAKE_Fortran_COMPILER=${fc}" "-DCMAKE_BUILD_TYPE=${config}"
-    -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF)
+common=(-G Ninja "-DCMAKE_Fortran_COMPILER=${fc}" "-DCMAKE_BUILD_TYPE=${config}")
 if [[ ${native} == ON ]]; then
     common+=("-DCMAKE_Fortran_FLAGS=-march=native" "-DCMAKE_C_FLAGS=-march=native")
 fi
@@ -158,7 +157,8 @@ program consumer
 end program
 FORTRAN
 cmake -S "${work}/consumer" -B "${work}/client" "${common[@]}" \
-    "-DCMAKE_PREFIX_PATH=${work}/relocated"
+    "-DCMAKE_PREFIX_PATH=${work}/relocated" \
+    -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
 cmake --build "${work}/client"
 "${work}/client/consumer"
 printf 'Artifacts: %s\nCTest exit: %s\n' "${work}" "${ctest_code}"
